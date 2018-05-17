@@ -35,6 +35,10 @@ public class NestedListObject {
 	private final long i1;
 	private final List<PersisterObject> ps;
 
+	@ToPersistence(elements = {
+			@FlatList(name = "i1"),
+			@FlatList(name = "ps", size = 2),
+	})
 	private NestedListObject(long i1, List<PersisterObject> ps) {
 		super();
 		this.i1 = i1;
@@ -74,10 +78,6 @@ public class NestedListObject {
 		return " [" + i1 + ", " + ps + "]";
 	}
 
-	@ToPersistence(elements = {
-			@FlatList(name = "i1"),
-			@FlatList(name = "ps", size = 2),
-	})
 	public static NestedListObject create(long i1, List<PersisterObject> ps) {
 		return new NestedListObject(i1, ps);
 	}
