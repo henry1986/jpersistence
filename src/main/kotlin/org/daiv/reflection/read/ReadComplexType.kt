@@ -5,14 +5,13 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 
 class ReadComplexType<T : Any>(override val property: KProperty1<Any, T>) : ReadFieldData<T> {
+    override fun key(prefix: String?): String {
+        return persisterData.createTableKeyData(property.name)
+    }
 
-    private val persisterData = ReadPersisterData.create(
-        property.returnType.classifier as KClass<T>)//PersisterData.create(field.type)
+    private val persisterData = ReadPersisterData.create(property.returnType.classifier as KClass<T>)
 
-    override fun toTableHead(prefix: String?, key: Boolean): String {
-        if (key) {
-            throw RuntimeException("a complex type must not be PRIMARY KEY")
-        }
+    override fun toTableHead(prefix: String?): String {
         return persisterData.createTableString(property.name)
     }
 

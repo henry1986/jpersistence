@@ -24,8 +24,8 @@ class ObjectToTest(private val o: Any, tableString: String, insertString: String
 
     fun checkCreateTable() {
         val createTable = r.createTable()
-        assertEquals(tableCreateString, createTable)
         println(createTable)
+        assertEquals(tableCreateString, createTable)
     }
 
     fun checkInsert() {

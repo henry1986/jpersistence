@@ -7,12 +7,15 @@ import java.sql.SQLException
 import kotlin.reflect.KProperty1
 
 class ReadSimpleType<T : Any>(override val property: KProperty1<Any, T>) : ReadFieldData<T> {
+    override fun key(prefix: String?): String {
+        return "${name(prefix)}"
+    }
 
-
-    override fun toTableHead(prefix: String?, key: Boolean): String {
-        val simpleName = property.getKClass().simpleName
+    override fun toTableHead(prefix: String?): String {
+        val simpleName = property.getKClass()
+            .simpleName
         val typeName = valueMappingJavaSQL[simpleName] ?: simpleName
-        return "${name(prefix)} $typeName${if (key) " PRIMARY KEY NOT NULL" else " NOT NULL"}"
+        return "${name(prefix)} $typeName${" NOT NULL"}"
     }
 
     override fun getValue(resultSet: ResultSet, number: Int): T {

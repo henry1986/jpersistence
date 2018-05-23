@@ -13,11 +13,17 @@ import kotlin.reflect.full.declaredMemberProperties
 
 data class ReadFieldValue(val value: Any, val fieldData: ReadFieldData<Any>)
 
-data class ReadPersisterData<T> private constructor(val tableName: String, private val method: (List<ReadFieldValue>) -> T, val fields: List<ReadFieldData<Any>>) {
+data class ReadPersisterData<T> private constructor(val tableName: String,
+                                                    private val method: (List<ReadFieldValue>) -> T,
+                                                    private val fields: List<ReadFieldData<Any>>) {
     private fun createTableInnerData(prefix: String?, skip: Int): String {
         return fields
             .drop(skip)
-            .joinToString(separator = ", ", transform = { it.toTableHead(prefix, false) })
+            .joinToString(separator = ", ", transform = { it.toTableHead(prefix) })
+    }
+
+    fun createTableKeyData(prefix: String): String {
+        return fields.joinToString(separator = ", ", transform = { it.key(prefix) })
     }
 
     fun size(): Int {
@@ -34,8 +40,10 @@ data class ReadPersisterData<T> private constructor(val tableName: String, priva
     }
 
     fun createTable(): String {
-        return ("CREATE TABLE IF NOT EXISTS $tableName (${fields.first().toTableHead(null, true)},"
-                + " ${createTableInnerData(null, 1)});")
+        return ("CREATE TABLE IF NOT EXISTS "
+                + "$tableName (${fields.first().toTableHead(null)},"
+                + " ${createTableInnerData(null, 1)}, "
+                + "PRIMARY KEY(${fields.first().key(null)}));")
     }
 
     fun read(resultSet: ResultSet, offset: Int): T {
