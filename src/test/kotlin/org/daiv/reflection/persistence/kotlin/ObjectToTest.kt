@@ -2,14 +2,20 @@ package org.daiv.reflection.persistence.kotlin
 
 import org.daiv.immutable.utils.persistence.annotations.DatabaseInterface
 import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
+import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.read.ReadPersisterData
 import org.daiv.reflection.write.WritePersisterData
 import kotlin.test.assertEquals
 
-class ObjectToTest(private val o: Any, tableString: String, insertString: String, private val testName: String, val key : Any) {
+class ObjectToTest(private val o: Any,
+                   tableString: String,
+                   insertString: String,
+                   private val testName: String,
+                   private val key: Any) {
     private val tableCreateString: String = createTableString(o::class.simpleName!!, tableString)
     private val insertString: String = createInsertString(o::class.simpleName!!, insertString)
     private val d: DatabaseInterface = DatabaseWrapper.create("PersisterTest$testName.db")
+    private val p by lazy { Persister(d) }
     private val r = ReadPersisterData.create(o::class)
     private val w = WritePersisterData.create(o)
 
@@ -35,9 +41,9 @@ class ObjectToTest(private val o: Any, tableString: String, insertString: String
     }
 
     fun checkReadData() {
-        val query = "SELECT * FROM ${r.tableName} WHERE ${r.getIdName()} = $key;"
-        val execute = d.statement.executeQuery(query)
-        assertEquals(o, r.read(execute))
+//        val query = "SELECT * FROM ${r.tableName} WHERE ${r.getIdName()} = $key;"
+        val execute = p.read(o::class, key)//r.read(d.statement.executeQuery(query))
+        assertEquals(o, execute)
     }
 
     override fun toString(): String {

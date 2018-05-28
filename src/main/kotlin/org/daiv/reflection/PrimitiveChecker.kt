@@ -5,19 +5,17 @@ import kotlin.reflect.KClassifier
 import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
 
-class PrimitiveChecker {
-}
 
-private val primitiveWrapperTypeMap = listOf(
-    Boolean::class.java,
-    Byte::class.java,
-    Char::class.java,
-    Double::class.java,
-    Float::class.java,
-    Int::class.java,
-    Long::class.java,
-    Short::class.java,
-    String::class.java)
+private val primitiveWrapperTypeMap = setOf(
+    Boolean::class.javaObjectType,
+    Byte::class.javaObjectType,
+    Char::class.javaObjectType,
+    Double::class.javaObjectType,
+    Float::class.javaObjectType,
+    Int::class.javaObjectType,
+    Long::class.javaObjectType,
+    Short::class.javaObjectType,
+    String::class.javaObjectType)
 
 
 /**
@@ -44,7 +42,7 @@ fun Class<*>.isPrimitiveWrapperOrString(): Boolean {
  * or String, false otherwise
  */
 fun Class<*>.isPrimitiveOrWrapperOrString(): Boolean {
-    return isPrimitive() || isPrimitiveWrapperOrString()
+    return isPrimitive || isPrimitiveWrapperOrString()
 }
 
 fun KType.getKClass(): KClass<Any> {

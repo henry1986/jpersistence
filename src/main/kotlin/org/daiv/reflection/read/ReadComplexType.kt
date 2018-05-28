@@ -4,7 +4,7 @@ import java.sql.ResultSet
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 
-class ReadComplexType<T : Any>(override val property: KProperty1<Any, T>) : ReadFieldData<T> {
+internal class ReadComplexType<T : Any>(override val property: KProperty1<Any, T>) : ReadFieldData<T> {
     override fun key(prefix: String?): String {
         return persisterData.createTableKeyData(property.name)
     }
@@ -15,7 +15,7 @@ class ReadComplexType<T : Any>(override val property: KProperty1<Any, T>) : Read
         return persisterData.createTableString(property.name)
     }
 
-    override fun getValue(resultSet: ResultSet, number: Int): T {
-        return persisterData.read(resultSet, number - 1)
+    override fun getValue(resultSet: ResultSet, number: Int): NextSize<T> {
+        return persisterData.read(resultSet, number)
     }
 }

@@ -1,14 +1,13 @@
 package org.daiv.reflection.read
 
-import org.daiv.immutable.utils.persistence.annotations.FlatList
 import org.daiv.reflection.getKClass
 import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.reflect.KProperty1
 
-class ReadSimpleType<T : Any>(override val property: KProperty1<Any, T>) : ReadFieldData<T> {
+internal class ReadSimpleType<T : Any>(override val property: KProperty1<Any, T>) : ReadFieldData<T> {
     override fun key(prefix: String?): String {
-        return "${name(prefix)}"
+        return name(prefix)
     }
 
     override fun toTableHead(prefix: String?): String {
@@ -18,10 +17,10 @@ class ReadSimpleType<T : Any>(override val property: KProperty1<Any, T>) : ReadF
         return "${name(prefix)} $typeName${" NOT NULL"}"
     }
 
-    override fun getValue(resultSet: ResultSet, number: Int): T {
+    override fun getValue(resultSet: ResultSet, number: Int): NextSize<T> {
         try {
             @Suppress("UNCHECKED_CAST")
-            return resultSet.getObject(number) as T
+            return NextSize(resultSet.getObject(number) as T, number + 1)
         } catch (e: SQLException) {
             throw RuntimeException(e)
         }

@@ -3,7 +3,7 @@ package org.daiv.reflection.read
 import org.daiv.reflection.common.FieldData
 import java.sql.ResultSet
 
-interface ReadFieldData<T : Any> : FieldData<T> {
+internal interface ReadFieldData<T : Any> : FieldData<T> {
 
     /**
      * this method creates the string for the sql command "CREATE TABLE".
@@ -17,6 +17,7 @@ interface ReadFieldData<T : Any> : FieldData<T> {
 
     fun key(prefix: String?): String
 
-    fun getValue(resultSet: ResultSet, number: Int): T
+    fun getValue(resultSet: ResultSet, number: Int): NextSize<T>
 
 }
+
