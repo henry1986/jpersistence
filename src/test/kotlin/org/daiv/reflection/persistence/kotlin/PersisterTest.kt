@@ -1,11 +1,14 @@
 package org.daiv.reflection.persistence.kotlin
 
+import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
 import org.daiv.reflection.persistence.ComplexObject
 import org.daiv.reflection.persistence.PersisterObject
+import org.daiv.reflection.persister.Persister
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
+import kotlin.test.assertEquals
 
 
 class PersisterTest :
@@ -13,6 +16,7 @@ class PersisterTest :
              data class SimpleObject(val x: Int, val y: String)
              data class ComplexKObject(val x: Int, val y: SimpleObject)
              data class ComplexKey(val x: SimpleObject, val string: String)
+             data class ReadValue(val id: Int, val string: String)
 
              val simpleObject = SimpleObject(5, "Hallo")
 
@@ -44,7 +48,10 @@ class PersisterTest :
                                   simpleObject)
 
              val listOf = listOf(s, p, c, k, t)
-             describe("Persister Table creation") {
+             val database = DatabaseWrapper.create("ReadValue.db")
+
+
+             describe("Persister Table creation, read and insert") {
                  listOf.forEach { o ->
                      o.open()
                      on("persist $o") {
@@ -59,7 +66,21 @@ class PersisterTest :
                              o.checkReadData()
                          }
                      }
-                     afterGroup { o.delete() }
+                     on("read not from key") {
+                         database.open()
+
+                         val readValue1 = ReadValue(5, "HalloX")
+                         val readValue2 = ReadValue(6, "HollaY")
+                         val persister = Persister(database)
+                         persister.persist(ReadValue::class)
+                         persister.insert(readValue1)
+                         persister.insert(readValue2)
+                         it("read from column") {
+                             val read = persister.read(ReadValue::class, "string", "HalloX")
+                             assertEquals(readValue1, read)
+                         }
+                     }
+                     afterGroup { o.delete(); database.delete() }
                  }
              }
          })

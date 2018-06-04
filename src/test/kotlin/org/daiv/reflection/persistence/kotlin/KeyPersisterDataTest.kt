@@ -14,7 +14,7 @@ class KeyPersisterDataTest :
                  on("keyvalue") {
                      it("simple type") {
                          data class SimpleObject(val i: Int)
-                         val create = KeyPersisterData.create(ReadPersisterData.create(SimpleObject::class), 5)
+                         val create = KeyPersisterData.create(ReadPersisterData.create(SimpleObject::class).getIdName(), 5)
                          val id = create.id
                          assertEquals("i = 5", id)
                      }

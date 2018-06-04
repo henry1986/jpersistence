@@ -4,7 +4,7 @@ import org.daiv.immutable.utils.persistence.annotations.FlatList
 import org.daiv.reflection.common.ListUtil
 import kotlin.reflect.KProperty1
 
-class WriteListType<T : Any>(override val property: KProperty1<Any, T>,
+internal class WriteListType<T : Any>(override val property: KProperty1<Any, T>,
                              override val flatList: FlatList,
                              override val o: Any) : WriteFieldData<T>, ListUtil<T> {
     private fun <T> map(f: (Int, WritePersisterData<Any>) -> T): String {

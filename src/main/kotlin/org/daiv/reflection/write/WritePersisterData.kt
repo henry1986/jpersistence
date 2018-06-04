@@ -9,7 +9,7 @@ import kotlin.reflect.KFunction
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
 
-class WritePersisterData<T : Any> private constructor(val clazz: KClass<out T>,
+internal class WritePersisterData<T : Any> private constructor(val clazz: KClass<out T>,
                                                       private val fields: List<WriteFieldData<Any>>) {
     fun insertHeadString(prefix: String?): String {
         return fields.joinToString(separator = ", ", transform = { f -> f.insertHead(prefix) })

@@ -1,6 +1,6 @@
 package org.daiv.reflection.persister
 
-import org.daiv.immutable.utils.persistence.annotations.DatabaseInterface
+import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.read.KeyPersisterData
 import org.daiv.reflection.read.ReadPersisterData
 import org.daiv.reflection.write.WritePersisterData
@@ -14,7 +14,7 @@ class Persister(private val statement: Statement) {
     constructor(databaseInterface: DatabaseInterface) : this(databaseInterface.statement)
 
     private fun <T : Any> createTable(clazz: KClass<T>): String {
-        return ReadPersisterData.create<T>(clazz)
+        return ReadPersisterData.create(clazz)
             .createTable()
     }
 
@@ -49,13 +49,22 @@ class Persister(private val statement: Statement) {
         write(createTable)
     }
 
-    fun <T : Any> read(clazz: KClass<T>, id: Any): T {
-        val persisterData = ReadPersisterData.create(clazz)
-        val idPersister = KeyPersisterData.create(persisterData, id)
+    private fun <T : Any> read(persisterData: ReadPersisterData<T>, fieldName: String, id: Any): T {
+        val idPersister = KeyPersisterData.create(fieldName, id)
         val query = "SELECT * FROM ${persisterData.tableName} WHERE ${idPersister.id};"
         println(query)
         val execute = read(query)
         return persisterData.read(execute).t
+    }
+
+    fun <T : Any> read(clazz: KClass<T>, id: Any): T {
+        val persisterData = ReadPersisterData.create(clazz)
+        return read(persisterData, persisterData.getIdName(), id)
+    }
+
+    fun <T : Any> read(clazz: KClass<T>, fieldName: String, id: Any): T {
+        val persisterData = ReadPersisterData.create(clazz)
+        return read(persisterData, fieldName, id)
     }
 
 }

@@ -1,7 +1,7 @@
 package org.daiv.reflection.persistence.kotlin
 
-import org.daiv.immutable.utils.persistence.annotations.DatabaseInterface
 import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
+import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.read.ReadPersisterData
 import org.daiv.reflection.write.WritePersisterData

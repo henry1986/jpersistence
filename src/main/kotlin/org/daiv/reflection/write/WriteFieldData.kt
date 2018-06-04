@@ -5,7 +5,7 @@ import org.daiv.reflection.common.FieldData
 import kotlin.reflect.KProperty1
 import kotlin.reflect.jvm.isAccessible
 
-interface WriteFieldData<T : Any> : FieldData<T> {
+internal interface WriteFieldData<T : Any> : FieldData<T> {
     val flatList: FlatList
     /**
      * object that has [property] as member and that is to read from
@@ -24,7 +24,7 @@ interface WriteFieldData<T : Any> : FieldData<T> {
     /**
      * this method creates the string for the sql command "INSERT INTO ", but
      * only the values until "VALUES". For the values afterwards, see
-     * [.insertValue]
+     * [insertValue]
      *
      * @param prefix
      * a possible prefix for the variables name. Null, if no prefix
@@ -37,7 +37,7 @@ interface WriteFieldData<T : Any> : FieldData<T> {
     /**
      * this method creates the string for the sql command "INSERT INTO ", but
      * only the values after "VALUES". For the values before, see
-     * [.insertHead]
+     * [insertHead]
      *
      * @return the string for the "INSERT INTO " command
      */

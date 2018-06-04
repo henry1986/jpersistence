@@ -3,7 +3,6 @@ package org.daiv.reflection.read
 import org.daiv.reflection.common.FieldDataFactory
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.write.WriteFieldData
-import org.daiv.reflection.write.WritePersisterData
 
 internal class KeyPersisterData(val id: String) {
 
@@ -15,11 +14,15 @@ internal class KeyPersisterData(val id: String) {
                                        transform = { f -> f.name(prefix) + " = " + f.insertValue() })
         }
 
-        fun <T : Any> create(r: ReadPersisterData<T>, o: Any): KeyPersisterData {
+        private fun makeString(o: Any): String {
+            return if (o::class == String::class) "\"$o\"" else o.toString()
+        }
+
+        fun create(fieldName: String, o: Any): KeyPersisterData {
             if (o::class.java.isPrimitiveOrWrapperOrString()) {
-                return KeyPersisterData("${r.getIdName()} = $o")
+                return KeyPersisterData("$fieldName = ${makeString(o)}")
             }
-            return KeyPersisterData(getId(r.getIdName(), FieldDataFactory.fieldsWrite(o)))
+            return KeyPersisterData(getId(fieldName, FieldDataFactory.fieldsWrite(o)))
         }
     }
 }

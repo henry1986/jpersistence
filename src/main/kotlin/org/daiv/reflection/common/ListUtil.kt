@@ -3,7 +3,7 @@ package org.daiv.reflection.common
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 
-interface ListUtil <T : Any>{
+internal interface ListUtil <T : Any>{
     val property : KProperty1<Any, T>
 
     fun listElementName(i: Int): String {

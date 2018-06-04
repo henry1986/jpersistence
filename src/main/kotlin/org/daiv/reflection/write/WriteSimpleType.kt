@@ -6,7 +6,9 @@ import kotlin.reflect.KProperty1
 import kotlin.reflect.jvm.isAccessible
 import kotlin.reflect.jvm.javaType
 
-class WriteSimpleType <T:Any>(override val property: KProperty1<Any, T>, override val flatList: FlatList, override val o: Any) : WriteFieldData<T>{
+internal class WriteSimpleType<T : Any>(override val property: KProperty1<Any, T>,
+                               override val flatList: FlatList,
+                               override val o: Any) : WriteFieldData<T> {
     override fun insertValue(): String {
         val s = getObject(o).toString()
         return if (property.getKClass() == String::class) {

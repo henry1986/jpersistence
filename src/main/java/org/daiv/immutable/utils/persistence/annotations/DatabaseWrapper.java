@@ -25,6 +25,8 @@
  *******************************************************************************/
 package org.daiv.immutable.utils.persistence.annotations;
 
+import org.daiv.reflection.database.DatabaseInterface;
+
 import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -52,7 +54,7 @@ public class DatabaseWrapper implements DatabaseInterface {
 			if (!connection.isClosed() && connection != null) {
 				connection.close();
 				if (connection.isClosed())
-					System.out.println("Connection to Database closed");
+					System.out.println("Connection to DatabaseInterface closed");
 			}
 		} catch (SQLException e) {
 			throw new RuntimeException(e);

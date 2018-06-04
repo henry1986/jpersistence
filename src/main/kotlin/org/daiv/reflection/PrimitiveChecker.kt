@@ -27,7 +27,7 @@ private val primitiveWrapperTypeMap = setOf(
  * @return true, if the parameter is a primitive wrapper class, false
  * otherwise
  */
-fun Class<*>.isPrimitiveWrapperOrString(): Boolean {
+internal fun Class<*>.isPrimitiveWrapperOrString(): Boolean {
     return primitiveWrapperTypeMap.contains(this)
 }
 
@@ -41,14 +41,14 @@ fun Class<*>.isPrimitiveWrapperOrString(): Boolean {
  * @return true, if the parameter is a primitive or primitive wrapper class
  * or String, false otherwise
  */
-fun Class<*>.isPrimitiveOrWrapperOrString(): Boolean {
+internal fun Class<*>.isPrimitiveOrWrapperOrString(): Boolean {
     return isPrimitive || isPrimitiveWrapperOrString()
 }
 
-fun KType.getKClass(): KClass<Any> {
+internal fun KType.getKClass(): KClass<Any> {
     return classifier as KClass<Any>
 }
 
-fun KProperty1<Any, Any>.getKClass(): KClass<Any>{
+internal fun KProperty1<Any, Any>.getKClass(): KClass<Any>{
     return returnType.getKClass()
 }

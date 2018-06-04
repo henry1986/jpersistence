@@ -2,7 +2,7 @@ package org.daiv.reflection.common
 
 import kotlin.reflect.KProperty1
 
-interface FieldData<T : Any> {
+internal interface FieldData<T : Any> {
     val property: KProperty1<Any, T>
 
 
