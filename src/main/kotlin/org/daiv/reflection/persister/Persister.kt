@@ -1,7 +1,6 @@
 package org.daiv.reflection.persister
 
 import org.daiv.reflection.database.DatabaseInterface
-import org.daiv.reflection.read.Evaluater
 import org.daiv.reflection.read.KeyPersisterData
 import org.daiv.reflection.read.ReadPersisterData
 import org.daiv.reflection.write.WritePersisterData
@@ -34,14 +33,9 @@ class Persister(private val statement: Statement) {
         try {
             statement.execute(query)
         } catch (e: SQLException) {
-            throw RuntimeException(e)
+            throw RuntimeException("query: $query", e)
         }
 
-    }
-
-    internal interface Query {
-        fun write(query: String)
-        fun read(query: String): ResultSet
     }
 
     fun <T : Any> persist(clazz: KClass<T>) {
@@ -57,19 +51,19 @@ class Persister(private val statement: Statement) {
         write(createTable)
     }
 
-    inner class Work<R : Any>(clazz: KClass<R>) {
-        private val evaluater: ReadPersisterData<R> = ReadPersisterData.create(clazz)
+    inner class Table<R : Any>(clazz: KClass<R>) {
+        private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz)
         private fun getKey(fieldName: String, id: Any): String {
             val idPersister = KeyPersisterData.create(fieldName, id)
-            return " FROM ${evaluater.tableName} WHERE ${idPersister.id}"
+            return " FROM ${readPersisterData.tableName} WHERE ${idPersister.id}"
         }
 
         fun read(fieldName: String, id: Any): R {
-            return evaluater.evaluate(this@Persister.read("SELECT * ${getKey(fieldName, id)};")) as R
+            return readPersisterData.evaluate(this@Persister.read("SELECT * ${getKey(fieldName, id)};"))
         }
 
         fun read(id: Any): R {
-            return read(evaluater.getIdName(), id)
+            return read(readPersisterData.getIdName(), id)
         }
 
         fun exists(fieldName: String, id: Any): Boolean {
@@ -77,7 +71,7 @@ class Persister(private val statement: Statement) {
         }
 
         fun exists(id: Any): Boolean {
-            return exists(evaluater.getIdName(), id)
+            return exists(readPersisterData.getIdName(), id)
         }
 
         fun delete(fieldName: String, id: Any) {
@@ -85,7 +79,7 @@ class Persister(private val statement: Statement) {
         }
 
         fun delete(id: Any) {
-            delete(evaluater.getIdName(), id)
+            delete(readPersisterData.getIdName(), id)
         }
     }
 

@@ -42,7 +42,7 @@ class ObjectToTest(private val o: Any,
 
     fun checkReadData() {
 //        val query = "SELECT * FROM ${r.tableName} WHERE ${r.getIdName()} = $key;"
-        assertEquals(o, p.Work(o::class).read(key))
+        assertEquals(o, p.Table(o::class).read(key))
     }
 
     override fun toString(): String {

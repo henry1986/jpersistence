@@ -4,7 +4,6 @@ import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
 import org.daiv.reflection.persistence.ComplexObject
 import org.daiv.reflection.persistence.PersisterObject
 import org.daiv.reflection.persister.Persister
-import org.daiv.reflection.persister.Persister.Work.*
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
@@ -78,30 +77,30 @@ class PersisterTest :
                          persister.persist(ReadValue::class)
                          persister.insert(readValue1)
                          persister.insert(readValue2)
-                         val work = persister.Work(ReadValue::class)
+                         val table = persister.Table(ReadValue::class)
                          it("read from column") {
-                             val read = work.read("string", "HalloX")
+                             val read = table.read("string", "HalloX")
                              assertEquals(readValue1, read)
                          }
                          it("check key existence") {
-                             assertTrue(work.exists(5))
+                             assertTrue(table.exists(5))
                          }
                          it("check key no Existence") {
-                             assertFalse(work.exists(7))
+                             assertFalse(table.exists(7))
                          }
                          it("check record existence") {
-                             assertTrue(work.exists("string", "HalloX"))
+                             assertTrue(table.exists("string", "HalloX"))
                          }
                          it("check Record no existence") {
-                             assertFalse(work.exists("string", "blub"))
+                             assertFalse(table.exists("string", "blub"))
                          }
                          it("delete and check deletion") {
-                             work.delete("string", "HalloX")
-                             assertFalse(work.exists("string", "HalloX"))
+                             table.delete("string", "HalloX")
+                             assertFalse(table.exists("string", "HalloX"))
                          }
                          it("delete key and check deletion") {
-                             work.delete(6)
-                             assertFalse(work.exists("string", "HollaY"))
+                             table.delete(6)
+                             assertFalse(table.exists("string", "HollaY"))
                          }
                      }
                      afterGroup { o.delete(); database.delete() }
