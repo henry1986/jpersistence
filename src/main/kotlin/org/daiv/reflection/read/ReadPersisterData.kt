@@ -10,9 +10,19 @@ import kotlin.reflect.KFunction
 
 internal data class ReadFieldValue(val value: Any, val fieldData: ReadFieldData<Any>)
 
-internal data class ReadPersisterData<T> private constructor(val tableName: String,
-                                                    private val method: (List<ReadFieldValue>) -> T,
-                                                    private val fields: List<ReadFieldData<Any>>) {
+interface Evaluater<T> {
+    fun evaluate(resultSet: ResultSet): T
+    val tableName: String
+}
+
+internal data class ReadPersisterData<T> private constructor(override val tableName: String,
+                                                             private val method: (List<ReadFieldValue>) -> T,
+                                                             private val fields: List<ReadFieldData<Any>>) : Evaluater<T> {
+
+    override fun evaluate(resultSet: ResultSet): T {
+        return read(resultSet).t
+    }
+
     private fun createTableInnerData(prefix: String?, skip: Int): String {
         return fields
             .drop(skip)

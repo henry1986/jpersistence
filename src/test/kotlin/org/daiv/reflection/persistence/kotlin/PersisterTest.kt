@@ -4,11 +4,14 @@ import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
 import org.daiv.reflection.persistence.ComplexObject
 import org.daiv.reflection.persistence.PersisterObject
 import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.persister.Persister.Work.*
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 
 class PersisterTest :
@@ -66,7 +69,7 @@ class PersisterTest :
                              o.checkReadData()
                          }
                      }
-                     on("read not from key") {
+                     on("special reads") {
                          database.open()
 
                          val readValue1 = ReadValue(5, "HalloX")
@@ -75,9 +78,30 @@ class PersisterTest :
                          persister.persist(ReadValue::class)
                          persister.insert(readValue1)
                          persister.insert(readValue2)
+                         val work = persister.Work(ReadValue::class)
                          it("read from column") {
-                             val read = persister.read(ReadValue::class, "string", "HalloX")
+                             val read = work.read("string", "HalloX")
                              assertEquals(readValue1, read)
+                         }
+                         it("check key existence") {
+                             assertTrue(work.exists(5))
+                         }
+                         it("check key no Existence") {
+                             assertFalse(work.exists(7))
+                         }
+                         it("check record existence") {
+                             assertTrue(work.exists("string", "HalloX"))
+                         }
+                         it("check Record no existence") {
+                             assertFalse(work.exists("string", "blub"))
+                         }
+                         it("delete and check deletion") {
+                             work.delete("string", "HalloX")
+                             assertFalse(work.exists("string", "HalloX"))
+                         }
+                         it("delete key and check deletion") {
+                             work.delete(6)
+                             assertFalse(work.exists("string", "HollaY"))
                          }
                      }
                      afterGroup { o.delete(); database.delete() }
