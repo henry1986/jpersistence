@@ -26,6 +26,7 @@ package org.daiv.reflection.read
 import org.daiv.immutable.utils.persistence.annotations.PersistenceRoot
 import org.daiv.immutable.utils.persistence.annotations.ToPersistence
 import org.daiv.reflection.common.FieldDataFactory
+import org.daiv.reflection.common.getList
 import java.lang.reflect.Constructor
 import java.sql.ResultSet
 import kotlin.reflect.KClass
@@ -33,14 +34,18 @@ import kotlin.reflect.KFunction
 
 internal data class ReadFieldValue(val value: Any, val fieldData: ReadFieldData<Any>)
 
-interface Evaluater<T> {
+internal interface Evaluator<T> {
     fun evaluate(resultSet: ResultSet): T
+    fun evaluateToList(resultSet: ResultSet): List<T>
     val tableName: String
 }
 
-internal data class ReadPersisterData<T> private constructor(override val tableName: String,
+internal data class ReadPersisterData<T : Any> private constructor(override val tableName: String,
                                                              private val method: (List<ReadFieldValue>) -> T,
-                                                             private val fields: List<ReadFieldData<Any>>) : Evaluater<T> {
+                                                             private val fields: List<ReadFieldData<Any>>) : Evaluator<T> {
+    override fun evaluateToList(resultSet: ResultSet): List<T> {
+        return resultSet.getList(::evaluate)
+    }
 
     override fun evaluate(resultSet: ResultSet): T {
         return read(resultSet).t

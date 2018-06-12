@@ -96,11 +96,13 @@ class PersisterTest :
 
                          val readValue1 = ReadValue(5, "HalloX")
                          val readValue2 = ReadValue(6, "HollaY")
+                         val readValue3 = ReadValue(7, "neu")
                          val persister = Persister(database)
                          persister.persist(ReadValue::class)
-                         persister.insert(readValue1)
-                         persister.insert(readValue2)
                          val table = persister.Table(ReadValue::class)
+                         table.insert(readValue1)
+                         table.insert(readValue2)
+                         table.insert(readValue3)
                          it("read from column") {
                              val read = table.read("string", "HalloX")
                              assertEquals(readValue1, read)
@@ -109,13 +111,20 @@ class PersisterTest :
                              assertTrue(table.exists(5))
                          }
                          it("check key no Existence") {
-                             assertFalse(table.exists(7))
+                             assertFalse(table.exists(35))
                          }
                          it("check record existence") {
                              assertTrue(table.exists("string", "HalloX"))
                          }
                          it("check Record no existence") {
                              assertFalse(table.exists("string", "blub"))
+                         }
+                         it("check update") {
+                             table.update("string", "neu", 6)
+                             assertEquals(ReadValue(6, "neu"), table.read(6))
+                         }
+                         it("check distinct") {
+                             assertEquals(listOf("HalloX", "neu"), table.distinctValues("string", String::class))
                          }
                          it("delete and check deletion") {
                              table.delete("string", "HalloX")

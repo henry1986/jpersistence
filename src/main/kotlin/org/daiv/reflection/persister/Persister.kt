@@ -23,6 +23,7 @@
 
 package org.daiv.reflection.persister
 
+import org.daiv.reflection.common.getList
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.read.KeyPersisterData
 import org.daiv.reflection.read.ReadPersisterData
@@ -31,6 +32,7 @@ import java.sql.ResultSet
 import java.sql.SQLException
 import java.sql.Statement
 import kotlin.reflect.KClass
+import kotlin.reflect.full.cast
 
 /**
  * @author Martin Heinrich
@@ -74,19 +76,41 @@ class Persister(private val statement: Statement) {
         write(createTable)
     }
 
-    inner class Table<R : Any>(clazz: KClass<R>) {
+    inner class Table<R : Any>(private val clazz: KClass<R>) {
         private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz)
+
+        /**
+         * returns "[fieldName] = [id]" for primitive Types, or the complex variant for complex types
+         */
+        private fun fNEqualsValue(fieldName: String, id: Any): String {
+            return KeyPersisterData.create(fieldName, id)
+                .id
+        }
+
+        private fun whereClause(fieldName: String, id: Any): String {
+            return "WHERE ${fNEqualsValue(fieldName, id)}"
+        }
+
         private fun getKey(fieldName: String, id: Any): String {
-            val idPersister = KeyPersisterData.create(fieldName, id)
-            return " FROM ${readPersisterData.tableName} WHERE ${idPersister.id}"
+            return " FROM $tableName ${whereClause(fieldName, id)}"
         }
 
         fun read(fieldName: String, id: Any): R {
             return readPersisterData.evaluate(this@Persister.read("SELECT * ${getKey(fieldName, id)};"))
         }
 
+        private val idName
+            get() = readPersisterData.getIdName()
+
+        private val tableName
+            get() = readPersisterData.tableName
+
         fun read(id: Any): R {
-            return read(readPersisterData.getIdName(), id)
+            return read(idName, id)
+        }
+
+        fun insert(t: R) {
+            this@Persister.insert(t)
         }
 
         fun exists(fieldName: String, id: Any): Boolean {
@@ -94,7 +118,7 @@ class Persister(private val statement: Statement) {
         }
 
         fun exists(id: Any): Boolean {
-            return exists(readPersisterData.getIdName(), id)
+            return exists(idName, id)
         }
 
         fun delete(fieldName: String, id: Any) {
@@ -102,7 +126,38 @@ class Persister(private val statement: Statement) {
         }
 
         fun delete(id: Any) {
-            delete(readPersisterData.getIdName(), id)
+            delete(idName, id)
+        }
+
+
+        /**
+         * [fieldName2Set] is the fieldName of the field, that has to be reset by [value].
+         * All rows are replaced by [value], where [fieldName2Find] = [id].
+         *
+         * e.g. UPDATE [clazz] SET [fieldName2Set] = [value] WHERE [fieldName2Find] = [id];
+         */
+        fun update(fieldName2Set: String, value: Any, fieldName2Find: String, id: Any) {
+            write("UPDATE $tableName SET ${fNEqualsValue(fieldName2Set, value)} ${whereClause(fieldName2Find, id)}")
+        }
+
+        /**
+         * [fieldName2Set] is the fieldName of the field, that has to be reset by [value].
+         * All rows are replaced by [value], where the primary key is [id].
+         *
+         * e.g. UPDATE [clazz] SET [fieldName2Set] = [value] WHERE [idName] = [id];
+         */
+        fun update(fieldName2Set: String, value: Any, id: Any) {
+            update(fieldName2Set, value, idName, id)
+        }
+
+        /**
+         * returns all distinct values of the column [fieldName]
+         *
+         * e.g. SELECT DISTINCT [fieldName] from [clazz];
+         */
+        fun <T : Any> distinctValues(fieldName: String, clazz: KClass<T>): List<T> {
+            return this@Persister.read("SELECT DISTINCT $fieldName from $tableName;")
+                .getList { clazz.cast(getObject(fieldName)) }
         }
     }
 

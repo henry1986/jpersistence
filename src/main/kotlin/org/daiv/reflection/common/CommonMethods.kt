@@ -21,34 +21,14 @@
  *
  */
 
-package org.daiv.reflection.write
+package org.daiv.reflection.common
 
-import org.daiv.reflection.common.FieldDataFactory
-import kotlin.reflect.KClass
+import java.sql.ResultSet
 
-internal class WritePersisterData<T : Any> private constructor(private val clazz: KClass<out T>,
-                                                               private val fields: List<WriteFieldData<Any>>) {
-    val tableName
-        get() = clazz.simpleName!!
-
-    fun insertHeadString(prefix: String?): String {
-        return fields.joinToString(separator = ", ", transform = { f -> f.insertHead(prefix) })
+fun <R : Any> ResultSet.getList(method: ResultSet.() -> R): List<R> {
+    val mutableList = mutableListOf<R>()
+    while (next()) {
+        mutableList.add(method())
     }
-
-    fun insertValueString(): String {
-        return fields.joinToString(separator = ", ", transform = { f -> f.insertValue() })
-    }
-
-    fun insert(): String {
-        val headString = insertHeadString(null)
-        val valueString = insertValueString()
-        return "INSERT INTO $tableName ($headString ) VALUES ($valueString);"
-    }
-
-    companion object {
-
-        fun <T : Any> create(o: T): WritePersisterData<T> {
-            return WritePersisterData(o::class, FieldDataFactory.fieldsWrite(o))
-        }
-    }
+    return mutableList.toList()
 }

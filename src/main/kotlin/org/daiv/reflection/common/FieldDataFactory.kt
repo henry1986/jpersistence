@@ -70,16 +70,6 @@ internal interface FieldDataFactory<T : Any, R : FieldData<T>> {
             }
         }
 
-//        internal fun <T : Any> createWrite(property: KProperty1<Any, T>,
-//                                           flatList: FlatList,
-//                                           o: Any): WriteFieldData<T> {
-//            return create(property, flatList, WriteFactory<T>(o))
-//        }
-//
-//        internal fun <T : Any> createRead(property: KProperty1<Any, T>, flatList: FlatList): ReadFieldData<T> {
-//            return create(property, flatList, ReadFactory<T>())
-//        }
-
         private fun <T : Any, R : FieldData<T>> getFieldsKotlin(clazz: KClass<out T>,
                                                                 factory: FieldDataFactory<T, R>): List<R> {
             val primaryConstructor = clazz.constructors.first()
@@ -106,7 +96,7 @@ internal interface FieldDataFactory<T : Any, R : FieldData<T>> {
         }
 
         private fun <T : Any, R : FieldData<T>> getFields(clazz: KClass<out T>,
-                                                  factory: FieldDataFactory<T, R>): List<R> {
+                                                          factory: FieldDataFactory<T, R>): List<R> {
             val persistenceRoot = clazz.annotations.filter { it is PersistenceRoot }
                 .map { it as PersistenceRoot }
                 .firstOrNull(PersistenceRoot::isJava)
@@ -133,10 +123,9 @@ private class WriteFactory<T : Any>(val o: Any) : FieldDataFactory<T, WriteField
 
     override fun getComplexType(property: KProperty1<Any, T>, flatList: FlatList) =
         WriteComplexType(property, flatList, o)
-
 }
 
-private class ReadFactory<T : Any>() : FieldDataFactory<T, ReadFieldData<T>> {
+private class ReadFactory<T : Any> : FieldDataFactory<T, ReadFieldData<T>> {
     override fun getSimpleType(property: KProperty1<Any, T>, flatList: FlatList) = ReadSimpleType(property)
 
     override fun getListType(property: KProperty1<Any, T>, flatList: FlatList) = ReadListType(property, flatList)
