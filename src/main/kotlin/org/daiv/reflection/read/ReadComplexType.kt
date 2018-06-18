@@ -28,6 +28,7 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 
 internal class ReadComplexType<T : Any>(override val property: KProperty1<Any, T>) : ReadFieldData<T> {
+
     override fun key(prefix: String?): String {
         return persisterData.createTableKeyData(property.name)
     }

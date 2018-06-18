@@ -31,11 +31,25 @@ internal class WriteComplexType<T : Any>(override val property: KProperty1<Any, 
                                          override val o: Any) : WriteFieldData<T> {
     private val persisterData = WritePersisterData.create(getObject(o))
 
+    val name get() = property.name
+
+    private fun buildPrefix(prefix: String?):String{
+        return prefix?.let {
+            "${it}_$name"
+        }?: run {
+            name
+        }
+    }
+
+    override fun fNEqualsValue(prefix: String?, sep:String): String {
+        return persisterData.fNEqualsValue(buildPrefix(prefix), sep)
+    }
+
     override fun insertValue(): String {
         return persisterData.insertValueString()
     }
 
     override fun insertHead(prefix: String?): String {
-        return persisterData.insertHeadString(property.name)
+        return persisterData.insertHeadString(buildPrefix(prefix))
     }
 }

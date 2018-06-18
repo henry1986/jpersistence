@@ -42,4 +42,15 @@ internal class WriteSimpleType<T : Any>(override val property: KProperty1<Any, T
     override fun insertHead(prefix: String?): String {
         return name(prefix)
     }
+
+    override fun fNEqualsValue(prefix: String?, sep:String): String {
+        return "${name(prefix)} = ${makeString(getObject(o))}"
+    }
+
+    companion object {
+        internal fun makeString(o: Any): String {
+            return if (o::class == String::class) "\"$o\"" else o.toString()
+        }
+    }
+
 }

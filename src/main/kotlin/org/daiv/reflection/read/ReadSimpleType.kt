@@ -52,5 +52,4 @@ internal class ReadSimpleType<T : Any>(override val property: KProperty1<Any, T>
     companion object {
         private val valueMappingJavaSQL = mapOf("long" to "bigInt", "String" to "Text")
     }
-
 }

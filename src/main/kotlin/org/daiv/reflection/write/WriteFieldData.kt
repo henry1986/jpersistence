@@ -65,4 +65,7 @@ internal interface WriteFieldData<T : Any> : FieldData<T> {
      * @return the string for the "INSERT INTO " command
      */
     fun insertValue(): String
+
+    fun fNEqualsValue(prefix: String?, sep:String): String
+
 }

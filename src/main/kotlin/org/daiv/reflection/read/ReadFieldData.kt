@@ -41,6 +41,5 @@ internal interface ReadFieldData<T : Any> : FieldData<T> {
     fun key(prefix: String?): String
 
     fun getValue(resultSet: ResultSet, number: Int): NextSize<T>
-
 }
 

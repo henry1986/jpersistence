@@ -47,8 +47,16 @@ class ObjectToTest(private val o: Any,
     }
 
     fun beforeReadFromDatabase() {
-        d.statement.execute(r.createTable())
-        d.statement.execute(w.insert())
+        try {
+            d.statement.execute(r.createTable())
+        }catch (ex : Exception){
+            throw RuntimeException("failed to exceute: ${r.createTable()}")
+        }
+        try {
+            d.statement.execute(w.insert())
+        }catch (ex : Exception){
+            throw RuntimeException("failed to exceute: ${w.insert()}")
+        }
     }
 
     fun checkCreateTable() {

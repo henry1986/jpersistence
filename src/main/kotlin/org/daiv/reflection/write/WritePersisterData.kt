@@ -39,6 +39,11 @@ internal class WritePersisterData<T : Any> private constructor(private val clazz
         return fields.joinToString(separator = ", ", transform = { f -> f.insertValue() })
     }
 
+    fun fNEqualsValue(prefix: String?, sep : String) : String{
+        return fields.joinToString(separator = sep, transform = { it.fNEqualsValue(prefix, sep) })
+    }
+
+
     fun insert(): String {
         val headString = insertHeadString(null)
         val valueString = insertValueString()

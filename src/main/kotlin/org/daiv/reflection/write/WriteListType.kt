@@ -30,6 +30,10 @@ import kotlin.reflect.KProperty1
 internal class WriteListType<T : Any>(override val property: KProperty1<Any, T>,
                              override val flatList: FlatList,
                              override val o: Any) : WriteFieldData<T>, ListUtil<T> {
+    override fun fNEqualsValue(prefix: String?, sep:String): String {
+        throw UnsupportedOperationException("currently not supported")
+    }
+
     private fun <T> map(f: (Int, WritePersisterData<Any>) -> T): String {
         val l = property.get(o) as List<Any>
         return (0..flatList.size)

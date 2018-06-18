@@ -25,6 +25,7 @@ package org.daiv.reflection.persistence.kotlin
 
 import org.daiv.reflection.read.KeyPersisterData
 import org.daiv.reflection.read.ReadPersisterData
+import org.daiv.reflection.write.WritePersisterData
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
@@ -35,11 +36,35 @@ class KeyPersisterDataTest :
     Spek({
              given("a object") {
                  on("keyvalue") {
+                     data class SimpleObject(val i: Int)
                      it("simple type") {
-                         data class SimpleObject(val i: Int)
                          val create = KeyPersisterData.create(ReadPersisterData.create(SimpleObject::class).getIdName(), 5)
                          val id = create.id
                          assertEquals("i = 5", id)
+                     }
+                     it("test on WritePersisterData"){
+                         val simpleObject = SimpleObject(1)
+                         val writePersisterData = WritePersisterData.create(simpleObject)
+                         val fNEqualsValue = writePersisterData.fNEqualsValue(null, ", ")
+                         assertEquals("i = 1", fNEqualsValue)
+                     }
+                     data class ComplexObject(val x : SimpleObject, val s : String)
+                     it("test on ComplexObject"){
+                         val c = ComplexObject(SimpleObject(5), "Hallo")
+                         val writer = WritePersisterData.create(c)
+                         val fNEqualsValue = writer.fNEqualsValue(null, ", ")
+                         assertEquals("x_i = 5, s = \"Hallo\"", fNEqualsValue)
+                     }
+                     data class SuperComplex(val z:ComplexObject, val s : String)
+                     it("test on SuperComplexObject"){
+                         val c = SuperComplex(ComplexObject(SimpleObject(5), "Hallo"), "wow")
+                         val writer = WritePersisterData.create(c)
+                         val fNEqualsValue = writer.fNEqualsValue(null, ", ")
+                         assertEquals("z_x_i = 5, z_s = \"Hallo\", s = \"wow\"", fNEqualsValue)
+                         println(fNEqualsValue)
+                     }
+                     it("test on simple"){
+
                      }
                  }
              }

@@ -94,18 +94,15 @@ class PersisterTest :
                      on("special reads") {
                          database.open()
 
-                         val readValue1 = ReadValue(5, "HalloX")
-                         val readValue2 = ReadValue(6, "HollaY")
-                         val readValue3 = ReadValue(7, "neu")
                          val persister = Persister(database)
                          persister.persist(ReadValue::class)
                          val table = persister.Table(ReadValue::class)
-                         table.insert(readValue1)
-                         table.insert(readValue2)
-                         table.insert(readValue3)
+                         val readValues = listOf(ReadValue(5, "HalloX"), ReadValue(6, "HollaY"), ReadValue(7, "neu"))
+                         val changed6 = ReadValue(6, "neu")
+                         readValues.forEach(table::insert)
                          it("read from column") {
                              val read = table.read("string", "HalloX")
-                             assertEquals(readValue1, read)
+                             assertEquals(readValues[0], read[0])
                          }
                          it("check key existence") {
                              assertTrue(table.exists(5))
@@ -119,9 +116,17 @@ class PersisterTest :
                          it("check Record no existence") {
                              assertFalse(table.exists("string", "blub"))
                          }
+                         it("get all values") {
+                             assertEquals(readValues, table.readAll())
+                         }
                          it("check update") {
-                             table.update("string", "neu", 6)
-                             assertEquals(ReadValue(6, "neu"), table.read(6))
+                             table.update(6, "string", "neu")
+                             assertEquals(changed6, table.read(6))
+                         }
+                         it("multiple read from column") {
+                             val read = table.read("string", "neu")
+                             assertEquals(2, read.size)
+                             assertEquals(listOf(changed6, readValues.last()), read)
                          }
                          it("check distinct") {
                              assertEquals(listOf("HalloX", "neu"), table.distinctValues("string", String::class))

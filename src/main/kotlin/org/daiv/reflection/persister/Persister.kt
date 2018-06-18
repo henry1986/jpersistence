@@ -25,9 +25,11 @@ package org.daiv.reflection.persister
 
 import org.daiv.reflection.common.getList
 import org.daiv.reflection.database.DatabaseInterface
+import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.read.KeyPersisterData
 import org.daiv.reflection.read.ReadPersisterData
 import org.daiv.reflection.write.WritePersisterData
+import org.daiv.reflection.write.WriteSimpleType
 import java.sql.ResultSet
 import java.sql.SQLException
 import java.sql.Statement
@@ -81,22 +83,27 @@ class Persister(private val statement: Statement) {
 
         /**
          * returns "[fieldName] = [id]" for primitive Types, or the complex variant for complex types
+         * for complex types, the [sep] is needed
          */
-        private fun fNEqualsValue(fieldName: String, id: Any): String {
-            return KeyPersisterData.create(fieldName, id)
-                .id
+        private fun fNEqualsValue(fieldName: String, id: Any, sep: String): String {
+            return if (id::class.java.isPrimitiveOrWrapperOrString()) {
+                "$fieldName = ${WriteSimpleType.makeString(id)}"
+            } else {
+                val writePersisterData = WritePersisterData.create(id)
+                "(${writePersisterData.fNEqualsValue(fieldName, sep)})"
+            }
         }
 
-        private fun whereClause(fieldName: String, id: Any): String {
-            return "WHERE ${fNEqualsValue(fieldName, id)}"
+        private fun whereClause(fieldName: String, id: Any, sep: String): String {
+            return "WHERE ${fNEqualsValue(fieldName, id, sep)}"
         }
 
-        private fun getKey(fieldName: String, id: Any): String {
-            return " FROM $tableName ${whereClause(fieldName, id)}"
+        private fun fromWhere(fieldName: String, id: Any, sep: String): String {
+            return " FROM $tableName ${whereClause(fieldName, id, sep)}"
         }
 
-        fun read(fieldName: String, id: Any): R {
-            return readPersisterData.evaluate(this@Persister.read("SELECT * ${getKey(fieldName, id)};"))
+        fun read(fieldName: String, id: Any): List<R> {
+            return readPersisterData.evaluateToList(this@Persister.read("SELECT * ${fromWhere(fieldName, id, and)};"))
         }
 
         private val idName
@@ -106,7 +113,7 @@ class Persister(private val statement: Statement) {
             get() = readPersisterData.tableName
 
         fun read(id: Any): R {
-            return read(idName, id)
+            return read(idName, id)[0]
         }
 
         fun insert(t: R) {
@@ -114,7 +121,7 @@ class Persister(private val statement: Statement) {
         }
 
         fun exists(fieldName: String, id: Any): Boolean {
-            return this@Persister.read("SELECT EXISTS( SELECT * ${getKey(fieldName, id)});").getInt(1) != 0
+            return this@Persister.read("SELECT EXISTS( SELECT * ${fromWhere(fieldName, id, comma)});").getInt(1) != 0
         }
 
         fun exists(id: Any): Boolean {
@@ -122,7 +129,7 @@ class Persister(private val statement: Statement) {
         }
 
         fun delete(fieldName: String, id: Any) {
-            this@Persister.write("DELETE ${getKey(fieldName, id)};")
+            this@Persister.write("DELETE ${fromWhere(fieldName, id, comma)};")
         }
 
         fun delete(id: Any) {
@@ -136,8 +143,8 @@ class Persister(private val statement: Statement) {
          *
          * e.g. UPDATE [clazz] SET [fieldName2Set] = [value] WHERE [fieldName2Find] = [id];
          */
-        fun update(fieldName2Set: String, value: Any, fieldName2Find: String, id: Any) {
-            write("UPDATE $tableName SET ${fNEqualsValue(fieldName2Set, value)} ${whereClause(fieldName2Find, id)}")
+        fun update(fieldName2Find: String, id: Any, fieldName2Set: String, value: Any) {
+            write("UPDATE $tableName SET ${fNEqualsValue(fieldName2Set, value, comma)} ${whereClause(fieldName2Find, id, comma)}")
         }
 
         /**
@@ -146,8 +153,8 @@ class Persister(private val statement: Statement) {
          *
          * e.g. UPDATE [clazz] SET [fieldName2Set] = [value] WHERE [idName] = [id];
          */
-        fun update(fieldName2Set: String, value: Any, id: Any) {
-            update(fieldName2Set, value, idName, id)
+        fun update(id: Any, fieldName2Set: String, value: Any) {
+            update(idName, id, fieldName2Set, value)
         }
 
         /**
@@ -159,6 +166,23 @@ class Persister(private val statement: Statement) {
             return this@Persister.read("SELECT DISTINCT $fieldName from $tableName;")
                 .getList { clazz.cast(getObject(fieldName)) }
         }
-    }
 
+        /**
+         * returns all data from the current Table [clazz]
+         */
+        fun readAll(): List<R> {
+            return this@Persister.read("SELECT * from $tableName;")
+                .getList(readPersisterData::evaluate)
+        }
+
+
+//        fun read(fieldName: String, id: Any) : List<R>{
+//            return this@Persister.read("SELECT * ${fromWhere(fieldName, id)}")
+//                .getList(readPersisterData::evaluate)
+//        }
+    }
+    companion object {
+        private val comma = ","
+        private val and = " and "
+    }
 }

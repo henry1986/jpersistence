@@ -23,12 +23,14 @@
 
 buildscript {
     ext.kotlin_version = '1.2.41'
+    ext.dokka_version = '0.9.16'
 
     repositories {
         jcenter()
         mavenCentral()
     }
     dependencies {
+        classpath "org.jetbrains.dokka:dokka-gradle-plugin:${dokka_version}"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         classpath 'org.junit.platform:junit-platform-gradle-plugin:1.0.0'
         classpath "org.jfrog.buildinfo:build-info-extractor-gradle:4+"
@@ -42,6 +44,8 @@ apply plugin: 'java'
 apply plugin: 'kotlin'
 apply plugin: 'org.junit.platform.gradle.plugin'
 apply plugin: 'maven-publish'
+apply plugin: 'org.jetbrains.dokka'
+
 
 allprojects {
     apply plugin: "com.jfrog.artifactory"
@@ -56,6 +60,16 @@ junitPlatform {
         }
     }
 }
+dokka {
+    outputFormat = 'html'
+    outputDirectory = "$buildDir/javadoc"
+}
+
+//task dokkaJavadoc(type: org.jetbrains.dokka.gradle.DokkaTask) {
+//    outputFormat = 'javadoc'
+//    outputDirectory = javadoc.destinationDir
+//    inputs.dir 'src/main/kotlin'
+//}
 
 repositories {
     maven { url "https://kotlin.bintray.com/kotlinx" }
@@ -65,18 +79,18 @@ repositories {
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    compile 'org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.5.0'
+//    compile 'org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.5.0'
 
     compile group: 'org.jetbrains.kotlin', name: 'kotlin-reflect', version: '1.2.41'
     compile group: 'org.xerial', name: 'sqlite-jdbc', version: '3.21.0.1'
 
     testCompile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
     testCompile 'org.jetbrains.kotlin:kotlin-test:1.1.0'
-    testCompile ('org.jetbrains.spek:spek-api:1.1.5') {
+    testCompile('org.jetbrains.spek:spek-api:1.1.5') {
         exclude group: 'org.jetbrains.kotlin'
     }
     testRuntime 'org.junit.platform:junit-platform-launcher:1.0.0'
-    testRuntime ('org.jetbrains.spek:spek-junit-platform-engine:1.1.5') {
+    testRuntime('org.jetbrains.spek:spek-junit-platform-engine:1.1.5') {
         exclude group: 'org.junit.platform'
         exclude group: 'org.jetbrains.kotlin'
     }
@@ -93,7 +107,7 @@ artifactory {
 
         }
         defaults {
-            publications ('mavenJava')
+            publications('mavenJava')
         }
 
     }
@@ -111,9 +125,38 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             from components.java
+
+            artifact sourceJar
+//            artifact dokkaJavadoc
+//            artifact javadocJar
         }
     }
 }
+
+
+
+javadoc {
+    source = sourceSets.main.allJava
+    classpath = configurations.compileClasspath
+
+    options
+            {
+                setMemberLevel JavadocMemberLevel.PUBLIC
+                setAuthor true
+
+                links "https://docs.oracle.com/javase/8/docs/api/"
+            }
+}
+
+task sourceJar(type: Jar) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+//task javadocJar(type: Jar, dependsOn: dokkaJavadoc) {
+//    classifier = 'javadoc'
+//    from javadoc.destinationDir
+//}
 
 compileKotlin {
     kotlinOptions.jvmTarget = "1.8"
