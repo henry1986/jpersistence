@@ -90,12 +90,12 @@ class Persister(private val statement: Statement) {
                 "$fieldName = ${WriteSimpleType.makeString(id)}"
             } else {
                 val writePersisterData = WritePersisterData.create(id)
-                "(${writePersisterData.fNEqualsValue(fieldName, sep)})"
+                "${writePersisterData.fNEqualsValue(fieldName, sep)}"
             }
         }
 
         private fun whereClause(fieldName: String, id: Any, sep: String): String {
-            return "WHERE ${fNEqualsValue(fieldName, id, sep)}"
+            return "WHERE ${fNEqualsValue(fieldName, id, " and ")}"
         }
 
         private fun fromWhere(fieldName: String, id: Any, sep: String): String {
@@ -144,7 +144,9 @@ class Persister(private val statement: Statement) {
          * e.g. UPDATE [clazz] SET [fieldName2Set] = [value] WHERE [fieldName2Find] = [id];
          */
         fun update(fieldName2Find: String, id: Any, fieldName2Set: String, value: Any) {
-            write("UPDATE $tableName SET ${fNEqualsValue(fieldName2Set, value, comma)} ${whereClause(fieldName2Find, id, comma)}")
+            write("UPDATE $tableName SET ${fNEqualsValue(fieldName2Set, value, comma)} ${whereClause(fieldName2Find,
+                                                                                                     id,
+                                                                                                     comma)}")
         }
 
         /**
@@ -157,14 +159,25 @@ class Persister(private val statement: Statement) {
             update(idName, id, fieldName2Set, value)
         }
 
+
         /**
          * returns all distinct values of the column [fieldName]
          *
          * e.g. SELECT DISTINCT [fieldName] from [clazz];
+         *
+         * @since 0.0.8 -> group by is used instead of distinct
          */
         fun <T : Any> distinctValues(fieldName: String, clazz: KClass<T>): List<T> {
-            return this@Persister.read("SELECT DISTINCT $fieldName from $tableName;")
-                .getList { clazz.cast(getObject(fieldName)) }
+
+            return if (clazz.java.isPrimitiveOrWrapperOrString()) {
+                this@Persister.read("SELECT $fieldName from $tableName GROUP BY $fieldName;")
+                    .getList { clazz.cast(getObject(1)) }
+            } else {
+                val readPersisterData = ReadPersisterData.create(clazz)
+                val key = readPersisterData.createTableKeyData(fieldName)
+                this@Persister.read("SELECT $key from $tableName GROUP BY $key;")
+                    .getList { clazz.cast(readPersisterData.evaluate(this)) }
+            }
         }
 
         /**
@@ -181,6 +194,7 @@ class Persister(private val statement: Statement) {
 //                .getList(readPersisterData::evaluate)
 //        }
     }
+
     companion object {
         private val comma = ","
         private val and = " and "

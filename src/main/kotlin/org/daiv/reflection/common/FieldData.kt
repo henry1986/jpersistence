@@ -28,14 +28,7 @@ import kotlin.reflect.KProperty1
 internal interface FieldData<T : Any> {
     val property: KProperty1<Any, T>
 
-
-    /**
-     *
-     * @return the name of the property
-     */
-    fun name(): String {
-        return property.name
-    }
+    val name get() = property.name
 
     /**
      * builds the name of the field in the database
@@ -45,8 +38,25 @@ internal interface FieldData<T : Any> {
      * it is to be given here. null otherwise.
      * @return the name of the field in the database
      */
-    fun name(prefix: String?): String {
-        return if (prefix == null) property.name else prefix + "_" + property.name
+    fun name(prefix: String?):String{
+        return prefix?.let {
+            "${it}_$name"
+        }?: run {
+            name
+        }
     }
+
+
+    /**
+     *
+     * @return the name of the property
+     */
+    fun name(): String {
+        return property.name
+    }
+
+//    fun name(prefix: String?): String {
+//        return if (prefix == null) property.name else prefix + "_" + property.name
+//    }
 
 }

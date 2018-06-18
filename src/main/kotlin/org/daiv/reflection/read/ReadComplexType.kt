@@ -29,14 +29,14 @@ import kotlin.reflect.KProperty1
 
 internal class ReadComplexType<T : Any>(override val property: KProperty1<Any, T>) : ReadFieldData<T> {
 
-    override fun key(prefix: String?): String {
-        return persisterData.createTableKeyData(property.name)
-    }
-
     private val persisterData = ReadPersisterData.create(property.returnType.classifier as KClass<T>)
 
+    override fun key(prefix: String?): String {
+        return persisterData.createTableKeyData(name(prefix))
+    }
+
     override fun toTableHead(prefix: String?): String {
-        return persisterData.createTableString(property.name)
+        return persisterData.createTableString(name(prefix))
     }
 
     override fun getValue(resultSet: ResultSet, number: Int): NextSize<T> {
