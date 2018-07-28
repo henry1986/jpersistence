@@ -25,14 +25,15 @@ package org.daiv.reflection.write
 
 import org.daiv.immutable.utils.persistence.annotations.FlatList
 import org.daiv.reflection.getKClass
+import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.jvm.isAccessible
 import kotlin.reflect.jvm.javaType
 
 internal class WriteSimpleType<T : Any>(override val property: KProperty1<Any, T>,
-                               override val flatList: FlatList,
-                               override val o: Any) : WriteFieldData<T> {
-    override fun insertValue(): String {
+                                        override val flatList: FlatList,
+                                        override val clazz: KClass<T>) : WriteFieldData<T> {
+    override fun insertValue(o: T): String {
         val s = getObject(o).toString()
         return if (property.getKClass() == String::class) {
             "\"" + s + "\""
@@ -43,7 +44,7 @@ internal class WriteSimpleType<T : Any>(override val property: KProperty1<Any, T
         return name(prefix)
     }
 
-    override fun fNEqualsValue(prefix: String?, sep:String): String {
+    override fun fNEqualsValue(o: T, prefix: String?, sep: String): String {
         return "${name(prefix)} = ${makeString(getObject(o))}"
     }
 
@@ -52,5 +53,4 @@ internal class WriteSimpleType<T : Any>(override val property: KProperty1<Any, T
             return if (o::class == String::class) "\"$o\"" else o.toString()
         }
     }
-
 }

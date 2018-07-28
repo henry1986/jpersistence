@@ -139,6 +139,14 @@ class PersisterTest :
                              table.delete(6)
                              assertFalse(table.exists("string", "HollaY"))
                          }
+                         it("delete whole table"){
+                             table.clear()
+                             assertTrue(table.readAll().isEmpty())
+                         }
+                         it("insert list"){
+                             table.insert(readValues)
+                             assertEquals(readValues, table.readAll())
+                         }
                      }
                      afterGroup { o.delete(); database.delete() }
                  }

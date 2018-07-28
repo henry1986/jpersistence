@@ -39,11 +39,16 @@ internal interface FieldData<T : Any> {
      * @return the name of the field in the database
      */
     fun name(prefix: String?):String{
-        return prefix?.let {
-            "${it}_$name"
-        }?: run {
+        return if(prefix == null){
             name
+        } else {
+            "${prefix}_$name"
         }
+//        return prefix?.let {
+//            "${it}_$name"
+//        }?: run {
+//            name
+//        }
     }
 
 

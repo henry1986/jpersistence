@@ -24,19 +24,20 @@
 package org.daiv.reflection.write
 
 import org.daiv.immutable.utils.persistence.annotations.FlatList
+import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 
 internal class WriteComplexType<T : Any>(override val property: KProperty1<Any, T>,
                                          override val flatList: FlatList,
-                                         override val o: Any) : WriteFieldData<T> {
-    private val persisterData = WritePersisterData.create(getObject(o))
+                                         override val clazz: KClass<T>) : WriteFieldData<T> {
+    private val persisterData = WritePersisterData.create(property.returnType.classifier!! as KClass<T>)
 
-    override fun fNEqualsValue(prefix: String?, sep:String): String {
-        return persisterData.fNEqualsValue(name(prefix), sep)
+    override fun fNEqualsValue(o:T, prefix: String?, sep:String): String {
+        return persisterData.fNEqualsValue(getObject(o), name(prefix), sep)
     }
 
-    override fun insertValue(): String {
-        return persisterData.insertValueString()
+    override fun insertValue(o:T): String {
+        return persisterData.insertValueString(getObject(o))
     }
 
     override fun insertHead(prefix: String?): String {

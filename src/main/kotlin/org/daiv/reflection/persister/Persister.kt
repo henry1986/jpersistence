@@ -26,7 +26,6 @@ package org.daiv.reflection.persister
 import org.daiv.reflection.common.getList
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
-import org.daiv.reflection.read.KeyPersisterData
 import org.daiv.reflection.read.ReadPersisterData
 import org.daiv.reflection.write.WritePersisterData
 import org.daiv.reflection.write.WriteSimpleType
@@ -71,15 +70,9 @@ class Persister(private val statement: Statement) {
         write(createTable)
     }
 
-    fun insert(o: Any) {
-        val createTable = WritePersisterData.create(o)
-            .insert()
-        println(createTable)
-        write(createTable)
-    }
-
     inner class Table<R : Any>(private val clazz: KClass<R>) {
         private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz)
+        private val writePersisterData: WritePersisterData<R> = WritePersisterData.create(clazz)
 
         /**
          * returns "[fieldName] = [id]" for primitive Types, or the complex variant for complex types
@@ -89,8 +82,8 @@ class Persister(private val statement: Statement) {
             return if (id::class.java.isPrimitiveOrWrapperOrString()) {
                 "$fieldName = ${WriteSimpleType.makeString(id)}"
             } else {
-                val writePersisterData = WritePersisterData.create(id)
-                "${writePersisterData.fNEqualsValue(fieldName, sep)}"
+                val writePersisterData = WritePersisterData.create(id::class as KClass<Any>)
+                "${writePersisterData.fNEqualsValue(id, fieldName, sep)}"
             }
         }
 
@@ -116,8 +109,16 @@ class Persister(private val statement: Statement) {
             return read(idName, id)[0]
         }
 
-        fun insert(t: R) {
-            this@Persister.insert(t)
+        fun insert(o: R) {
+            val createTable = writePersisterData.insert(o)
+            println(createTable)
+            write(createTable)
+        }
+
+        fun insert(o: List<R>) {
+            val createTable = writePersisterData.insertList(o)
+            println(createTable)
+            write(createTable)
         }
 
         fun exists(fieldName: String, id: Any): Boolean {
@@ -136,6 +137,9 @@ class Persister(private val statement: Statement) {
             delete(idName, id)
         }
 
+        fun clear() {
+            this@Persister.write("DELETE from $tableName;")
+        }
 
         /**
          * [fieldName2Set] is the fieldName of the field, that has to be reset by [value].

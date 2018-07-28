@@ -25,28 +25,31 @@ package org.daiv.reflection.write
 
 import org.daiv.immutable.utils.persistence.annotations.FlatList
 import org.daiv.reflection.common.ListUtil
+import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 
 internal class WriteListType<T : Any>(override val property: KProperty1<Any, T>,
-                             override val flatList: FlatList,
-                             override val o: Any) : WriteFieldData<T>, ListUtil<T> {
-    override fun fNEqualsValue(prefix: String?, sep:String): String {
+                                      override val flatList: FlatList,
+                                      override val clazz: KClass<T>) : WriteFieldData<T>, ListUtil<T> {
+    override fun fNEqualsValue(o: T, prefix: String?, sep: String): String {
         throw UnsupportedOperationException("currently not supported")
     }
 
-    private fun <T> map(f: (Int, WritePersisterData<Any>) -> T): String {
-        val l = property.get(o) as List<Any>
+    private fun <T> map(o:T, f: (Int, WritePersisterData<out Any>) -> T): String {
+        val l = property.get(o as Any) as List<Any>
         return (0..flatList.size)
             .asSequence()
-            .map { i -> f(i, WritePersisterData.create(l[i])) }
+            .map { i -> f(i, WritePersisterData.create(l[i]::class)) }
             .joinToString(", ")
     }
 
-    override fun insertValue(): String {
-        return map({ _, p -> p.insertValueString() })
+    override fun insertValue(o: T): String {
+        throw UnsupportedOperationException("currently not supported")
+//        return map { _, p -> p.insertValueString() }
     }
 
     override fun insertHead(prefix: String?): String {
-        return map({ i, p -> p.insertHeadString(listElementName(i)) })
+        throw UnsupportedOperationException("currently not supported")
+//        return map { i, p -> p.insertHeadString(listElementName(i)) }
     }
 }

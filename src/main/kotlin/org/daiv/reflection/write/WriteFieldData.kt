@@ -25,6 +25,7 @@ package org.daiv.reflection.write
 
 import org.daiv.immutable.utils.persistence.annotations.FlatList
 import org.daiv.reflection.common.FieldData
+import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.jvm.isAccessible
 
@@ -33,7 +34,7 @@ internal interface WriteFieldData<T : Any> : FieldData<T> {
     /**
      * object that has [property] as member and that is to read from
      */
-    val o: Any
+    val clazz: KClass<T>
 
 
     /**
@@ -64,8 +65,8 @@ internal interface WriteFieldData<T : Any> : FieldData<T> {
      *
      * @return the string for the "INSERT INTO " command
      */
-    fun insertValue(): String
+    fun insertValue(o: T): String
 
-    fun fNEqualsValue(prefix: String?, sep:String): String
+    fun fNEqualsValue(o: T, prefix: String?, sep:String): String
 
 }

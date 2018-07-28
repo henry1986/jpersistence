@@ -104,8 +104,8 @@ internal interface FieldDataFactory<T : Any, R : FieldData<T>> {
                                                                                                            factory)
         }
 
-        internal fun fieldsWrite(o: Any): List<WriteFieldData<Any>> {
-            return getFields(o::class, WriteFactory<Any>(o))
+        internal fun fieldsWrite(o: KClass<Any>): List<WriteFieldData<Any>> {
+            return getFields(o, WriteFactory<Any>(o))
         }
 
         internal fun <T : Any> fieldsRead(clazz: KClass<T>): List<ReadFieldData<Any>> {
@@ -115,7 +115,7 @@ internal interface FieldDataFactory<T : Any, R : FieldData<T>> {
     }
 }
 
-private class WriteFactory<T : Any>(val o: Any) : FieldDataFactory<T, WriteFieldData<T>> {
+private class WriteFactory<T : Any>(val o: KClass<T>) : FieldDataFactory<T, WriteFieldData<T>> {
     override fun getSimpleType(property: KProperty1<Any, T>, flatList: FlatList) =
         WriteSimpleType(property, flatList, o)
 

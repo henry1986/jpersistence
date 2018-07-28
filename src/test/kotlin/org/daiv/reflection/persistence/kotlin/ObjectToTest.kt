@@ -28,6 +28,7 @@ import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.read.ReadPersisterData
 import org.daiv.reflection.write.WritePersisterData
+import kotlin.reflect.KClass
 import kotlin.test.assertEquals
 
 class ObjectToTest(private val o: Any,
@@ -40,7 +41,7 @@ class ObjectToTest(private val o: Any,
     private val d: DatabaseInterface = DatabaseWrapper.create("PersisterTest$testName.db")
     private val p by lazy { Persister(d) }
     private val r = ReadPersisterData.create(o::class)
-    private val w = WritePersisterData.create(o)
+    private val w = WritePersisterData.create(o::class as KClass<Any>)
 
     fun open() {
         d.open()
@@ -50,12 +51,13 @@ class ObjectToTest(private val o: Any,
         try {
             d.statement.execute(r.createTable())
         }catch (ex : Exception){
-            throw RuntimeException("failed to exceute: ${r.createTable()}")
+            throw RuntimeException("failed to execute: ${r.createTable()}")
         }
+        val insert = w.insert(o)
         try {
-            d.statement.execute(w.insert())
+            d.statement.execute(insert)
         }catch (ex : Exception){
-            throw RuntimeException("failed to exceute: ${w.insert()}")
+            throw RuntimeException("failed to execute: $insert")
         }
     }
 
@@ -66,7 +68,7 @@ class ObjectToTest(private val o: Any,
     }
 
     fun checkInsert() {
-        val insert = w.insert()
+        val insert = w.insert(o)
         assertEquals(insertString, insert)
         println(insert)
     }
