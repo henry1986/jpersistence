@@ -29,7 +29,7 @@ import kotlin.reflect.KClass
 internal class WritePersisterData<T : Any> private constructor(private val clazz: KClass<T>,
                                                                private val fields: List<WriteFieldData<Any>>) {
     val tableName
-        get() = clazz.simpleName!!
+        get() = "`${clazz.simpleName!!}`"
 
     fun insertHeadString(prefix: String?): String {
         return fields.joinToString(separator = ", ", transform = { f -> f.insertHead(prefix) })

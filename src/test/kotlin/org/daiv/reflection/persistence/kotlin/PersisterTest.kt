@@ -42,7 +42,7 @@ class PersisterTest :
              data class ComplexKObject(val x: Int, val y: SimpleObject)
              data class ComplexKey(val x: SimpleObject, val string: String)
              data class ReadValue(val id: Int, val string: String)
-             data class Users(val id: String)
+             data class Transaction(val id: String)
 
              val simpleObject = SimpleObject(5, "Hallo")
 
@@ -72,7 +72,13 @@ class PersisterTest :
                                   "(x_x, x_y, string ) VALUES (5, \"Hallo\", \"hello\")",
                                   "KotlinComplexKeyObject",
                                   simpleObject)
-             val listOf = listOf(s, p, c, k, t)
+             val u = ObjectToTest(Transaction("x5"),
+                                  "(id Text NOT NULL, PRIMARY KEY(id))",
+                                  "(id ) VALUES (\"x5\")",
+                                  "Transaction",
+                                  "x5")
+
+             val listOf = listOf(s, p, c, k, t, u)
              val database = DatabaseWrapper.create("ReadValue.db")
 
 

@@ -41,8 +41,9 @@ internal interface Evaluator<T> {
 }
 
 internal data class ReadPersisterData<T : Any> private constructor(override val tableName: String,
-                                                             private val method: (List<ReadFieldValue>) -> T,
-                                                             private val fields: List<ReadFieldData<Any>>) : Evaluator<T> {
+                                                                   private val method: (List<ReadFieldValue>) -> T,
+                                                                   private val fields: List<ReadFieldData<Any>>) :
+    Evaluator<T> {
     override fun evaluateToList(resultSet: ResultSet): List<T> {
         return resultSet.getList(::evaluate)
     }
@@ -75,9 +76,10 @@ internal data class ReadPersisterData<T : Any> private constructor(override val 
     }
 
     fun createTable(): String {
+        val createTableInnerData = createTableInnerData(null, 1)
+        val s = if (createTableInnerData == "") "" else "$createTableInnerData, "
         return ("CREATE TABLE IF NOT EXISTS "
-                + "$tableName (${fields.first().toTableHead(null)},"
-                + " ${createTableInnerData(null, 1)}, "
+                + "$tableName (${fields.first().toTableHead(null)}, $s"
                 + "PRIMARY KEY(${fields.first().key(null)}));")
     }
 
@@ -137,7 +139,7 @@ internal data class ReadPersisterData<T : Any> private constructor(override val 
             val persistenceRoot = clazz.annotations.filter { it is PersistenceRoot }
                 .map { it as PersistenceRoot }
                 .firstOrNull(PersistenceRoot::isJava)
-            return ReadPersisterData(clazz.java.simpleName,
+            return ReadPersisterData("`${clazz.java.simpleName}`",
                                      if (persistenceRoot?.isJava == true) createJava(clazz) else readValue(clazz.constructors.first()),
                                      FieldDataFactory.fieldsRead(clazz))
         }
