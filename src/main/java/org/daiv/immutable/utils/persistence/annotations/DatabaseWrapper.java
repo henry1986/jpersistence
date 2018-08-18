@@ -47,7 +47,6 @@ public class DatabaseWrapper implements DatabaseInterface {
 
 	public void close() {
 		try {
-
 			if (!connection.isClosed() && connection != null) {
 				connection.close();
 				if (connection.isClosed())
@@ -92,6 +91,9 @@ public class DatabaseWrapper implements DatabaseInterface {
 	@Override
 	public Statement getStatement() {
 		try {
+			if(connection == null){
+				throw new NullPointerException("Database connection not opened");
+			}
 			return connection.createStatement();
 		} catch (SQLException e) {
 			throw new RuntimeException(e);

@@ -137,7 +137,7 @@ internal data class ReadPersisterData<T : Any> private constructor(override val 
             val persistenceRoot = clazz.annotations.filter { it is PersistenceRoot }
                 .map { it as PersistenceRoot }
                 .firstOrNull(PersistenceRoot::isJava)
-            return ReadPersisterData(clazz.java.simpleName,
+            return ReadPersisterData("[${clazz.java.simpleName}]",
                                      if (persistenceRoot?.isJava == true) createJava(clazz) else readValue(clazz.constructors.first()),
                                      FieldDataFactory.fieldsRead(clazz))
         }
