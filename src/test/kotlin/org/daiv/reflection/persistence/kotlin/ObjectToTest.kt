@@ -88,7 +88,7 @@ class ObjectToTest(private val o: Any,
 }
 
 fun createTableString(objectName: String, values: String): String {
-    return "CREATE TABLE IF NOT EXISTS [$objectName] $values;"
+    return "CREATE TABLE IF NOT EXISTS $objectName $values;"
 }
 
 fun createInsertString(objectName: String, values: String): String {

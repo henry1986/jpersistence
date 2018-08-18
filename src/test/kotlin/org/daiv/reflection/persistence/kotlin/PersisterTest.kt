@@ -42,6 +42,7 @@ class PersisterTest :
              data class ComplexKObject(val x: Int, val y: SimpleObject)
              data class ComplexKey(val x: SimpleObject, val string: String)
              data class ReadValue(val id: Int, val string: String)
+             data class Users(val id: String)
 
              val simpleObject = SimpleObject(5, "Hallo")
 
@@ -71,7 +72,6 @@ class PersisterTest :
                                   "(x_x, x_y, string ) VALUES (5, \"Hallo\", \"hello\")",
                                   "KotlinComplexKeyObject",
                                   simpleObject)
-
              val listOf = listOf(s, p, c, k, t)
              val database = DatabaseWrapper.create("ReadValue.db")
 
@@ -139,11 +139,11 @@ class PersisterTest :
                              table.delete(6)
                              assertFalse(table.exists("string", "HollaY"))
                          }
-                         it("delete whole table"){
+                         it("delete whole table") {
                              table.clear()
                              assertTrue(table.readAll().isEmpty())
                          }
-                         it("insert list"){
+                         it("insert list") {
                              table.insert(readValues)
                              assertEquals(readValues, table.readAll())
                          }
