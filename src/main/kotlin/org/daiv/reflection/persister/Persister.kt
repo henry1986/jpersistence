@@ -23,12 +23,15 @@
 
 package org.daiv.reflection.persister
 
+import mu.KotlinLogging
 import org.daiv.reflection.common.getList
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.read.ReadPersisterData
 import org.daiv.reflection.write.WritePersisterData
 import org.daiv.reflection.write.WriteSimpleType
+import org.daiv.util.DefaultRegisterer
+import org.daiv.util.Registerer
 import java.sql.ResultSet
 import java.sql.SQLException
 import java.sql.Statement
@@ -38,7 +41,13 @@ import kotlin.reflect.full.cast
 /**
  * @author Martin Heinrich
  */
-class Persister(private val statement: Statement) {
+class Persister(private val statement: Statement,
+                private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
+    Registerer<DBChangeListener> by DefaultRegisterer() {
+
+    private fun event() {
+        registerer.forEach(DBChangeListener::onChange)
+    }
 
     constructor(databaseInterface: DatabaseInterface) : this(databaseInterface.statement)
 
@@ -66,13 +75,22 @@ class Persister(private val statement: Statement) {
 
     fun <T : Any> persist(clazz: KClass<T>) {
         val createTable = createTable(clazz)
-        println("table: $createTable")
+        logger.debug { "table: $createTable" }
         write(createTable)
+        event()
     }
 
-    inner class Table<R : Any>(private val clazz: KClass<R>) {
+    inner class Table<R : Any>(private val clazz: KClass<R>,
+                               private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
+        Registerer<DBChangeListener> by registerer {
+
         private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz)
         private val writePersisterData: WritePersisterData<R> = WritePersisterData.create(clazz)
+
+        private fun tableEvent() {
+            registerer.forEach(DBChangeListener::onChange)
+            event()
+        }
 
         /**
          * returns "[fieldName] = [id]" for primitive Types, or the complex variant for complex types
@@ -111,14 +129,16 @@ class Persister(private val statement: Statement) {
 
         fun insert(o: R) {
             val createTable = writePersisterData.insert(o)
-            println(createTable)
+            logger.debug(createTable)
             write(createTable)
+            tableEvent()
         }
 
         fun insert(o: List<R>) {
             val createTable = writePersisterData.insertList(o)
-            println(createTable)
+            logger.debug(createTable)
             write(createTable)
+            tableEvent()
         }
 
         fun exists(fieldName: String, id: Any): Boolean {
@@ -131,6 +151,7 @@ class Persister(private val statement: Statement) {
 
         fun delete(fieldName: String, id: Any) {
             this@Persister.write("DELETE ${fromWhere(fieldName, id, comma)};")
+            tableEvent()
         }
 
         fun delete(id: Any) {
@@ -139,6 +160,7 @@ class Persister(private val statement: Statement) {
 
         fun clear() {
             this@Persister.write("DELETE from $tableName;")
+            tableEvent()
         }
 
         /**
@@ -151,6 +173,7 @@ class Persister(private val statement: Statement) {
             write("UPDATE $tableName SET ${fNEqualsValue(fieldName2Set, value, comma)} ${whereClause(fieldName2Find,
                                                                                                      id,
                                                                                                      comma)}")
+            tableEvent()
         }
 
         /**
@@ -202,5 +225,6 @@ class Persister(private val statement: Statement) {
     companion object {
         private val comma = ","
         private val and = " and "
+        private val logger = KotlinLogging.logger {}
     }
 }

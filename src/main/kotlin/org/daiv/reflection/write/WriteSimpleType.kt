@@ -34,10 +34,8 @@ internal class WriteSimpleType<T : Any>(override val property: KProperty1<Any, T
                                         override val flatList: FlatList,
                                         override val clazz: KClass<T>) : WriteFieldData<T> {
     override fun insertValue(o: T): String {
-        val s = getObject(o).toString()
-        return if (property.getKClass() == String::class) {
-            "\"" + s + "\""
-        } else s
+        val any = getObject(o)
+        return makeString(any)
     }
 
     override fun insertHead(prefix: String?): String {
@@ -49,8 +47,13 @@ internal class WriteSimpleType<T : Any>(override val property: KProperty1<Any, T
     }
 
     companion object {
-        internal fun makeString(o: Any): String {
-            return if (o::class == String::class) "\"$o\"" else o.toString()
+        internal fun makeString(any: Any): String {
+            val s = any.toString()
+            return when (any::class){
+                String::class -> "\"" + s + "\""
+                Boolean::class -> if(s.toBoolean()) "1" else "0"
+                else -> s
+            }
         }
     }
 }

@@ -42,7 +42,7 @@ class PersisterTest :
              data class ComplexKObject(val x: Int, val y: SimpleObject)
              data class ComplexKey(val x: SimpleObject, val string: String)
              data class ReadValue(val id: Int, val string: String)
-             data class Transaction(val id: String)
+             data class Transaction(val id: String, val bool: Boolean)
 
              val simpleObject = SimpleObject(5, "Hallo")
 
@@ -72,9 +72,9 @@ class PersisterTest :
                                   "(x_x, x_y, string ) VALUES (5, \"Hallo\", \"hello\")",
                                   "KotlinComplexKeyObject",
                                   simpleObject)
-             val u = ObjectToTest(Transaction("x5"),
-                                  "(id Text NOT NULL, PRIMARY KEY(id))",
-                                  "(id ) VALUES (\"x5\")",
+             val u = ObjectToTest(Transaction("x5", false),
+                                  "(id Text NOT NULL, bool Boolean NOT NULL, PRIMARY KEY(id))",
+                                  "(id, bool ) VALUES (\"x5\", 0)",
                                   "Transaction",
                                   "x5")
 

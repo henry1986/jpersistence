@@ -42,8 +42,14 @@ internal class ReadSimpleType<T : Any>(override val property: KProperty1<Any, T>
 
     override fun getValue(resultSet: ResultSet, number: Int): NextSize<T> {
         try {
+            val any = resultSet.getObject(number)
+            val x = if(property.getKClass() == Boolean::class){
+                any == 1
+            } else {
+                any
+            }
             @Suppress("UNCHECKED_CAST")
-            return NextSize(resultSet.getObject(number) as T, number + 1)
+            return NextSize(x as T, number + 1)
         } catch (e: SQLException) {
             throw RuntimeException(e)
         }
