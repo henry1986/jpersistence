@@ -44,6 +44,7 @@ apply plugin: 'java'
 apply plugin: 'kotlin'
 apply plugin: 'org.junit.platform.gradle.plugin'
 apply plugin: 'maven-publish'
+apply plugin: 'maven'
 apply plugin: 'org.jetbrains.dokka'
 
 
@@ -87,6 +88,7 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
     compile group: 'org.xerial', name: 'sqlite-jdbc', version: '3.21.0.1'
 
+    testCompile "io.mockk:mockk:1.8.6"
     testCompile 'org.jetbrains.kotlin:kotlin-test:1.1.0'
     testCompile('org.jetbrains.spek:spek-api:1.1.5') {
         exclude group: 'org.jetbrains.kotlin'

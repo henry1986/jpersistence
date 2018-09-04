@@ -43,7 +43,7 @@ import kotlin.reflect.full.cast
  */
 class Persister(private val statement: Statement,
                 private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
-    Registerer<DBChangeListener> by DefaultRegisterer() {
+    Registerer<DBChangeListener> by registerer {
 
     private fun event() {
         registerer.forEach(DBChangeListener::onChange)

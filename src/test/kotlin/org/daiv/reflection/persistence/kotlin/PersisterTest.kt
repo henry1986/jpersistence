@@ -23,9 +23,12 @@
 
 package org.daiv.reflection.persistence.kotlin
 
+import io.mockk.mockk
+import io.mockk.verify
 import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
 import org.daiv.reflection.persistence.ComplexObject
 import org.daiv.reflection.persistence.PersisterObject
+import org.daiv.reflection.persister.DBChangeListener
 import org.daiv.reflection.persister.Persister
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
@@ -100,6 +103,8 @@ class PersisterTest :
                      on("special reads") {
                          database.open()
 
+                         val persisterListener = mockk<DBChangeListener>(relaxed = true)
+                         val tableListener = mockk<DBChangeListener>(relaxed = true)
                          val persister = Persister(database)
                          persister.persist(ReadValue::class)
                          val table = persister.Table(ReadValue::class)
@@ -126,7 +131,9 @@ class PersisterTest :
                              assertEquals(readValues, table.readAll())
                          }
                          it("check update") {
+                             persister.register(persisterListener)
                              table.update(6, "string", "neu")
+                             verify { persisterListener.onChange() }
                              assertEquals(changed6, table.read(6))
                          }
                          it("multiple read from column") {
@@ -150,7 +157,9 @@ class PersisterTest :
                              assertTrue(table.readAll().isEmpty())
                          }
                          it("insert list") {
+                             table.register(tableListener)
                              table.insert(readValues)
+                             verify { tableListener.onChange() }
                              assertEquals(readValues, table.readAll())
                          }
                      }
