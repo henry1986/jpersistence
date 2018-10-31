@@ -23,10 +23,16 @@
 
 package org.daiv.reflection.common
 
+import org.daiv.reflection.annotations.ManyToOne
+import org.daiv.reflection.read.NextSize
+import java.sql.ResultSet
+import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
+import kotlin.reflect.full.findAnnotation
+import kotlin.reflect.jvm.isAccessible
 
-internal interface FieldData<T : Any> {
-    val property: KProperty1<Any, T>
+internal interface FieldData<R:Any, T : Any> {
+    val property: KProperty1<R, T>
 
     val name get() = property.name
 
@@ -38,8 +44,8 @@ internal interface FieldData<T : Any> {
      * it is to be given here. null otherwise.
      * @return the name of the field in the database
      */
-    fun name(prefix: String?):String{
-        return if(prefix == null){
+    fun name(prefix: String?): String {
+        return if (prefix == null) {
             name
         } else {
             "${prefix}_$name"
@@ -60,8 +66,61 @@ internal interface FieldData<T : Any> {
         return property.name
     }
 
-//    fun name(prefix: String?): String {
-//        return if (prefix == null) property.name else prefix + "_" + property.name
-//    }
+    fun <R : Any> onMany2One(onManyToOne: (ManyToOne) -> R, noManyToOne: () -> R): R {
+        return property.findAnnotation<ManyToOne>()?.let(onManyToOne) ?: run(noManyToOne)
+
+
+    }
+    /**
+     * object that has [property] as member and that is to read from
+     */
+//    val clazz: KClass<T>
+
+
+    /**
+     * gets the [property] value of [o]
+     */
+    fun getObject(o: R): T {
+        property.isAccessible = true
+        return property.get(o)
+    }
+
+    /**
+     * this method creates the string for the sql command "INSERT INTO ", but
+     * only the values until "VALUES". For the values afterwards, see
+     * [insertValue]
+     *
+     * @param prefix
+     * a possible prefix for the variables name. Null, if no prefix
+     * is wanted.
+     *
+     * @return the string for the "INSERT INTO " command
+     */
+    fun insertHead(prefix: String?): String
+
+    /**
+     * this method creates the string for the sql command "INSERT INTO ", but
+     * only the values after "VALUES". For the values before, see
+     * [insertHead]
+     *
+     * @return the string for the "INSERT INTO " command
+     */
+    fun insertValue(o: R): String
+
+    fun fNEqualsValue(o: R, prefix: String?, sep:String): String
+
+    /**
+     * this method creates the string for the sql command "CREATE TABLE".
+     *
+     * @param prefix
+     * a possible prefix for the variables name. Null, if no prefix
+     * is wanted.
+     * @return the string for the "CREATE TABLE" command
+     */
+    fun toTableHead(prefix: String?): String
+
+    fun key(prefix: String?): String
+
+    fun getValue(resultSet: ResultSet, number: Int): NextSize<T>
 
 }

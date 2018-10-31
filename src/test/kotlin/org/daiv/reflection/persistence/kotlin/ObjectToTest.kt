@@ -27,7 +27,6 @@ import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.read.ReadPersisterData
-import org.daiv.reflection.write.WritePersisterData
 import kotlin.reflect.KClass
 import kotlin.test.assertEquals
 
@@ -40,8 +39,8 @@ class ObjectToTest<T : Any>(private val o: T,
     private val insertString: String = createInsertString(o::class.simpleName!!, insertString)
     private val d: DatabaseInterface = DatabaseWrapper.create("PersisterTest$testName.db")
     private val p by lazy { Persister(d) }
-    private val r = ReadPersisterData.create(o::class)
-    private val w = WritePersisterData.create(o::class as KClass<Any>)
+    private val table by lazy { p.Table(o::class as KClass<T>) }
+    private val r = ReadPersisterData.create(o::class as KClass<T>)
 
     fun open() {
         d.open()
@@ -49,19 +48,10 @@ class ObjectToTest<T : Any>(private val o: T,
 
     fun beforeReadFromDatabase() {
         try {
-//            d.statement.execute(r.createTable())
-            p.persist(o::class)
+            table.persist()
+            table.insert(o)
         } catch (ex: Exception) {
-            throw RuntimeException("failed to execute: ${r.createTable()}")
-        }
-        val insert = w.insert(o)
-        try {
-
-            p.Table(o::class as KClass<T>)
-                .insert(o)
-//            d.statement.execute(insert)
-        } catch (ex: Exception) {
-            throw RuntimeException("failed to execute: $insert")
+            throw RuntimeException("", ex)
         }
     }
 
@@ -72,7 +62,7 @@ class ObjectToTest<T : Any>(private val o: T,
     }
 
     fun checkInsert() {
-        val insert = w.insert(o)
+        val insert = r.insert(o)
         assertEquals(insertString, insert)
         println(insert)
     }

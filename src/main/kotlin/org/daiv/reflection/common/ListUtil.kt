@@ -26,8 +26,8 @@ package org.daiv.reflection.common
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 
-internal interface ListUtil <T : Any>{
-    val property : KProperty1<Any, T>
+internal interface ListUtil <R:Any, T : Any>{
+    val property : KProperty1<R, T>
 
     fun listElementName(i: Int): String {
         return property.name + "_" + i

@@ -23,12 +23,12 @@
 
 package org.daiv.reflection.read
 
-import org.daiv.reflection.common.tableName
+import org.daiv.reflection.common.FieldData
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 
-internal class ReadComplexType<T : Any>(override val property: KProperty1<Any, T>) : ReadFieldData<T> {
+internal class ReadComplexType<R:Any, T : Any>(override val property: KProperty1<R, T>) : FieldData<R, T> {
 
     private val persisterData = ReadPersisterData.create(property.returnType.classifier as KClass<T>)
 
@@ -42,5 +42,22 @@ internal class ReadComplexType<T : Any>(override val property: KProperty1<Any, T
 
     override fun getValue(resultSet: ResultSet, number: Int): NextSize<T> {
         return persisterData.read(resultSet, number)
+//        return onMany2One({manyToOne -> Persister(DatabaseWrapper.create("")).Table() }) { persisterData.read(resultSet, number) }
+    }
+    override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
+        return persisterData.fNEqualsValue(getObject(o), name(prefix), sep)
+    }
+
+    override fun insertValue(o: R): String {
+        return onMany2One({ "" }) { persisterData.insertValueString(getObject(o)) }
+//        return property.findAnnotation<ManyToOne>()?.let {
+//            ""
+//        } ?: run {
+//            persisterData.insertValueString(getObject(o))
+//        }
+    }
+
+    override fun insertHead(prefix: String?): String {
+        return persisterData.insertHeadString(name(prefix))
     }
 }

@@ -68,10 +68,10 @@ internal fun Class<*>.isPrimitiveOrWrapperOrString(): Boolean {
     return isPrimitive || isPrimitiveWrapperOrString()
 }
 
-internal fun KType.getKClass(): KClass<Any> {
-    return classifier as KClass<Any>
+internal fun<R:Any> KType.getKClass(): KClass<R> {
+    return classifier as KClass<R>
 }
 
-internal fun KProperty1<Any, Any>.getKClass(): KClass<Any>{
+internal fun<R:Any, T:Any> KProperty1<R, T>.getKClass(): KClass<T>{
     return returnType.getKClass()
 }

@@ -23,14 +23,14 @@
 
 package org.daiv.reflection.read
 
+import org.daiv.reflection.common.FieldData
 import org.daiv.reflection.common.FieldDataFactory
 import org.daiv.reflection.common.getList
-import org.daiv.reflection.common.tableName
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 
-internal data class ReadFieldValue(val value: Any, val fieldData: ReadFieldData<Any>)
+internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any,Any>)
 
 internal interface Evaluator<T> {
     fun evaluate(resultSet: ResultSet): T
@@ -38,7 +38,7 @@ internal interface Evaluator<T> {
 }
 
 internal data class ReadPersisterData<T : Any> private constructor(private val method: (List<ReadFieldValue>) -> T,
-                                                                   private val fields: List<ReadFieldData<Any>>) :
+                                                                   private val fields: List<FieldData<Any, Any>>) :
     Evaluator<T> {
     override fun evaluateToList(resultSet: ResultSet): List<T> {
         return resultSet.getList(::evaluate)
@@ -95,16 +95,45 @@ internal data class ReadPersisterData<T : Any> private constructor(private val m
         return read(resultSet, 0, counter, listOf()).transform(method)
     }
 
-//    fun read(resultSet: ResultSet, offset: Int): T {
-//        val values = (0..(fields.size - 1))
-//            .asSequence()
-//            .map { ReadFieldValue(fields[it].getValue(resultSet, it + 1 + offset), fields[it]) }
-//            .toList()
-//        return method.invoke(values)
-//    }
-
     internal fun read(resultSet: ResultSet): NextSize<T> {
         return read(resultSet, 1)
+    }
+
+    private fun map(t: (FieldData<Any, Any>) -> String): String {
+        return fields.asSequence()
+            .map(t)
+            .filter { it != "" }
+            .joinToString(separator = ", ")
+    }
+
+    fun insertHeadString(prefix: String?): String {
+        return map { it.insertHead(prefix) }
+    }
+
+    fun insertValueString(o: T): String {
+        return map { it.insertValue(o) }
+    }
+
+    fun fNEqualsValue(o: T, prefix: String?, sep: String): String {
+        return fields.joinToString(separator = sep, transform = { it.fNEqualsValue(o, prefix, sep) })
+    }
+
+    fun getKey(o: T): Any {
+        return fields.first()
+            .getObject(o)
+    }
+
+    fun insert(o: T): String {
+        val headString = insertHeadString(null)
+        val valueString = insertValueString(o)
+        return "($headString ) VALUES ($valueString);"
+    }
+
+    fun insertList(o: List<T>): String {
+        val headString = insertHeadString(null)
+        val valueString = o.joinToString(separator = "), (") { insertValueString(it) }
+//        val valueString = insertValueString(o)
+        return "($headString ) VALUES ($valueString);"
     }
 
     companion object {
@@ -118,31 +147,10 @@ internal data class ReadPersisterData<T : Any> private constructor(private val m
         }
 
 
-//        private fun <T : Any> javaReadValue(primaryConstructor: Constructor<T>): (List<ReadFieldValue>) -> T {
-//            return { values -> primaryConstructor.newInstance(*values.map { it.value }.toTypedArray()) }
-//        }
-
-//        private fun <T : Any> createJava(clazz: KClass<T>): (List<ReadFieldValue>) -> T {
-//            val declaredConstructors = clazz.java.declaredConstructors
-//            val first = declaredConstructors.first {
-//                it.isAnnotationPresent(ToPersistence::class.java)
-//            } as Constructor<T>
-//            return javaReadValue(first)
-//        }
-
 
         fun <T : Any> create(clazz: KClass<T>): ReadPersisterData<T> {
-//            val persistenceRoot = clazz.annotations.filter { it is PersistenceRoot }
-//                .map { it as PersistenceRoot }
-//                .firstOrNull(PersistenceRoot::isJava)
-            return ReadPersisterData(
-//                                     if (persistenceRoot?.isJava == true) createJava(clazz) else
-                readValue(clazz.constructors.first()),
-                FieldDataFactory.fieldsRead(clazz))
+            return ReadPersisterData(readValue(clazz.constructors.first()), FieldDataFactory.fieldsRead(clazz))
         }
 
-//        fun <T : Any> create(clazz: Class<T>): ReadPersisterData<T> {
-//            return create(clazz.kotlin)
-//        }
     }
 }

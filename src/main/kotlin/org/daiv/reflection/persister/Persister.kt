@@ -29,8 +29,7 @@ import org.daiv.reflection.common.tableName
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.read.ReadPersisterData
-import org.daiv.reflection.write.WritePersisterData
-import org.daiv.reflection.write.WriteSimpleType
+import org.daiv.reflection.read.ReadSimpleType
 import org.daiv.util.DefaultRegisterer
 import org.daiv.util.Registerer
 import java.sql.ResultSet
@@ -52,11 +51,6 @@ class Persister(private val statement: Statement,
 
     constructor(databaseInterface: DatabaseInterface) : this(databaseInterface.statement)
 
-    private fun <T : Any> createTable(clazz: KClass<T>): String {
-        return ReadPersisterData.create(clazz)
-            .createTable()
-    }
-
     private fun read(query: String): ResultSet {
         try {
             logger.debug(query)
@@ -76,23 +70,20 @@ class Persister(private val statement: Statement,
 
     }
 
-    fun <T : Any> persist(clazz: KClass<T>, tableName: String = clazz.tableName()) {
-        val createTable = "CREATE TABLE IF NOT EXISTS $tableName ${createTable(clazz)}"
-        logger.debug { "table: $createTable" }
-        write(createTable)
-        event()
-    }
-
     inner class Table<R : Any>(private val clazz: KClass<R>,
-                               val tableName: String = clazz.tableName(),
+                               private val tableName: String = clazz.tableName(),
                                private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
         Registerer<DBChangeListener> by registerer {
 
         private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz)
-        private val writePersisterData: WritePersisterData<R> = WritePersisterData.create(clazz)
 
         private fun tableEvent() {
             registerer.forEach(DBChangeListener::onChange)
+            event()
+        }
+
+        fun persist() {
+            write("CREATE TABLE IF NOT EXISTS $tableName ${readPersisterData.createTable()}")
             event()
         }
 
@@ -102,9 +93,9 @@ class Persister(private val statement: Statement,
          */
         private fun fNEqualsValue(fieldName: String, id: Any, sep: String): String {
             return if (id::class.java.isPrimitiveOrWrapperOrString()) {
-                "$fieldName = ${WriteSimpleType.makeString(id)}"
+                "$fieldName = ${ReadSimpleType.makeString(id)}"
             } else {
-                val writePersisterData = WritePersisterData.create(id::class as KClass<Any>)
+                val writePersisterData = ReadPersisterData.create(id::class as KClass<Any>)
                 "${writePersisterData.fNEqualsValue(id, fieldName, sep)}"
             }
         }
@@ -129,13 +120,13 @@ class Persister(private val statement: Statement,
         }
 
         fun insert(o: R) {
-            val createTable = "INSERT INTO $tableName ${writePersisterData.insert(o)}"
+            val createTable = "INSERT INTO $tableName ${readPersisterData.insert(o)}"
             write(createTable)
             tableEvent()
         }
 
         fun insert(o: List<R>) {
-            val createTable = "INSERT INTO $tableName ${writePersisterData.insertList(o)}"
+            val createTable = "INSERT INTO $tableName ${readPersisterData.insertList(o)}"
             write(createTable)
             tableEvent()
         }
@@ -220,8 +211,8 @@ class Persister(private val statement: Statement,
     }
 
     companion object {
-        private val comma = ","
-        private val and = " and "
+        private const val comma = ", "
+        private const val and = " and "
         private val logger = KotlinLogging.logger {}
     }
 }

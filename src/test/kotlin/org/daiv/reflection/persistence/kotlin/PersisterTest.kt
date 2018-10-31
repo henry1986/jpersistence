@@ -48,7 +48,7 @@ class PersisterTest :
              data class Transaction(val id: String, val bool: Boolean)
              data class ComplexM2O(val id: Int, val name: String, val value: Double)
              data class ComplexHost(val id: Int, @ManyToOne val x1: ComplexM2O, @ManyToOne val x2: ComplexM2O)
-             data class ComplexHost2(val id: Int, @ManyToOne @Many(2) val x1: List<ComplexM2O>, @ManyToOne @Many(2) val x2: List<ComplexM2O>)
+             data class ComplexHost2(val id: Int, @Many(2) val x1: List<ComplexM2O>, @Many(2) val x2: List<ComplexM2O>)
 
 
              val simpleObject = SimpleObject(5, "Hallo")
@@ -110,8 +110,8 @@ class PersisterTest :
                          val persisterListener = mockk<DBChangeListener>(relaxed = true)
                          val tableListener = mockk<DBChangeListener>(relaxed = true)
                          val persister = Persister(database)
-                         persister.persist(ReadValue::class)
                          val table = persister.Table(ReadValue::class)
+                         table.persist()
                          val readValues = listOf(ReadValue(5, "HalloX"), ReadValue(6, "HollaY"), ReadValue(7, "neu"))
                          val changed6 = ReadValue(6, "neu")
                          readValues.forEach(table::insert)
@@ -167,9 +167,9 @@ class PersisterTest :
                              assertEquals(readValues, table.readAll())
                          }
                          it("list creation") {
-                             persister.persist(ComplexHost2::class)
-                             persister.persist(ComplexHost::class)
+                             persister.Table(ComplexHost2::class).persist()
                              val complexHostTable = persister.Table(ComplexHost::class)
+                             complexHostTable.persist()
                              complexHostTable.insert(ComplexHost(5,
                                                                  ComplexM2O(2, "myName", 6.0),
                                                                  ComplexM2O(3, "nextName", 7.0)))

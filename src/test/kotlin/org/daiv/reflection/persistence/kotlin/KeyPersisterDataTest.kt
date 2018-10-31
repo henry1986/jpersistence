@@ -24,7 +24,6 @@
 package org.daiv.reflection.persistence.kotlin
 
 import org.daiv.reflection.read.ReadPersisterData
-import org.daiv.reflection.write.WritePersisterData
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it

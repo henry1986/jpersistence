@@ -108,12 +108,10 @@ artifactory {
             username = "${artifactory_user}"
             password = "${artifactory_password}"
             maven = true
-
         }
         defaults {
             publications('mavenJava')
         }
-
     }
     resolve {
         repository {
@@ -121,7 +119,6 @@ artifactory {
             username = "${artifactory_user}"
             password = "${artifactory_password}"
             maven = true
-
         }
     }
 }

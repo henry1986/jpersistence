@@ -27,23 +27,18 @@ import org.daiv.reflection.annotations.Many
 import org.daiv.reflection.getKClass
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.read.ReadComplexType
-import org.daiv.reflection.read.ReadFieldData
 import org.daiv.reflection.read.ReadListType
 import org.daiv.reflection.read.ReadSimpleType
-import org.daiv.reflection.write.WriteComplexType
-import org.daiv.reflection.write.WriteFieldData
-import org.daiv.reflection.write.WriteListType
-import org.daiv.reflection.write.WriteSimpleType
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
 
-internal interface FieldDataFactory<T : Any, R : FieldData<T>> {
+internal interface FieldDataFactory<T : Any, R : FieldData<Any, T>> {
 
     fun getSimpleType(property: KProperty1<Any, T>): R
 
-    fun getListType(property: KProperty1<Any, T>, many: Many): R
+    fun getListType(property: KProperty1<Any, List<T>>, many: Many, listType: KClass<T>): FieldData<Any, List<T>>
 
     fun getComplexType(property: KProperty1<Any, T>): R
 
@@ -53,8 +48,8 @@ internal interface FieldDataFactory<T : Any, R : FieldData<T>> {
 
 
     companion object {
-        private fun <T : Any, R : FieldData<T>> create(property: KProperty1<Any, T>,
-                                                       f: FieldDataFactory<T, R>): R {
+        private inline fun <reified T : Any, R : FieldData<Any, T>> create(property: KProperty1<Any, T>,
+                                                                           f: FieldDataFactory<T, R>): R {
             return when {
                 property.getKClass().java.isPrimitiveOrWrapperOrString() -> f.getSimpleType(property)
 //                property.annotations.any { it == ManyToOne::class } -> if (property.getKClass().java != List::class.java) {
@@ -67,13 +62,15 @@ internal interface FieldDataFactory<T : Any, R : FieldData<T>> {
                     if (property.getKClass().java != List::class.java) {
                         throw RuntimeException("Field's size is not 1, so type of field must be List")
                     }
-                    f.getListType(property, property.findAnnotation()!!)
+                    f.getListType(property as KProperty1<Any, List<T>>,
+                                  property.findAnnotation()!!,
+                                  property.returnType.arguments.first().type!!.classifier as KClass<T>) as R
                 }
             }
         }
 
-        private fun <T : Any, R : FieldData<T>> getFieldsKotlin(clazz: KClass<out T>,
-                                                                factory: FieldDataFactory<T, R>): List<R> {
+        private inline fun <reified T : Any, R : FieldData<Any, T>> getFieldsKotlin(clazz: KClass<out T>,
+                                                                                    factory: FieldDataFactory<T, R>): List<R> {
             val primaryConstructor = clazz.constructors.first()
 //            val es = (primaryConstructor.annotations.firstOrNull { it == ToPersistence::class.java } as? ToPersistence)?.elements.orEmpty()
             val member = clazz.declaredMemberProperties
@@ -107,37 +104,43 @@ internal interface FieldDataFactory<T : Any, R : FieldData<T>> {
 //                                                                                                           factory)
 //        }
 
-        internal fun fieldsWrite(o: KClass<Any>): List<WriteFieldData<Any>> {
-            return getFieldsKotlin(o, WriteFactory<Any>(o))
-        }
+//        internal fun fieldsWrite(o: KClass<Any>): List<WriteFieldData<Any>> {
+//            return getFieldsKotlin(o, WriteFactory<Any>(o))
+//        }
 
-        internal fun <T : Any> fieldsRead(clazz: KClass<T>): List<ReadFieldData<Any>> {
+        internal fun <T : Any> fieldsRead(clazz: KClass<T>): List<FieldData<Any, Any>> {
             return getFieldsKotlin(clazz, ReadFactory<Any>())
         }
 
     }
 }
 
-private class WriteFactory<T : Any>(val o: KClass<T>) : FieldDataFactory<T, WriteFieldData<T>> {
-//    override fun foreignKey(property: KProperty1<Any, T>, flatList: FlatList): WriteFieldData<T> {
-//    }
+//private class WriteFactory<T : Any>(val o: KClass<T>) : FieldDataFactory<T, WriteFieldData<T>> {
+////    override fun foreignKey(property: KProperty1<Any, T>, flatList: FlatList): WriteFieldData<T> {
+////    }
+//
+//    override fun getSimpleType(property: KProperty1<Any, T>) =
+//        WriteSimpleType(property, o)
+//
+//    override fun getListType(property: KProperty1<Any, T>, many: Many) = WriteListType(property, many, o)
+//
+//    override fun getComplexType(property: KProperty1<Any, T>) =
+//        WriteComplexType(property, o)
+//}
+//inline fun <reified T : Any> classOfList(list: List<T>) = T::class
 
-    override fun getSimpleType(property: KProperty1<Any, T>) =
-        WriteSimpleType(property, o)
-
-    override fun getListType(property: KProperty1<Any, T>, many: Many) = WriteListType(property, many, o)
-
-    override fun getComplexType(property: KProperty1<Any, T>) =
-        WriteComplexType(property, o)
-}
-
-private class ReadFactory<T : Any> : FieldDataFactory<T, ReadFieldData<T>> {
+private class ReadFactory<T : Any> : FieldDataFactory<T, FieldData<Any, T>> {
 //    override fun foreignKey(property: KProperty1<Any, T>, flatList: FlatList): ReadFieldData<T> {
 //    }
 
     override fun getSimpleType(property: KProperty1<Any, T>) = ReadSimpleType(property)
 
-    override fun getListType(property: KProperty1<Any, T>, many: Many) = ReadListType(property, many)
+    override fun getListType(property: KProperty1<Any, List<T>>,
+                             many: Many,
+                             clazz: KClass<T>): FieldData<Any, List<T>> {
+        val r = ReadListType(property, many, clazz)
+        return r
+    }
 
     override fun getComplexType(property: KProperty1<Any, T>) = ReadComplexType(property)
 }

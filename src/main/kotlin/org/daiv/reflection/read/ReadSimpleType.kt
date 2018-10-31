@@ -23,12 +23,14 @@
 
 package org.daiv.reflection.read
 
+import org.daiv.reflection.common.FieldData
 import org.daiv.reflection.getKClass
 import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.reflect.KProperty1
 
-internal class ReadSimpleType<T : Any>(override val property: KProperty1<Any, T>) : ReadFieldData<T> {
+internal class ReadSimpleType<R:Any, T : Any>(override val property: KProperty1<R, T>) : FieldData<R, T> {
+
     override fun key(prefix: String?): String {
         return name(prefix)
     }
@@ -43,7 +45,7 @@ internal class ReadSimpleType<T : Any>(override val property: KProperty1<Any, T>
     override fun getValue(resultSet: ResultSet, number: Int): NextSize<T> {
         try {
             val any = resultSet.getObject(number)
-            val x = if(property.getKClass() == Boolean::class){
+            val x = if (property.getKClass() == Boolean::class) {
                 any == 1
             } else {
                 any
@@ -55,7 +57,29 @@ internal class ReadSimpleType<T : Any>(override val property: KProperty1<Any, T>
         }
     }
 
+    override fun insertValue(o: R): String {
+        val any = getObject(o)
+        return makeString(any)
+    }
+
+    override fun insertHead(prefix: String?): String {
+        return name(prefix)
+    }
+
+    override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
+        return "${name(prefix)} = ${makeString(getObject(o))}"
+    }
+
+
     companion object {
         private val valueMappingJavaSQL = mapOf("long" to "bigInt", "String" to "Text")
+        internal fun makeString(any: Any): String {
+            val s = any.toString()
+            return when (any::class) {
+                String::class -> "\"" + s + "\""
+                Boolean::class -> if (s.toBoolean()) "1" else "0"
+                else -> s
+            }
+        }
     }
 }
