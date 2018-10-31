@@ -23,15 +23,10 @@
 
 package org.daiv.reflection.write
 
-import org.daiv.immutable.utils.persistence.annotations.FlatList
-import org.daiv.reflection.getKClass
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
-import kotlin.reflect.jvm.isAccessible
-import kotlin.reflect.jvm.javaType
 
 internal class WriteSimpleType<T : Any>(override val property: KProperty1<Any, T>,
-                                        override val flatList: FlatList,
                                         override val clazz: KClass<T>) : WriteFieldData<T> {
     override fun insertValue(o: T): String {
         val any = getObject(o)

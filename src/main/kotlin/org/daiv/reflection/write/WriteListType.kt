@@ -23,13 +23,13 @@
 
 package org.daiv.reflection.write
 
-import org.daiv.immutable.utils.persistence.annotations.FlatList
+import org.daiv.reflection.annotations.Many
 import org.daiv.reflection.common.ListUtil
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 
 internal class WriteListType<T : Any>(override val property: KProperty1<Any, T>,
-                                      override val flatList: FlatList,
+                                      private val many: Many,
                                       override val clazz: KClass<T>) : WriteFieldData<T>, ListUtil<T> {
     override fun fNEqualsValue(o: T, prefix: String?, sep: String): String {
         throw UnsupportedOperationException("currently not supported")
@@ -37,7 +37,7 @@ internal class WriteListType<T : Any>(override val property: KProperty1<Any, T>,
 
     private fun <T> map(o:T, f: (Int, WritePersisterData<out Any>) -> T): String {
         val l = property.get(o as Any) as List<Any>
-        return (0..flatList.size)
+        return (0..many.size)
             .asSequence()
             .map { i -> f(i, WritePersisterData.create(l[i]::class)) }
             .joinToString(", ")

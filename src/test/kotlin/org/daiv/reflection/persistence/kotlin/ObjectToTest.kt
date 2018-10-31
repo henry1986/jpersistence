@@ -31,11 +31,11 @@ import org.daiv.reflection.write.WritePersisterData
 import kotlin.reflect.KClass
 import kotlin.test.assertEquals
 
-class ObjectToTest(private val o: Any,
-                   tableString: String,
-                   insertString: String,
-                   private val testName: String,
-                   private val key: Any) {
+class ObjectToTest<T : Any>(private val o: T,
+                            tableString: String,
+                            insertString: String,
+                            private val testName: String,
+                            private val key: Any) {
     private val tableCreateString: String = createTableString(o::class.simpleName!!, tableString)
     private val insertString: String = createInsertString(o::class.simpleName!!, insertString)
     private val d: DatabaseInterface = DatabaseWrapper.create("PersisterTest$testName.db")
@@ -49,14 +49,18 @@ class ObjectToTest(private val o: Any,
 
     fun beforeReadFromDatabase() {
         try {
-            d.statement.execute(r.createTable())
-        }catch (ex : Exception){
+//            d.statement.execute(r.createTable())
+            p.persist(o::class)
+        } catch (ex: Exception) {
             throw RuntimeException("failed to execute: ${r.createTable()}")
         }
         val insert = w.insert(o)
         try {
-            d.statement.execute(insert)
-        }catch (ex : Exception){
+
+            p.Table(o::class as KClass<T>)
+                .insert(o)
+//            d.statement.execute(insert)
+        } catch (ex: Exception) {
             throw RuntimeException("failed to execute: $insert")
         }
     }
@@ -88,9 +92,9 @@ class ObjectToTest(private val o: Any,
 }
 
 fun createTableString(objectName: String, values: String): String {
-    return "CREATE TABLE IF NOT EXISTS `$objectName` $values;"
+    return /*CREATE TABLE IF NOT EXISTS `$objectName` */"$values;"
 }
 
 fun createInsertString(objectName: String, values: String): String {
-    return "INSERT INTO `$objectName` $values;"
+    return /*"INSERT INTO `$objectName` */"$values;"
 }

@@ -23,11 +23,9 @@
 
 package org.daiv.reflection.read
 
-import org.daiv.immutable.utils.persistence.annotations.PersistenceRoot
-import org.daiv.immutable.utils.persistence.annotations.ToPersistence
 import org.daiv.reflection.common.FieldDataFactory
 import org.daiv.reflection.common.getList
-import java.lang.reflect.Constructor
+import org.daiv.reflection.common.tableName
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
@@ -37,11 +35,9 @@ internal data class ReadFieldValue(val value: Any, val fieldData: ReadFieldData<
 internal interface Evaluator<T> {
     fun evaluate(resultSet: ResultSet): T
     fun evaluateToList(resultSet: ResultSet): List<T>
-    val tableName: String
 }
 
-internal data class ReadPersisterData<T : Any> private constructor(override val tableName: String,
-                                                                   private val method: (List<ReadFieldValue>) -> T,
+internal data class ReadPersisterData<T : Any> private constructor(private val method: (List<ReadFieldValue>) -> T,
                                                                    private val fields: List<ReadFieldData<Any>>) :
     Evaluator<T> {
     override fun evaluateToList(resultSet: ResultSet): List<T> {
@@ -54,6 +50,7 @@ internal data class ReadPersisterData<T : Any> private constructor(override val 
 
     private fun createTableInnerData(prefix: String?, skip: Int): String {
         return fields
+            .asSequence()
             .drop(skip)
             .joinToString(separator = ", ", transform = { it.toTableHead(prefix) })
     }
@@ -78,8 +75,7 @@ internal data class ReadPersisterData<T : Any> private constructor(override val 
     fun createTable(): String {
         val createTableInnerData = createTableInnerData(null, 1)
         val s = if (createTableInnerData == "") "" else "$createTableInnerData, "
-        return ("CREATE TABLE IF NOT EXISTS "
-                + "$tableName (${fields.first().toTableHead(null)}, $s"
+        return ("(${fields.first().toTableHead(null)}, $s"
                 + "PRIMARY KEY(${fields.first().key(null)}));")
     }
 
@@ -122,30 +118,31 @@ internal data class ReadPersisterData<T : Any> private constructor(override val 
         }
 
 
-        private fun <T : Any> javaReadValue(primaryConstructor: Constructor<T>): (List<ReadFieldValue>) -> T {
-            return { values -> primaryConstructor.newInstance(*values.map { it.value }.toTypedArray()) }
-        }
+//        private fun <T : Any> javaReadValue(primaryConstructor: Constructor<T>): (List<ReadFieldValue>) -> T {
+//            return { values -> primaryConstructor.newInstance(*values.map { it.value }.toTypedArray()) }
+//        }
 
-        private fun <T : Any> createJava(clazz: KClass<T>): (List<ReadFieldValue>) -> T {
-            val declaredConstructors = clazz.java.declaredConstructors
-            val first = declaredConstructors.first {
-                it.isAnnotationPresent(ToPersistence::class.java)
-            } as Constructor<T>
-            return javaReadValue(first)
-        }
+//        private fun <T : Any> createJava(clazz: KClass<T>): (List<ReadFieldValue>) -> T {
+//            val declaredConstructors = clazz.java.declaredConstructors
+//            val first = declaredConstructors.first {
+//                it.isAnnotationPresent(ToPersistence::class.java)
+//            } as Constructor<T>
+//            return javaReadValue(first)
+//        }
 
 
         fun <T : Any> create(clazz: KClass<T>): ReadPersisterData<T> {
-            val persistenceRoot = clazz.annotations.filter { it is PersistenceRoot }
-                .map { it as PersistenceRoot }
-                .firstOrNull(PersistenceRoot::isJava)
-            return ReadPersisterData("`${clazz.java.simpleName}`",
-                                     if (persistenceRoot?.isJava == true) createJava(clazz) else readValue(clazz.constructors.first()),
-                                     FieldDataFactory.fieldsRead(clazz))
+//            val persistenceRoot = clazz.annotations.filter { it is PersistenceRoot }
+//                .map { it as PersistenceRoot }
+//                .firstOrNull(PersistenceRoot::isJava)
+            return ReadPersisterData(
+//                                     if (persistenceRoot?.isJava == true) createJava(clazz) else
+                readValue(clazz.constructors.first()),
+                FieldDataFactory.fieldsRead(clazz))
         }
 
-        fun <T : Any> create(clazz: Class<T>): ReadPersisterData<T> {
-            return create(clazz.kotlin)
-        }
+//        fun <T : Any> create(clazz: Class<T>): ReadPersisterData<T> {
+//            return create(clazz.kotlin)
+//        }
     }
 }

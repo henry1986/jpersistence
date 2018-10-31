@@ -24,6 +24,7 @@
 package org.daiv.reflection.common
 
 import java.sql.ResultSet
+import kotlin.reflect.KClass
 
 fun <R : Any> ResultSet.getList(method: ResultSet.() -> R): List<R> {
     val mutableList = mutableListOf<R>()
@@ -32,3 +33,5 @@ fun <R : Any> ResultSet.getList(method: ResultSet.() -> R): List<R> {
     }
     return mutableList.toList()
 }
+
+fun <T : Any> KClass<T>.tableName() = "`${this.java.simpleName}`"

@@ -23,6 +23,7 @@
 
 package org.daiv.reflection.read
 
+import org.daiv.reflection.common.tableName
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1

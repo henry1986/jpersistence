@@ -26,40 +26,49 @@ package org.daiv.reflection.write
 import org.daiv.reflection.common.FieldDataFactory
 import kotlin.reflect.KClass
 
-internal class WritePersisterData<T : Any> private constructor(private val clazz: KClass<T>,
-                                                               private val fields: List<WriteFieldData<Any>>) {
-    val tableName
-        get() = "`${clazz.simpleName!!}`"
+internal class WritePersisterData<T : Any> private constructor(private val fields: List<WriteFieldData<Any>>) {
+
+    private fun map(t: (WriteFieldData<Any>) -> String): String {
+        return fields.asSequence()
+            .map(t)
+            .filter { it != "" }
+            .joinToString(separator = ", ")
+    }
 
     fun insertHeadString(prefix: String?): String {
-        return fields.joinToString(separator = ", ", transform = { f -> f.insertHead(prefix) })
+        return map { it.insertHead(prefix) }
     }
 
     fun insertValueString(o: T): String {
-        return fields.joinToString(separator = ", ", transform = { f -> f.insertValue(o) })
+        return map { it.insertValue(o) }
     }
 
     fun fNEqualsValue(o: T, prefix: String?, sep: String): String {
         return fields.joinToString(separator = sep, transform = { it.fNEqualsValue(o, prefix, sep) })
     }
 
+    fun getKey(o: T): Any {
+        return fields.first()
+            .getObject(o)
+    }
+
     fun insert(o: T): String {
         val headString = insertHeadString(null)
         val valueString = insertValueString(o)
-        return "INSERT INTO $tableName ($headString ) VALUES ($valueString);"
+        return "($headString ) VALUES ($valueString);"
     }
 
     fun insertList(o: List<T>): String {
         val headString = insertHeadString(null)
         val valueString = o.joinToString(separator = "), (") { insertValueString(it) }
 //        val valueString = insertValueString(o)
-        return "INSERT INTO $tableName ($headString ) VALUES ($valueString);"
+        return "($headString ) VALUES ($valueString);"
     }
 
     companion object {
 
         fun <T : Any> create(o: KClass<T>): WritePersisterData<T> {
-            return WritePersisterData(o, FieldDataFactory.fieldsWrite(o as KClass<Any>))
+            return WritePersisterData(FieldDataFactory.fieldsWrite(o as KClass<Any>))
         }
     }
 }

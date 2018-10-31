@@ -25,6 +25,7 @@ package org.daiv.reflection.persister
 
 import mu.KotlinLogging
 import org.daiv.reflection.common.getList
+import org.daiv.reflection.common.tableName
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.read.ReadPersisterData
@@ -58,6 +59,7 @@ class Persister(private val statement: Statement,
 
     private fun read(query: String): ResultSet {
         try {
+            logger.debug(query)
             return statement.executeQuery(query)
         } catch (e: SQLException) {
             throw RuntimeException("query: $query", e)
@@ -66,6 +68,7 @@ class Persister(private val statement: Statement,
 
     private fun write(query: String) {
         try {
+            logger.debug(query)
             statement.execute(query)
         } catch (e: SQLException) {
             throw RuntimeException("query: $query", e)
@@ -73,14 +76,15 @@ class Persister(private val statement: Statement,
 
     }
 
-    fun <T : Any> persist(clazz: KClass<T>) {
-        val createTable = createTable(clazz)
+    fun <T : Any> persist(clazz: KClass<T>, tableName: String = clazz.tableName()) {
+        val createTable = "CREATE TABLE IF NOT EXISTS $tableName ${createTable(clazz)}"
         logger.debug { "table: $createTable" }
         write(createTable)
         event()
     }
 
     inner class Table<R : Any>(private val clazz: KClass<R>,
+                               val tableName: String = clazz.tableName(),
                                private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
         Registerer<DBChangeListener> by registerer {
 
@@ -106,7 +110,7 @@ class Persister(private val statement: Statement,
         }
 
         private fun whereClause(fieldName: String, id: Any, sep: String): String {
-            return "WHERE ${fNEqualsValue(fieldName, id, " and ")}"
+            return "WHERE ${fNEqualsValue(fieldName, id, sep)}"
         }
 
         private fun fromWhere(fieldName: String, id: Any, sep: String): String {
@@ -120,23 +124,18 @@ class Persister(private val statement: Statement,
         private val idName
             get() = readPersisterData.getIdName()
 
-        private val tableName
-            get() = readPersisterData.tableName
-
-        fun read(id: Any): R {
-            return read(idName, id)[0]
+        fun read(id: Any): R? {
+            return read(idName, id).firstOrNull()
         }
 
         fun insert(o: R) {
-            val createTable = writePersisterData.insert(o)
-            logger.debug(createTable)
+            val createTable = "INSERT INTO $tableName ${writePersisterData.insert(o)}"
             write(createTable)
             tableEvent()
         }
 
         fun insert(o: List<R>) {
-            val createTable = writePersisterData.insertList(o)
-            logger.debug(createTable)
+            val createTable = "INSERT INTO $tableName ${writePersisterData.insertList(o)}"
             write(createTable)
             tableEvent()
         }
@@ -186,7 +185,6 @@ class Persister(private val statement: Statement,
             update(idName, id, fieldName2Set, value)
         }
 
-
         /**
          * returns all distinct values of the column [fieldName]
          *
@@ -195,7 +193,6 @@ class Persister(private val statement: Statement,
          * @since 0.0.8 -> group by is used instead of distinct
          */
         fun <T : Any> distinctValues(fieldName: String, clazz: KClass<T>): List<T> {
-
             return if (clazz.java.isPrimitiveOrWrapperOrString()) {
                 this@Persister.read("SELECT $fieldName from $tableName GROUP BY $fieldName;")
                     .getList { clazz.cast(getObject(1)) }

@@ -23,14 +23,11 @@
 
 package org.daiv.reflection.write
 
-import org.daiv.immutable.utils.persistence.annotations.FlatList
 import org.daiv.reflection.common.FieldData
 import kotlin.reflect.KClass
-import kotlin.reflect.KProperty1
 import kotlin.reflect.jvm.isAccessible
 
 internal interface WriteFieldData<T : Any> : FieldData<T> {
-    val flatList: FlatList
     /**
      * object that has [property] as member and that is to read from
      */

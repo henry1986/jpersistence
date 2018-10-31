@@ -20,17 +20,14 @@
  * THE SOFTWARE.
  *
  */
-package org.daiv.immutable.utils.persistence.annotations;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
+package org.daiv.reflection.annotations
 
-@Retention(RetentionPolicy.RUNTIME)
-public @interface FlatList {
+@Target(AnnotationTarget.PROPERTY)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ManyToOne(val tableName: String = "")
 
-	public String name();
+@Target(AnnotationTarget.PROPERTY)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class Many(val size: Int = 1)
 
-	public boolean isTableName() default false;
-
-	public int size() default 1;
-}
