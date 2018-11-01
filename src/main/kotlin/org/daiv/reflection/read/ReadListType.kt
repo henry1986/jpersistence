@@ -32,7 +32,7 @@ import kotlin.reflect.KProperty1
 
 internal class ReadListType<R : Any, T : Any>(override val property: KProperty1<R, List<T>>,
                                               private val many: Many,
-                                              clazz: KClass<T>,
+                                              val clazz: KClass<T>,
                                               val persister: Persister) : FieldData<R, List<T>> {
 
     private val persisterData = ReadPersisterData.create(clazz, persister)
@@ -50,19 +50,7 @@ internal class ReadListType<R : Any, T : Any>(override val property: KProperty1<
     override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
         return onMany2One({
                               val list = getObject(o)
-                              list.map { objectValue ->
-                                  val key = persisterData.getKey(objectValue)
-                                  val table = persister.Table(objectValue::class as KClass<T>)
-                                  table.read(key)?.let { dbValue ->
-                                      if (dbValue != objectValue) {
-                                          val msg = "values are not the same -> " +
-                                                  "databaseValue: $dbValue vs manyToOne Value: $objectValue"
-                                          throw RuntimeException(msg)
-                                      }
-                                  } ?: run {
-                                      table.insert(objectValue)
-                                  }
-                              }
+                              list.map { storeManyToOneObject(persisterData, it, persister) }
                               persisterData.onKey {
                                   (0 until list.size).flatMap {
                                       insertObject(list[it], this@ReadListType.listElementName(prefix, it))
@@ -74,16 +62,6 @@ internal class ReadListType<R : Any, T : Any>(override val property: KProperty1<
             }
         }
     }
-
-//    override fun insertValue(o: R): String {
-//        throw UnsupportedOperationException("currently not supported")
-////        return map { _, p -> p.insertValueString() }
-//    }
-//
-//    override fun insertHead(prefix: String?): String {
-//        throw UnsupportedOperationException("currently not supported")
-////        return map { i, p -> p.insertHeadString(listElementName(i)) }
-//    }
 
     override fun toTableHead(prefix: String?): String {
         return onMany2One({
@@ -98,13 +76,13 @@ internal class ReadListType<R : Any, T : Any>(override val property: KProperty1<
         return map { persisterData.createTableKeyData(listElementName(prefix, it)) }
     }
 
-    private tailrec fun getValue(resultSet: ResultSet,
-                                 i: Int,
-                                 counter: Int,
-                                 list: List<T>): NextSize<List<T>> {
+    private tailrec fun <T : Any> getValue(i: Int,
+                                           counter: Int,
+                                           list: List<T>,
+                                           func: (Int) -> NextSize<T>): NextSize<List<T>> {
         if (i < many.size) {
-            val (t, nextCounter) = persisterData.read(resultSet, counter)
-            return getValue(resultSet, i + 1, nextCounter, list + t)
+            val (t, nextCounter) = func(counter)
+            return getValue(i + 1, nextCounter, list + t, func)
         }
         return NextSize(list, counter)
     }
@@ -112,11 +90,10 @@ internal class ReadListType<R : Any, T : Any>(override val property: KProperty1<
     @Suppress("UNCHECKED_CAST")
     override fun getValue(resultSet: ResultSet, number: Int): NextSize<List<T>> {
         return onMany2One({
-                              val table = persister.Table(property.returnType.classifier as KClass<T>)
-                              val nextSize = persisterData.onKey { getValue(resultSet, number) }
-                              val value = table.read(nextSize.t)!!
-                              NextSize(value, nextSize.i)
-                          }) { getValue(resultSet, 0, number, emptyList()) }
+                              val n = getValue(0, number, emptyList()) { persisterData.readKey(resultSet, it) }
+                              val table = persister.Table(clazz)
+                              NextSize(n.t.map { table.read(it)!! }, n.i)
+                          }) { getValue(0, number, emptyList()) { persisterData.read(resultSet, it) } }
     }
 
 }

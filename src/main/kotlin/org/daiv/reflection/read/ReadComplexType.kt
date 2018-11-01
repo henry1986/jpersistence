@@ -29,7 +29,8 @@ import java.sql.ResultSet
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 
-internal class ReadComplexType<R : Any, T : Any>(override val property: KProperty1<R, T>, val persister: Persister) :
+internal class ReadComplexType<R : Any, T : Any>(override val property: KProperty1<R, T>,
+                                                 private val persister: Persister) :
     FieldData<R, T> {
 
     private val persisterData = ReadPersisterData.create(property.returnType.classifier as KClass<T>, persister)
@@ -65,17 +66,7 @@ internal class ReadComplexType<R : Any, T : Any>(override val property: KPropert
     override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
         return onMany2One({
                               val objectValue = getObject(o)
-                              val key = persisterData.getKey(objectValue)
-                              val table = persister.Table(objectValue::class as KClass<T>)
-                              table.read(key)?.let { dbValue ->
-                                  if (dbValue != objectValue) {
-                                      val msg = "values are not the same -> " +
-                                              "databaseValue: $dbValue vs manyToOne Value: $objectValue"
-                                      throw RuntimeException(msg)
-                                  }
-                              } ?: run {
-                                  table.insert(objectValue)
-                              }
+                              storeManyToOneObject(persisterData, objectValue, persister)
                               val n = name(prefix)
                               persisterData.onKey { insertObject(objectValue, n) }
                           }

@@ -88,6 +88,10 @@ internal data class ReadPersisterData<T : Any> private constructor(private val m
         return NextSize(list, counter)
     }
 
+    internal fun readKey(resultSet: ResultSet, counter: Int): NextSize<Any> {
+        return fields.first().getValue(resultSet,counter)
+    }
+
     internal fun read(resultSet: ResultSet, counter: Int): NextSize<T> {
         return read(resultSet, 0, counter, listOf()).transform(method)
     }

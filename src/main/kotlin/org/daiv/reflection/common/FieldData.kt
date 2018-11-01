@@ -24,8 +24,10 @@
 package org.daiv.reflection.common
 
 import org.daiv.reflection.annotations.ManyToOne
+import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.read.InsertObject
 import org.daiv.reflection.read.NextSize
+import org.daiv.reflection.read.ReadPersisterData
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
@@ -44,6 +46,20 @@ internal interface FieldData<R : Any, T : Any> {
 
     fun getGenericListType(): KClass<Any> {
         return property.returnType.arguments.first().type!!.classifier as KClass<Any>
+    }
+
+    fun<T:Any> storeManyToOneObject(persisterData: ReadPersisterData<T>, objectValue: T, persister: Persister) {
+        val key = persisterData.getKey(objectValue)
+        val table = persister.Table(objectValue::class as KClass<T>)
+        table.read(key)?.let { dbValue ->
+            if (dbValue != objectValue) {
+                val msg = "values are not the same -> " +
+                        "databaseValue: $dbValue vs manyToOne Value: $objectValue"
+                throw RuntimeException(msg)
+            }
+        } ?: run {
+            table.insert(objectValue)
+        }
     }
 
     /**
