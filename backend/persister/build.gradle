@@ -20,49 +20,9 @@
  * THE SOFTWARE.
  *
  */
-pluginManagement {
-    resolutionStrategy {
-        eachPlugin {
-            if (requested.id.id == "kotlin2js") {
-                useModule("org.jetbrains.kotlin:kotlin-gradle-plugin:${requested.version}")
-            }
-        }
-    }
+
+group 'org.daiv.jpersistence.persister'
+
+dependencies{
+    expectedBy project(':data')
 }
-
-rootProject.name = 'jpersistence'
-
-gradle.ext.commonProjects = []
-gradle.ext.jvmProjects = []
-gradle.ext.jsProjects = []
-
-
-def jvmModule(group, name) {
-    gradle.ext.jvmProjects.add(name)
-    include "$name"
-    project(":$name").projectDir = file("$group/$name")
-}
-
-def jsModule(group, name) {
-    gradle.ext.jsProjects.add(name)
-    include "$name"
-    project(":$name").projectDir = file("$group/$name")
-}
-
-/**
- * function that creates a common Module, that can be used from js and jvm
- * a submodule with $name-test is created as [jvmModule]
- * @param group
- * @param name
- * @return
- */
-def commonModule(group, name) {
-    gradle.ext.commonProjects.add(name)
-    include "$name"
-    project(":$name").projectDir = file("$group/$name")
-    jvmModule("$group/$name", name + "-jvm")
-    jsModule("$group/$name", name + "-js")
-}
-
-commonModule("mods", "data")
-jvmModule("backend", "persister")
