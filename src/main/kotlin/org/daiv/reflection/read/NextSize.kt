@@ -28,3 +28,27 @@ internal data class NextSize<T>(val t: T, val i: Int) {
         return NextSize(transformer(t), i)
     }
 }
+
+internal interface InsertObject<R : Any> {
+    /**
+     * this method creates the string for the sql command "INSERT INTO ", but
+     * only the values until "VALUES". For the values afterwards, see
+     * [insertValue]
+     *
+     * @param prefix
+     * a possible prefix for the variables name. Null, if no prefix
+     * is wanted.
+     *
+     * @return the string for the "INSERT INTO " command
+     */
+    fun insertHead(): String
+
+    /**
+     * this method creates the string for the sql command "INSERT INTO ", but
+     * only the values after "VALUES". For the values before, see
+     * [insertHead]
+     *
+     * @return the string for the "INSERT INTO " command
+     */
+    fun insertValue(): String
+}

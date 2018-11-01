@@ -35,12 +35,12 @@ class ObjectToTest<T : Any>(private val o: T,
                             insertString: String,
                             private val testName: String,
                             private val key: Any) {
-    private val tableCreateString: String = createTableString(o::class.simpleName!!, tableString)
-    private val insertString: String = createInsertString(o::class.simpleName!!, insertString)
+    private val tableCreateString: String = createTableString( tableString)
+    private val insertString: String = createInsertString(insertString)
     private val d: DatabaseInterface = DatabaseWrapper.create("PersisterTest$testName.db")
     private val p by lazy { Persister(d) }
     private val table by lazy { p.Table(o::class as KClass<T>) }
-    private val r = ReadPersisterData.create(o::class as KClass<T>)
+    private val r by lazy { ReadPersisterData.create(o::class as KClass<T>, p) }
 
     fun open() {
         d.open()
@@ -81,10 +81,10 @@ class ObjectToTest<T : Any>(private val o: T,
     }
 }
 
-fun createTableString(objectName: String, values: String): String {
+fun createTableString(values: String): String {
     return /*CREATE TABLE IF NOT EXISTS `$objectName` */"$values;"
 }
 
-fun createInsertString(objectName: String, values: String): String {
+fun createInsertString(values: String): String {
     return /*"INSERT INTO `$objectName` */"$values;"
 }

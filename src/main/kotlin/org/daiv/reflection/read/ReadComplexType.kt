@@ -24,40 +24,63 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.common.FieldData
+import org.daiv.reflection.persister.Persister
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 
-internal class ReadComplexType<R:Any, T : Any>(override val property: KProperty1<R, T>) : FieldData<R, T> {
+internal class ReadComplexType<R : Any, T : Any>(override val property: KProperty1<R, T>, val persister: Persister) :
+    FieldData<R, T> {
 
-    private val persisterData = ReadPersisterData.create(property.returnType.classifier as KClass<T>)
+    private val persisterData = ReadPersisterData.create(property.returnType.classifier as KClass<T>, persister)
 
     override fun key(prefix: String?): String {
         return persisterData.createTableKeyData(name(prefix))
     }
 
     override fun toTableHead(prefix: String?): String {
-        return persisterData.createTableString(name(prefix))
+        return onMany2One({
+                              val name = name(prefix)
+                              persisterData.onKey { toTableHead(name) }
+                          }) { persisterData.createTableString(name(prefix)) }
     }
 
     override fun getValue(resultSet: ResultSet, number: Int): NextSize<T> {
-        return persisterData.read(resultSet, number)
-//        return onMany2One({manyToOne -> Persister(DatabaseWrapper.create("")).Table() }) { persisterData.read(resultSet, number) }
+        return onMany2One({
+                              val table = persister.Table(property.returnType.classifier as KClass<T>)
+                              val nextSize = persisterData.onKey { getValue(resultSet, number) }
+                              val value = table.read(nextSize.t)!!
+                              NextSize(value, nextSize.i)
+                          }) { persisterData.read(resultSet, number) }
     }
+
     override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
-        return persisterData.fNEqualsValue(getObject(o), name(prefix), sep)
+        return onMany2One({
+                              val objectValue = getObject(o)
+                              val n = name(prefix)
+                              persisterData.onKey { fNEqualsValue(objectValue, n, sep) }
+                          }) { persisterData.fNEqualsValue(getObject(o), name(prefix), sep) }
     }
 
-    override fun insertValue(o: R): String {
-        return onMany2One({ "" }) { persisterData.insertValueString(getObject(o)) }
-//        return property.findAnnotation<ManyToOne>()?.let {
-//            ""
-//        } ?: run {
-//            persisterData.insertValueString(getObject(o))
-//        }
-    }
-
-    override fun insertHead(prefix: String?): String {
-        return persisterData.insertHeadString(name(prefix))
+    override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
+        return onMany2One({
+                              val objectValue = getObject(o)
+                              val key = persisterData.getKey(objectValue)
+                              val table = persister.Table(objectValue::class as KClass<T>)
+                              table.read(key)?.let { dbValue ->
+                                  if (dbValue != objectValue) {
+                                      val msg = "values are not the same -> " +
+                                              "databaseValue: $dbValue vs manyToOne Value: $objectValue"
+                                      throw RuntimeException(msg)
+                                  }
+                              } ?: run {
+                                  table.insert(objectValue)
+                              }
+                              val n = name(prefix)
+                              persisterData.onKey { insertObject(objectValue, n) }
+                          }
+        ) {
+            persisterData.insertObject(getObject(o), name(prefix))
+        }
     }
 }

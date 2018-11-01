@@ -41,7 +41,7 @@ import kotlin.reflect.full.cast
 /**
  * @author Martin Heinrich
  */
-class Persister(private val statement: Statement,
+class Persister(val databaseInterface: DatabaseInterface,
                 private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
     Registerer<DBChangeListener> by registerer {
 
@@ -49,12 +49,10 @@ class Persister(private val statement: Statement,
         registerer.forEach(DBChangeListener::onChange)
     }
 
-    constructor(databaseInterface: DatabaseInterface) : this(databaseInterface.statement)
-
     private fun read(query: String): ResultSet {
         try {
             logger.debug(query)
-            return statement.executeQuery(query)
+            return databaseInterface.statement.executeQuery(query)
         } catch (e: SQLException) {
             throw RuntimeException("query: $query", e)
         }
@@ -63,7 +61,7 @@ class Persister(private val statement: Statement,
     private fun write(query: String) {
         try {
             logger.debug(query)
-            statement.execute(query)
+            databaseInterface.statement.execute(query)
         } catch (e: SQLException) {
             throw RuntimeException("query: $query", e)
         }
@@ -75,7 +73,7 @@ class Persister(private val statement: Statement,
                                private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
         Registerer<DBChangeListener> by registerer {
 
-        private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz)
+        private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz, this@Persister)
 
         private fun tableEvent() {
             registerer.forEach(DBChangeListener::onChange)
@@ -95,7 +93,7 @@ class Persister(private val statement: Statement,
             return if (id::class.java.isPrimitiveOrWrapperOrString()) {
                 "$fieldName = ${ReadSimpleType.makeString(id)}"
             } else {
-                val writePersisterData = ReadPersisterData.create(id::class as KClass<Any>)
+                val writePersisterData = ReadPersisterData.create(id::class as KClass<Any>, this@Persister)
                 "${writePersisterData.fNEqualsValue(id, fieldName, sep)}"
             }
         }
@@ -188,7 +186,7 @@ class Persister(private val statement: Statement,
                 this@Persister.read("SELECT $fieldName from $tableName GROUP BY $fieldName;")
                     .getList { clazz.cast(getObject(1)) }
             } else {
-                val readPersisterData = ReadPersisterData.create(clazz)
+                val readPersisterData = ReadPersisterData.create(clazz, this@Persister)
                 val key = readPersisterData.createTableKeyData(fieldName)
                 this@Persister.read("SELECT $key from $tableName GROUP BY $key;")
                     .getList { clazz.cast(readPersisterData.evaluate(this)) }
@@ -202,12 +200,6 @@ class Persister(private val statement: Statement,
             return this@Persister.read("SELECT * from $tableName;")
                 .getList(readPersisterData::evaluate)
         }
-
-
-//        fun read(fieldName: String, id: Any) : List<R>{
-//            return this@Persister.read("SELECT * ${fromWhere(fieldName, id)}")
-//                .getList(readPersisterData::evaluate)
-//        }
     }
 
     companion object {

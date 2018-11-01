@@ -48,7 +48,8 @@ class PersisterTest :
              data class Transaction(val id: String, val bool: Boolean)
              data class ComplexM2O(val id: Int, val name: String, val value: Double)
              data class ComplexHost(val id: Int, @ManyToOne val x1: ComplexM2O, @ManyToOne val x2: ComplexM2O)
-             data class ComplexHost2(val id: Int, @Many(2) val x1: List<ComplexM2O>, @Many(2) val x2: List<ComplexM2O>)
+             data class ComplexHost2(val id: Int, @ManyToOne @Many(2) val x1: List<ComplexM2O>, @ManyToOne @Many(2) val x2: List<ComplexM2O>)
+             data class ComplexHostList(val id: Int, @Many(2) val x1: List<ComplexM2O>, @Many(2) val x2: List<ComplexM2O>)
 
 
              val simpleObject = SimpleObject(5, "Hallo")
@@ -166,27 +167,33 @@ class PersisterTest :
                              verify { tableListener.onChange() }
                              assertEquals(readValues, table.readAll())
                          }
-                         it("list creation") {
-                             persister.Table(ComplexHost2::class).persist()
+                         persister.Table(ComplexM2O::class)
+                             .persist()
+                         val e1 = ComplexM2O(2, "myName", 6.0)
+                         val e2 = ComplexM2O(3, "nextName", 7.0)
+                         val e3 = ComplexM2O(4, "e3", 4.0)
+                         it("on list") {
+                             val list = persister.Table(ComplexHostList::class)
+                             list.persist()
+                             val c = ComplexHostList(5, listOf(e1, e2), listOf(e2, e3))
+                             list.insert(c)
+                             assertEquals(c, list.read(5))
+                         }
+                         it("onManyToOne SimpleObject") {
                              val complexHostTable = persister.Table(ComplexHost::class)
                              complexHostTable.persist()
-                             complexHostTable.insert(ComplexHost(5,
-                                                                 ComplexM2O(2, "myName", 6.0),
-                                                                 ComplexM2O(3, "nextName", 7.0)))
+                             val c = ComplexHost(5, e1, e2)
+                             complexHostTable.insert(c)
+                             assertEquals(c, complexHostTable.read(5))
+                         }
+                         it("onManyToOne list") {
+                             val host2 = persister.Table(ComplexHost2::class)
+                             host2.persist()
+                             val c = ComplexHost2(5, listOf(e1, e2), listOf(e2, e3))
+                             host2.insert(c)
+                             assertEquals(c, host2.read(5))
                          }
                      }
-//                     pe.Table(ComplexHost2::class)
-//                     on("manyToOne") {
-//                         val tableM2O = Persister(database).Table(ComplexM2O::class)
-//                         val table = Persister(database).Table(ComplexHost::class)
-//                         val zero = ComplexM2O(0, "0", 5.0)
-//                         val first = ComplexM2O(1, "1", 6.0)
-//                         val second = ComplexM2O(2, "2", 7.0)
-//                         tableM2O.insert(zero)
-//                         tableM2O.insert(first)
-//                         tableM2O.insert(second)
-//                         table.insert(ComplexHost(9, first, second))
-//                     }
                      afterGroup { o.delete(); database.delete() }
                  }
              }

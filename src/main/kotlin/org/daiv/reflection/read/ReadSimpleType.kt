@@ -29,7 +29,7 @@ import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.reflect.KProperty1
 
-internal class ReadSimpleType<R:Any, T : Any>(override val property: KProperty1<R, T>) : FieldData<R, T> {
+internal class ReadSimpleType<R : Any, T : Any>(override val property: KProperty1<R, T>) : FieldData<R, T> {
 
     override fun key(prefix: String?): String {
         return name(prefix)
@@ -57,13 +57,17 @@ internal class ReadSimpleType<R:Any, T : Any>(override val property: KProperty1<
         }
     }
 
-    override fun insertValue(o: R): String {
-        val any = getObject(o)
-        return makeString(any)
-    }
+    override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
+        return listOf(object : InsertObject<Any> {
+            override fun insertValue(): String {
+                val any = getObject(o)
+                return makeString(any)
+            }
 
-    override fun insertHead(prefix: String?): String {
-        return name(prefix)
+            override fun insertHead(): String {
+                return name(prefix)
+            }
+        })
     }
 
     override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {

@@ -26,11 +26,12 @@ package org.daiv.reflection.read
 import org.daiv.reflection.common.FieldData
 import org.daiv.reflection.common.FieldDataFactory
 import org.daiv.reflection.common.getList
+import org.daiv.reflection.persister.Persister
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 
-internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any,Any>)
+internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any, Any>)
 
 internal interface Evaluator<T> {
     fun evaluate(resultSet: ResultSet): T
@@ -57,10 +58,6 @@ internal data class ReadPersisterData<T : Any> private constructor(private val m
 
     fun createTableKeyData(prefix: String): String {
         return fields.joinToString(separator = ", ", transform = { it.key(prefix) })
-    }
-
-    fun size(): Int {
-        return fields.size
     }
 
     fun createTableString(prefix: String): String {
@@ -106,12 +103,20 @@ internal data class ReadPersisterData<T : Any> private constructor(private val m
             .joinToString(separator = ", ")
     }
 
-    fun insertHeadString(prefix: String?): String {
-        return map { it.insertHead(prefix) }
+    fun insertObject(o: T, prefix: String?): List<InsertObject<Any>> {
+        return fields.flatMap { it.insertObject(o, prefix) }
     }
 
-    fun insertValueString(o: T): String {
-        return map { it.insertValue(o) }
+    private fun insertHeadString(insertObjects: List<InsertObject<Any>>): String {
+        return insertObjects.asSequence()
+            .map { it.insertHead() }
+            .joinToString(", ")
+    }
+
+    private fun insertValueString(insertObjects: List<InsertObject<Any>>): String {
+        return insertObjects.asSequence()
+            .map { it.insertValue() }
+            .joinToString(", ")
     }
 
     fun fNEqualsValue(o: T, prefix: String?, sep: String): String {
@@ -123,16 +128,26 @@ internal data class ReadPersisterData<T : Any> private constructor(private val m
             .getObject(o)
     }
 
+    fun keyClass() = fields.first().property.returnType.classifier as KClass<Any>
+
+    fun <R : Any> onKey(f: FieldData<Any, Any>.() -> R): R {
+        return fields.first()
+            .f()
+    }
+
     fun insert(o: T): String {
-        val headString = insertHeadString(null)
-        val valueString = insertValueString(o)
+        val insertObjects = insertObject(o, null)
+        val headString = insertHeadString(insertObjects)
+        val valueString = insertValueString(insertObjects)
         return "($headString ) VALUES ($valueString);"
     }
 
     fun insertList(o: List<T>): String {
-        val headString = insertHeadString(null)
-        val valueString = o.joinToString(separator = "), (") { insertValueString(it) }
-//        val valueString = insertValueString(o)
+        if (o.isEmpty()) {
+            return "() VALUES ();"
+        }
+        val headString = insertHeadString(insertObject(o.first(), null))
+        val valueString = o.joinToString(separator = "), (") { insertValueString(insertObject(it, null)) }
         return "($headString ) VALUES ($valueString);"
     }
 
@@ -141,15 +156,15 @@ internal data class ReadPersisterData<T : Any> private constructor(private val m
         private fun <T : Any> readValue(primaryConstructor: KFunction<T>): (List<ReadFieldValue>) -> T {
             return { values ->
                 primaryConstructor.callBy(
-                    primaryConstructor.parameters.map { it to values.first { v -> v.fieldData.name() == it.name }.value }
+                    primaryConstructor.parameters.map { it to values.first { v -> v.fieldData.name == it.name }.value }
                         .toMap())
             }
         }
 
 
-
-        fun <T : Any> create(clazz: KClass<T>): ReadPersisterData<T> {
-            return ReadPersisterData(readValue(clazz.constructors.first()), FieldDataFactory.fieldsRead(clazz))
+        fun <T : Any> create(clazz: KClass<T>, persister: Persister): ReadPersisterData<T> {
+            return ReadPersisterData(readValue(clazz.constructors.first()),
+                                     FieldDataFactory.fieldsRead(clazz, persister))
         }
 
     }
