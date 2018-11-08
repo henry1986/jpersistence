@@ -49,7 +49,7 @@ class Persister(val databaseInterface: DatabaseInterface,
         registerer.forEach(DBChangeListener::onChange)
     }
 
-    private fun read(query: String): ResultSet {
+    internal fun read(query: String): ResultSet {
         try {
             logger.debug(query)
             return databaseInterface.statement.executeQuery(query)
@@ -58,7 +58,7 @@ class Persister(val databaseInterface: DatabaseInterface,
         }
     }
 
-    private fun write(query: String) {
+    internal fun write(query: String) {
         try {
             logger.debug(query)
             databaseInterface.statement.execute(query)
@@ -68,12 +68,24 @@ class Persister(val databaseInterface: DatabaseInterface,
 
     }
 
-    inner class Table<R : Any>(private val clazz: KClass<R>,
-                               private val tableName: String = clazz.tableName(),
-                               private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
+    inner class Table<R : Any> internal constructor(private val readPersisterData: ReadPersisterData<R>,
+                                                    private val tableName: String) :
         Registerer<DBChangeListener> by registerer {
 
-        private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz, this@Persister)
+        constructor(clazz: KClass<R>, tableName: String = clazz.tableName())
+                : this(ReadPersisterData.create(clazz, this@Persister), tableName)
+
+        //        private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz, this@Persister)
+        private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()
+
+        private val selectHeader by lazy { readPersisterData.underscoreName() }
+        private val join by lazy {
+            readPersisterData.joinNames(tableName)
+                .map { "INNER JOIN ${it.join()}" }
+                .joinToString(" ")
+        }
+        private val idName
+            get() = readPersisterData.getIdName()
 
         private fun tableEvent() {
             registerer.forEach(DBChangeListener::onChange)
@@ -81,7 +93,7 @@ class Persister(val databaseInterface: DatabaseInterface,
         }
 
         fun persist() {
-            write("CREATE TABLE IF NOT EXISTS $tableName ${readPersisterData.createTable()}")
+            write("$createTable $tableName ${readPersisterData.createTable()}")
             event()
         }
 
@@ -106,12 +118,13 @@ class Persister(val databaseInterface: DatabaseInterface,
             return " FROM $tableName ${whereClause(fieldName, id, sep)}"
         }
 
+
         fun read(fieldName: String, id: Any): List<R> {
-            return readPersisterData.evaluateToList(this@Persister.read("SELECT * ${fromWhere(fieldName, id, and)};"))
+//            val req = "SELECT $selectHeader FROM $tableName $join ${whereClause(fieldName, id, and)};"
+            val req = "SELECT * ${fromWhere(fieldName, id, and)};"
+            return readPersisterData.evaluateToList(this@Persister.read(req))
         }
 
-        private val idName
-            get() = readPersisterData.getIdName()
 
         fun read(id: Any): R? {
             return read(idName, id).firstOrNull()
@@ -130,7 +143,9 @@ class Persister(val databaseInterface: DatabaseInterface,
         }
 
         fun exists(fieldName: String, id: Any): Boolean {
-            return this@Persister.read("SELECT EXISTS( SELECT * ${fromWhere(fieldName, id, comma)});").getInt(1) != 0
+            return this@Persister.read("SELECT EXISTS( SELECT $selectHeader ${fromWhere(fieldName,
+                                                                                        id,
+                                                                                        comma)});").getInt(1) != 0
         }
 
         fun exists(id: Any): Boolean {
@@ -197,7 +212,7 @@ class Persister(val databaseInterface: DatabaseInterface,
          * returns all data from the current Table [clazz]
          */
         fun readAll(): List<R> {
-            return this@Persister.read("SELECT * from $tableName;")
+            return this@Persister.read("SELECT $selectHeader from $tableName;")
                 .getList(readPersisterData::evaluate)
         }
     }
@@ -205,6 +220,7 @@ class Persister(val databaseInterface: DatabaseInterface,
     companion object {
         private const val comma = ", "
         private const val and = " and "
+        const val createTable = "CREATE TABLE IF NOT EXISTS"
         private val logger = KotlinLogging.logger {}
     }
 }

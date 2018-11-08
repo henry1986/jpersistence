@@ -35,20 +35,22 @@ import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.jvm.isAccessible
 
 internal interface FieldData<R : Any, T : Any> {
-    val property: KProperty1<R, T>
+    val propertyData: PropertyData<R, T>
 
-    val name get() = property.name
+    val name get() = propertyData.name
+
+    fun keyClassSimpleType():KClass<Any>
 
     fun listElementName(prefix: String?, i: Int): String {
         val indexedName = "${name}_$i"
         return prefix?.let { "${it}_$indexedName" } ?: "$indexedName"
     }
 
-    fun getGenericListType(): KClass<Any> {
-        return property.returnType.arguments.first().type!!.classifier as KClass<Any>
-    }
+//    fun getGenericListType(): KClass<Any> {
+//        return property.returnType.arguments.first().type!!.classifier as KClass<Any>
+//    }
 
-    fun<T:Any> storeManyToOneObject(persisterData: ReadPersisterData<T>, objectValue: T, persister: Persister) {
+    fun <T : Any> storeManyToOneObject(persisterData: ReadPersisterData<T>, objectValue: T, persister: Persister) {
         val key = persisterData.getKey(objectValue)
         val table = persister.Table(objectValue::class as KClass<T>)
         table.read(key)?.let { dbValue ->
@@ -70,21 +72,16 @@ internal interface FieldData<R : Any, T : Any> {
      * it is to be given here. null otherwise.
      * @return the name of the field in the database
      */
-    fun name(prefix: String?) = prefix?.let { "${it}_$name" } ?: "$name"
+    fun name(prefix: String?) = prefix?.let { "${it}_$name" } ?: name
 
-    fun <R : Any> onMany2One(onManyToOne: (ManyToOne) -> R, noManyToOne: () -> R): R {
-        return property.findAnnotation<ManyToOne>()?.let(onManyToOne) ?: run(noManyToOne)
-
-
-    }
+//    fun <R : Any> onMany2One(onManyToOne: (ManyToOne) -> R, noManyToOne: () -> R): R {
+//        return property.findAnnotation<ManyToOne>()?.let(onManyToOne) ?: run(noManyToOne)
+//    }
 
     /**
      * gets the [property] value of [o]
      */
-    fun getObject(o: R): T {
-        property.isAccessible = true
-        return property.get(o)
-    }
+    fun getObject(o: R) = propertyData.getObject(o)
 
     fun insertObject(o: R, prefix: String?): List<InsertObject<Any>>
 
@@ -98,9 +95,24 @@ internal interface FieldData<R : Any, T : Any> {
      * is wanted.
      * @return the string for the "CREATE TABLE" command
      */
-    fun toTableHead(prefix: String?): String
+    fun toTableHead(prefix: String?): String?
+    fun createTable(keyClass: KClass<Any>)
 
     fun key(prefix: String?): String
+
+    data class ForeignKey(val name:String, val clazzReference:String){
+        fun sqlMethod() = "FOREIGN KEY ($name) references $clazzReference"
+    }
+
+    fun foreignKey(): ForeignKey?
+
+    data class JoinName(val name:String, val clazzSimpleName: String, val keyName:String){
+        fun join() = "${clazzSimpleName} as $name ON $name = $name.${keyName}"
+    }
+
+    fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<JoinName>
+
+    fun underscoreName(prefix: String?): String
 
     fun getValue(resultSet: ResultSet, number: Int): NextSize<T>
 

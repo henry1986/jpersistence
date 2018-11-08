@@ -24,6 +24,7 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.common.FieldData
+import org.daiv.reflection.common.FieldData.JoinName
 import org.daiv.reflection.common.FieldDataFactory
 import org.daiv.reflection.common.getList
 import org.daiv.reflection.persister.Persister
@@ -38,9 +39,12 @@ internal interface Evaluator<T> {
     fun evaluateToList(resultSet: ResultSet): List<T>
 }
 
-internal data class ReadPersisterData<T : Any> private constructor(private val method: (List<ReadFieldValue>) -> T,
-                                                                   private val fields: List<FieldData<Any, Any>>) :
-    Evaluator<T> {
+internal data class ReadPersisterData<T : Any>(private val fields: List<FieldData<T, Any>>,
+                                               private val method: (List<ReadFieldValue>) -> T) : Evaluator<T> {
+
+    constructor(clazz: KClass<T>, persister: Persister) : this(FieldDataFactory.fieldsRead(clazz, persister),
+                                                               readValue(clazz.constructors.first()))
+
     override fun evaluateToList(resultSet: ResultSet): List<T> {
         return resultSet.getList(::evaluate)
     }
@@ -49,31 +53,61 @@ internal data class ReadPersisterData<T : Any> private constructor(private val m
         return read(resultSet).t
     }
 
+    fun underscoreName(): String {
+        return fields.map { it.underscoreName(null) }
+            .joinToString(", ")
+    }
+
+//    fun joins(): String {
+//        return fields.map { it.joins(null) }
+//            .filterNotNull()
+//            .joinToString(" ")
+//    }
+
+    fun joinNames(tableName: String): List<JoinName> {
+        return fields.map { it.joinNames(null, tableName, keyName()) }
+            .flatMap { it }
+            .distinct()
+    }
+
     private fun createTableInnerData(prefix: String?, skip: Int): String {
         return fields
             .asSequence()
             .drop(skip)
-            .joinToString(separator = ", ", transform = { it.toTableHead(prefix) })
+            .map { it.toTableHead(prefix) }
+            .filterNotNull()
+            .joinToString(separator = ", ")
+
     }
 
     fun createTableKeyData(prefix: String): String {
         return fields.joinToString(separator = ", ", transform = { it.key(prefix) })
     }
 
-    fun createTableString(prefix: String): String {
-        return createTableInnerData(prefix, 0)
-    }
+//    fun createTableString(prefix: String): String {
+//        return createTableInnerData(prefix, 0)
+//    }
 
     fun getIdName(): String {
         return fields.first()
             .name(null)
     }
 
+    internal fun foreignKey() = fields.map { it.foreignKey() }.filterNotNull().map { it.sqlMethod() }.joinToString(", ")
+
     fun createTable(): String {
         val createTableInnerData = createTableInnerData(null, 1)
+//        val foreignKeys = fields.asSequence()
+//            .mapNotNull { it.foreignKey() }
+//            .map { it.sqlMethod() }
+//            .joinToString(", ")
+
+        fields.forEach { it.createTable(keyClassSimpleType()) }
         val s = if (createTableInnerData == "") "" else "$createTableInnerData, "
         return ("(${fields.first().toTableHead(null)}, $s"
-                + "PRIMARY KEY(${fields.first().key(null)}));")
+                + "PRIMARY KEY(${fields.first().key(null)})"
+//                + "${if (foreignKeys == "") "" else ", $foreignKeys"}"
+                + ");")
     }
 
     private tailrec fun read(resultSet: ResultSet,
@@ -82,14 +116,10 @@ internal data class ReadPersisterData<T : Any> private constructor(private val m
                              list: List<ReadFieldValue>): NextSize<List<ReadFieldValue>> {
         if (i < fields.size) {
             val (value, nextCounter) = fields[i].getValue(resultSet, counter)
-            val readFieldValue = ReadFieldValue(value, fields[i])
+            val readFieldValue = ReadFieldValue(value, fields[i] as FieldData<Any, Any>)
             return read(resultSet, i + 1, nextCounter, list + readFieldValue)
         }
         return NextSize(list, counter)
-    }
-
-    internal fun readKey(resultSet: ResultSet, counter: Int): NextSize<Any> {
-        return fields.first().getValue(resultSet,counter)
     }
 
     internal fun read(resultSet: ResultSet, counter: Int): NextSize<T> {
@@ -98,13 +128,6 @@ internal data class ReadPersisterData<T : Any> private constructor(private val m
 
     internal fun read(resultSet: ResultSet): NextSize<T> {
         return read(resultSet, 1)
-    }
-
-    private fun map(t: (FieldData<Any, Any>) -> String): String {
-        return fields.asSequence()
-            .map(t)
-            .filter { it != "" }
-            .joinToString(separator = ", ")
     }
 
     fun insertObject(o: T, prefix: String?): List<InsertObject<Any>> {
@@ -124,7 +147,9 @@ internal data class ReadPersisterData<T : Any> private constructor(private val m
     }
 
     fun fNEqualsValue(o: T, prefix: String?, sep: String): String {
-        return fields.joinToString(separator = sep, transform = { it.fNEqualsValue(o, prefix, sep) })
+        val field = fields.first()
+        return field.fNEqualsValue(o, prefix, sep)
+        //joinToString(separator = sep, transform = { it.fNEqualsValue(o, prefix, sep) })
     }
 
     fun getKey(o: T): Any {
@@ -132,11 +157,20 @@ internal data class ReadPersisterData<T : Any> private constructor(private val m
             .getObject(o)
     }
 
-    fun keyClass() = fields.first().property.returnType.classifier as KClass<Any>
+    fun keyName(): String {
+        return fields.first()
+            .name
+    }
 
-    fun <R : Any> onKey(f: FieldData<Any, Any>.() -> R): R {
+    fun keyClassSimpleType() = fields.first().keyClassSimpleType()
+
+    fun <R> onKey(f: FieldData<T, Any>.() -> R): R {
         return fields.first()
             .f()
+    }
+
+    fun <R> onFields(f: FieldData<T, Any>.() -> R): List<R> {
+        return fields.map(f)
     }
 
     fun insert(o: T): String {
@@ -167,8 +201,7 @@ internal data class ReadPersisterData<T : Any> private constructor(private val m
 
 
         fun <T : Any> create(clazz: KClass<T>, persister: Persister): ReadPersisterData<T> {
-            return ReadPersisterData(readValue(clazz.constructors.first()),
-                                     FieldDataFactory.fieldsRead(clazz, persister))
+            return ReadPersisterData(clazz, persister)
         }
 
     }

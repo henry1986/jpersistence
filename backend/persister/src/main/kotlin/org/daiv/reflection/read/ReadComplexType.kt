@@ -24,54 +24,64 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.common.FieldData
+import org.daiv.reflection.common.FieldData.ForeignKey
+import org.daiv.reflection.common.FieldData.JoinName
+import org.daiv.reflection.common.PropertyData
 import org.daiv.reflection.persister.Persister
 import java.sql.ResultSet
 import kotlin.reflect.KClass
-import kotlin.reflect.KProperty1
 
-internal class ReadComplexType<R : Any, T : Any>(override val property: KProperty1<R, T>,
+internal class ReadComplexType<R : Any, T : Any>(override val propertyData: PropertyData<R, T>,
                                                  private val persister: Persister) :
     FieldData<R, T> {
+    val clazz = propertyData.clazz
+    private val persisterData = ReadPersisterData.create(clazz, persister)
 
-    private val persisterData = ReadPersisterData.create(property.returnType.classifier as KClass<T>, persister)
-
-    override fun key(prefix: String?): String {
-        return persisterData.createTableKeyData(name(prefix))
+    override fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<JoinName> {
+        return persisterData.onFields {
+            joinNames(this@ReadComplexType.name(prefix), clazz.simpleName!!, persisterData.keyName())
+        }
+            .flatMap { it }
     }
 
-    override fun toTableHead(prefix: String?): String {
-        return onMany2One({
-                              val name = name(prefix)
-                              persisterData.onKey { toTableHead(name) }
-                          }) { persisterData.createTableString(name(prefix)) }
+    override fun createTable(keyClass: KClass<Any>) {}
+    override fun keyClassSimpleType() = persisterData.keyClassSimpleType()
+
+    override fun foreignKey(): ForeignKey {
+        return ForeignKey(name, "${clazz.simpleName}(${persisterData.keyName()})")
+    }
+
+    override fun underscoreName(prefix: String?): String {
+        return persisterData.onFields { underscoreName(this@ReadComplexType.name(prefix)) }
+            .joinToString(", ")
+    }
+
+    override fun key(prefix: String?): String {
+        return persisterData.onKey { key(this@ReadComplexType.name(prefix)) }//persisterData.createTableKeyData(name(prefix))
+    }
+
+    override fun toTableHead(prefix: String?): String? {
+        val name = name(prefix)
+        return persisterData.onKey { toTableHead(name) }
     }
 
     override fun getValue(resultSet: ResultSet, number: Int): NextSize<T> {
-        return onMany2One({
-                              val table = persister.Table(property.returnType.classifier as KClass<T>)
-                              val nextSize = persisterData.onKey { getValue(resultSet, number) }
-                              val value = table.read(nextSize.t)!!
-                              NextSize(value, nextSize.i)
-                          }) { persisterData.read(resultSet, number) }
+        val table = persister.Table(clazz)
+        val nextSize = persisterData.onKey { getValue(resultSet, number) }
+        val value = table.read(nextSize.t)!!
+        return NextSize(value, nextSize.i)
     }
 
     override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
-        return onMany2One({
-                              val objectValue = getObject(o)
-                              val n = name(prefix)
-                              persisterData.onKey { fNEqualsValue(objectValue, n, sep) }
-                          }) { persisterData.fNEqualsValue(getObject(o), name(prefix), sep) }
+        val objectValue = getObject(o)
+        val n = name(prefix)
+        return persisterData.onKey { fNEqualsValue(objectValue, n, sep) }
     }
 
     override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
-        return onMany2One({
-                              val objectValue = getObject(o)
-                              storeManyToOneObject(persisterData, objectValue, persister)
-                              val n = name(prefix)
-                              persisterData.onKey { insertObject(objectValue, n) }
-                          }
-        ) {
-            persisterData.insertObject(getObject(o), name(prefix))
-        }
+        val objectValue = getObject(o)
+        storeManyToOneObject(persisterData, objectValue, persister)
+        val n = name(prefix)
+        return persisterData.onKey { insertObject(objectValue, n) }
     }
 }

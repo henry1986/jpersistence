@@ -30,6 +30,7 @@ import org.daiv.reflection.annotations.Many
 import org.daiv.reflection.annotations.ManyToOne
 import org.daiv.reflection.persister.DBChangeListener
 import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.read.ReadPersisterData
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
@@ -42,15 +43,21 @@ import kotlin.test.assertTrue
 class PersisterTest :
     Spek({
              data class SimpleObject(val x: Int, val y: String)
-             data class ComplexKObject(val x: Int, val y: SimpleObject)
-             data class ComplexKey(val x: SimpleObject, val string: String)
+             //             data class ComplexKObject(val x: Int, val y: SimpleObject)
+//             data class ComplexKey(val x: SimpleObject, val string: String)
              data class ReadValue(val id: Int, val string: String)
+
              data class Transaction(val id: String, val bool: Boolean)
              data class ComplexM2O(val id: Int, val name: String, val value: Double)
              data class ComplexHost(val id: Int, @ManyToOne val x1: ComplexM2O, @ManyToOne val x2: ComplexM2O)
              data class ComplexHost2(val id: Int, @ManyToOne @Many(2) val x1: List<ComplexM2O>, @ManyToOne @Many(2) val x2: List<ComplexM2O>)
              data class ComplexHostList(val id: Int, @Many(2) val x1: List<ComplexM2O>, @Many(2) val x2: List<ComplexM2O>)
 
+             data class L1(val r: Int, val s: String)
+             data class L2(val id: Int, val l1: L1)
+             data class L2b(val l1Id: L1, val l1Value: L1)
+             data class L3(val id: Int, val l2Value: L2)
+             data class L4(val idL2b: L2b, val l3Value: L3)
 
              val simpleObject = SimpleObject(5, "Hallo")
 
@@ -68,25 +75,25 @@ class PersisterTest :
 //                                  "(i1, i3, p1_i1, p1_d2, p1_i2, p1_s1 ) VALUES (3, 6, 5, 3.0, 1, \"Hallo\")",
 //                                  "JavaComplexObject",
 //                                  3)
-             val k = ObjectToTest(ComplexKObject(1, simpleObject),
-                                  "(x Int NOT NULL, y_x Int NOT NULL, y_y Text NOT NULL, PRIMARY KEY(x))",
-                                  "(x, y_x, y_y ) VALUES (1, 5, \"Hallo\")",
-                                  "KotlinComplexObject",
-                                  1)
+//             val k = ObjectToTest(ComplexKObject(1, simpleObject),
+//                                  "(x Int NOT NULL, y_x Int NOT NULL, y_y Text NOT NULL, PRIMARY KEY(x))",
+//                                  "(x, y_x, y_y ) VALUES (1, 5, \"Hallo\")",
+//                                  "KotlinComplexObject",
+//                                  1)
 
-             val key = ComplexKey(simpleObject, "hello")
-             val t = ObjectToTest(key,
-                                  "(x_x Int NOT NULL, x_y Text NOT NULL, string Text NOT NULL, PRIMARY KEY(x_x, x_y))",
-                                  "(x_x, x_y, string ) VALUES (5, \"Hallo\", \"hello\")",
-                                  "KotlinComplexKeyObject",
-                                  simpleObject)
+//             val key = ComplexKey(simpleObject, "hello")
+//             val t = ObjectToTest(key,
+//                                  "(x_x Int NOT NULL, x_y Text NOT NULL, string Text NOT NULL, PRIMARY KEY(x_x, x_y))",
+//                                  "(x_x, x_y, string ) VALUES (5, \"Hallo\", \"hello\")",
+//                                  "KotlinComplexKeyObject",
+//                                  simpleObject)
              val u = ObjectToTest(Transaction("x5", false),
                                   "(id Text NOT NULL, bool Boolean NOT NULL, PRIMARY KEY(id))",
                                   "(id, bool ) VALUES (\"x5\", 0)",
                                   "Transaction",
                                   "x5")
 
-             val listOf = listOf(s, k, t, u)
+             val listOf = listOf(s/*, k, t*/, u)
              val database = DatabaseWrapper.create("ReadValue.db")
 
 
@@ -105,12 +112,12 @@ class PersisterTest :
                              o.checkReadData()
                          }
                      }
+                     database.open()
+                     val persister = Persister(database)
                      on("special reads") {
-                         database.open()
 
                          val persisterListener = mockk<DBChangeListener>(relaxed = true)
                          val tableListener = mockk<DBChangeListener>(relaxed = true)
-                         val persister = Persister(database)
                          val table = persister.Table(ReadValue::class)
                          table.persist()
                          val readValues = listOf(ReadValue(5, "HalloX"), ReadValue(6, "HollaY"), ReadValue(7, "neu"))
@@ -180,6 +187,8 @@ class PersisterTest :
                              assertEquals(c, list.read(5))
                          }
                          it("onManyToOne SimpleObject") {
+                             //                             data class ComplexM2O(val id: Int, val name: String, val value: Double)
+//                             data class ComplexHost(val id: Int, @ManyToOne val x1: ComplexM2O, @ManyToOne val x2: ComplexM2O)
                              val complexHostTable = persister.Table(ComplexHost::class)
                              complexHostTable.persist()
                              val c = ComplexHost(5, e1, e2)
@@ -192,6 +201,41 @@ class PersisterTest :
                              val c = ComplexHost2(5, listOf(e1, e2), listOf(e2, e3))
                              host2.insert(c)
                              assertEquals(c, host2.read(5))
+                         }
+                     }
+                     on("test namebuilding for joins") {
+                         //                         data class L1(val r:Int, val s:String)
+//                         data class L2(val id:Int, val l1:L1)
+//                         data class L2b(val l1Id:L1, val l1Value:L1)
+//                         data class L3(val id:Int, val l2Value:L2)
+//                         data class L4(val idL2b:L2b, val l3Value:L3)
+                         val r = ReadPersisterData.create(L3::class, persister)
+                         val n = r.underscoreName()
+
+                         // JOIN L2 as l2Value ON L3.l2Value = l2Value.id
+                         // JOIN L1 as l2Value_l1 ON L2.l2Value_l1 = l2Value_l1.id
+                         println("n: $n")
+                         println("n: INNER JOIN ${r.joinNames("L3").map { it.join() }}")
+                         println("foreignKey: ${r.foreignKey()}")
+                         listOf(L1::class, L2::class, L2b::class, L3::class, L4::class).forEach {
+                             persister.Table(it)
+                                 .persist()
+                         }
+
+                         it("test L2") {
+                             val t = persister.Table(L2::class)
+                             val insert = L2(5, L1(2, "Hallo"))
+                             t.insert(insert)
+                             val xRes = t.read(5)
+                             assertEquals(insert, xRes)
+                         }
+                         it("test L4") {
+                             val t = persister.Table(L4::class)
+                             val key = L2b(L1(3, "L1-3"), L1(4, "L1-4"))
+                             val insert = L4(key, L3(5, L2(1, L1(9, "L1-9"))))
+                             t.insert(insert)
+                             val xRes = t.read(key)
+                             assertEquals(insert, xRes)
                          }
                      }
                      afterGroup { o.delete(); database.delete() }

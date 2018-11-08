@@ -24,28 +24,37 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.common.FieldData
+import org.daiv.reflection.common.FieldData.JoinName
+import org.daiv.reflection.common.PropertyData
 import org.daiv.reflection.getKClass
 import java.sql.ResultSet
 import java.sql.SQLException
+import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 
-internal class ReadSimpleType<R : Any, T : Any>(override val property: KProperty1<R, T>) : FieldData<R, T> {
+internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T>) : FieldData<R, T> {
 
-    override fun key(prefix: String?): String {
-        return name(prefix)
-    }
+    override fun createTable(keyClass: KClass<Any>) {}
 
-    override fun toTableHead(prefix: String?): String {
-        val simpleName = property.getKClass()
-            .simpleName
-        val typeName = valueMappingJavaSQL[simpleName] ?: simpleName
-        return "${name(prefix)} $typeName${" NOT NULL"}"
-    }
+    override fun keyClassSimpleType() = propertyData.clazz as KClass<Any>
+
+    override fun toTableHead(prefix: String?) = toTableHead(propertyData.clazz, name(prefix))
+
+    override fun key(prefix: String?) = name(prefix)
+
+    override fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<JoinName> =
+        listOfNotNull(prefix).map { JoinName(it, clazzSimpleName, keyName) }
+
+    override fun foreignKey() = null
+
+    override fun underscoreName(prefix: String?) = prefix?.let { "${it}.$name" } ?: name
+
+//    override fun joins(prefix: String?): List<String> = emptyList()
 
     override fun getValue(resultSet: ResultSet, number: Int): NextSize<T> {
         try {
             val any = resultSet.getObject(number)
-            val x = if (property.getKClass() == Boolean::class) {
+            val x = if (propertyData.clazz == Boolean::class) {
                 any == 1
             } else {
                 any
@@ -84,6 +93,12 @@ internal class ReadSimpleType<R : Any, T : Any>(override val property: KProperty
                 Boolean::class -> if (s.toBoolean()) "1" else "0"
                 else -> s
             }
+        }
+
+        internal fun <T : Any> toTableHead(clazz: KClass<T>, name: String): String {
+            val simpleName = clazz.simpleName
+            val typeName = valueMappingJavaSQL[simpleName] ?: simpleName
+            return "$name $typeName${" NOT NULL"}"
         }
     }
 }
