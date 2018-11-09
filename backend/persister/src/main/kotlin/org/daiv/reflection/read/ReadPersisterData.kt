@@ -32,24 +32,25 @@ import java.sql.ResultSet
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 
-internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any, Any>)
+internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any, Any, Any>)
 
 internal interface Evaluator<T> {
     fun evaluate(resultSet: ResultSet): T
     fun evaluateToList(resultSet: ResultSet): List<T>
 }
 
-internal data class ReadPersisterData<T : Any>(private val fields: List<FieldData<T, Any>>,
-                                               private val method: (List<ReadFieldValue>) -> T) : Evaluator<T> {
+internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List<FieldData<R, *, T>>,
+                                                        private val method: (List<ReadFieldValue>) -> R) :
+    Evaluator<R> {
 
-    constructor(clazz: KClass<T>, persister: Persister) : this(FieldDataFactory.fieldsRead(clazz, persister),
+    constructor(clazz: KClass<R>, persister: Persister) : this(FieldDataFactory.fieldsRead(clazz, persister),
                                                                readValue(clazz.constructors.first()))
 
-    override fun evaluateToList(resultSet: ResultSet): List<T> {
+    override fun evaluateToList(resultSet: ResultSet): List<R> {
         return resultSet.getList(::evaluate)
     }
 
-    override fun evaluate(resultSet: ResultSet): T {
+    override fun evaluate(resultSet: ResultSet): R {
         return read(resultSet).t
     }
 
@@ -80,7 +81,7 @@ internal data class ReadPersisterData<T : Any>(private val fields: List<FieldDat
 
     }
 
-    fun createTableKeyData(prefix: String): String {
+    fun createTableKeyData(prefix: String?): String {
         return fields.joinToString(separator = ", ", transform = { it.key(prefix) })
     }
 
@@ -102,7 +103,7 @@ internal data class ReadPersisterData<T : Any>(private val fields: List<FieldDat
 //            .map { it.sqlMethod() }
 //            .joinToString(", ")
 
-        fields.forEach { it.createTable(keyClassSimpleType()) }
+        fields.forEach { it.createTable() }
         val s = if (createTableInnerData == "") "" else "$createTableInnerData, "
         return ("(${fields.first().toTableHead(null)}, $s"
                 + "PRIMARY KEY(${fields.first().key(null)})"
@@ -113,24 +114,30 @@ internal data class ReadPersisterData<T : Any>(private val fields: List<FieldDat
     private tailrec fun read(resultSet: ResultSet,
                              i: Int,
                              counter: Int,
+                             key: Any?,
                              list: List<ReadFieldValue>): NextSize<List<ReadFieldValue>> {
         if (i < fields.size) {
-            val (value, nextCounter) = fields[i].getValue(resultSet, counter)
-            val readFieldValue = ReadFieldValue(value, fields[i] as FieldData<Any, Any>)
-            return read(resultSet, i + 1, nextCounter, list + readFieldValue)
+            val field = fields[i]
+            val (value, nextCounter) = field.getValue(resultSet, counter, key)
+            val readFieldValue = ReadFieldValue(value, field as FieldData<Any, Any, Any>)
+            return read(resultSet,
+                        i + 1,
+                        nextCounter,
+                        if (i == 0) field.keyLowSimpleType(value) else key,
+                        list + readFieldValue)
         }
         return NextSize(list, counter)
     }
 
-    internal fun read(resultSet: ResultSet, counter: Int): NextSize<T> {
-        return read(resultSet, 0, counter, listOf()).transform(method)
+    internal fun read(resultSet: ResultSet, counter: Int): NextSize<R> {
+        return read(resultSet, 0, counter, null, emptyList()).transform(method)
     }
 
-    internal fun read(resultSet: ResultSet): NextSize<T> {
+    internal fun read(resultSet: ResultSet): NextSize<R> {
         return read(resultSet, 1)
     }
 
-    fun insertObject(o: T, prefix: String?): List<InsertObject<Any>> {
+    private fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
         return fields.flatMap { it.insertObject(o, prefix) }
     }
 
@@ -146,13 +153,13 @@ internal data class ReadPersisterData<T : Any>(private val fields: List<FieldDat
             .joinToString(", ")
     }
 
-    fun fNEqualsValue(o: T, prefix: String?, sep: String): String {
+    fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
         val field = fields.first()
         return field.fNEqualsValue(o, prefix, sep)
         //joinToString(separator = sep, transform = { it.fNEqualsValue(o, prefix, sep) })
     }
 
-    fun getKey(o: T): Any {
+    fun getKey(o: R): Any {
         return fields.first()
             .getObject(o)
     }
@@ -163,24 +170,29 @@ internal data class ReadPersisterData<T : Any>(private val fields: List<FieldDat
     }
 
     fun keyClassSimpleType() = fields.first().keyClassSimpleType()
+    fun keySimpleType(r: R) = fields.first().keySimpleType(r)
 
-    fun <R> onKey(f: FieldData<T, Any>.() -> R): R {
+    fun <X> onKey(f: FieldData<R, *, T>.() -> X): X {
         return fields.first()
             .f()
     }
 
-    fun <R> onFields(f: FieldData<T, Any>.() -> R): List<R> {
+    fun <X> onFields(f: FieldData<R, *, T>.() -> X): List<X> {
         return fields.map(f)
     }
 
-    fun insert(o: T): String {
+    fun insertLists(o: R) {
+        fields.forEach { it.insertLists(keySimpleType(o), o) }
+    }
+
+    fun insert(o: R): String {
         val insertObjects = insertObject(o, null)
         val headString = insertHeadString(insertObjects)
         val valueString = insertValueString(insertObjects)
         return "($headString ) VALUES ($valueString);"
     }
 
-    fun insertList(o: List<T>): String {
+    fun insertList(o: List<R>): String {
         if (o.isEmpty()) {
             return "() VALUES ();"
         }
@@ -200,9 +212,8 @@ internal data class ReadPersisterData<T : Any>(private val fields: List<FieldDat
         }
 
 
-        fun <T : Any> create(clazz: KClass<T>, persister: Persister): ReadPersisterData<T> {
+        fun <R : Any, T : Any> create(clazz: KClass<R>, persister: Persister): ReadPersisterData<R, T> {
             return ReadPersisterData(clazz, persister)
         }
-
     }
 }

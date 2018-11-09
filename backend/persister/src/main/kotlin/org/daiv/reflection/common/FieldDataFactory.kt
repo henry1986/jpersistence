@@ -29,7 +29,6 @@ import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.read.ReadComplexType
 import org.daiv.reflection.read.ReadListType
 import org.daiv.reflection.read.ReadSimpleType
-import java.lang.reflect.Member
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.KProperty1
@@ -41,7 +40,8 @@ internal interface FieldDataFactory {
     companion object {
         private fun <T : Any, R : Any> create(property: KProperty1<R, T>,
                                               receiverClass: KClass<R>,
-                                              persister: Persister): FieldData<R, T> {
+                                              persister: Persister,
+                                              keyClass: KClass<Any>?): FieldData<R, *, T> {
             return when {
                 property.getKClass().java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property,
                                                                                                        receiverClass))
@@ -52,9 +52,13 @@ internal interface FieldDataFactory {
                     if (property.getKClass().java != List::class.java) {
                         throw RuntimeException("Field's size is not 1, so type of field must be List")
                     }
-                    ReadListType(DefProperty(property as KProperty1<R, List<T>>, receiverClass),
+                    if (keyClass == null) {
+                        throw RuntimeException("the primary Key may not be a list!")
+                    }
+                    ReadListType(ListProperty(property as KProperty1<R, List<T>>, receiverClass),
                                  property.findAnnotation()!!,
-                                 persister) as FieldData<R, T>
+                                 persister,
+                                 keyClass)
                 }
             }
         }
@@ -64,18 +68,28 @@ internal interface FieldDataFactory {
                                             clazz: KClass<R>,
                                             persister: Persister,
                                             constructor: KFunction<R>,
-                                            ret: List<FieldData<R, T>>): List<FieldData<R, T>> {
+                                            keyClass: KClass<Any>?,
+                                            ret: List<FieldData<R, *, T>>): List<FieldData<R, *, T>> {
             if (i < member.size) {
                 val parameter = constructor.parameters[i]
-                val c = create(member.find { it.name == parameter.name } as KProperty1<R, T>, clazz, persister)
-                return next(member, i + 1, clazz, persister, constructor, ret + c)
+                val c = create(member.find { it.name == parameter.name } as KProperty1<R, T>,
+                               clazz,
+                               persister,
+                               keyClass)
+                return next(member, i + 1, clazz, persister, constructor, keyClass ?: c.keyClassSimpleType(), ret + c)
             }
             return ret
         }
 
         internal fun <R : Any, T : Any> fieldsRead(clazz: KClass<R>,
-                                                   persister: Persister): List<FieldData<R, T>> {
-            return next(clazz.declaredMemberProperties, 0, clazz, persister, clazz.constructors.first(), emptyList())
+                                                   persister: Persister): List<FieldData<R, *, T>> {
+            return next(clazz.declaredMemberProperties,
+                        0,
+                        clazz,
+                        persister,
+                        clazz.constructors.first(),
+                        null,
+                        emptyList())
 //            val primaryConstructor: KFunction<R> = clazz.constructors.first()
 //            val member: Collection<KProperty1<R, *>> = clazz.declaredMemberProperties
 //            return primaryConstructor.parameters.map { parameter ->

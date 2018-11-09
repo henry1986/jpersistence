@@ -23,20 +23,19 @@
 
 package org.daiv.reflection.read
 
-import org.daiv.reflection.common.FieldData
 import org.daiv.reflection.common.FieldData.JoinName
+import org.daiv.reflection.common.NoList
 import org.daiv.reflection.common.PropertyData
-import org.daiv.reflection.getKClass
 import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.reflect.KClass
-import kotlin.reflect.KProperty1
 
-internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T>) : FieldData<R, T> {
+internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>) : NoList<R, T, T> {
 
-    override fun createTable(keyClass: KClass<Any>) {}
 
     override fun keyClassSimpleType() = propertyData.clazz as KClass<Any>
+    override fun keySimpleType(r: R) = propertyData.getObject(r)
+    override fun keyLowSimpleType(t: T) = t
 
     override fun toTableHead(prefix: String?) = toTableHead(propertyData.clazz, name(prefix))
 
@@ -51,7 +50,7 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
 
 //    override fun joins(prefix: String?): List<String> = emptyList()
 
-    override fun getValue(resultSet: ResultSet, number: Int): NextSize<T> {
+    override fun getValue(resultSet: ResultSet, number: Int, key:Any?): NextSize<T> {
         try {
             val any = resultSet.getObject(number)
             val x = if (propertyData.clazz == Boolean::class) {

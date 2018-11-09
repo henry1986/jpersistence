@@ -34,12 +34,14 @@ import kotlin.reflect.KProperty1
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.jvm.isAccessible
 
-internal interface FieldData<R : Any, T : Any> {
-    val propertyData: PropertyData<R, T>
+internal interface FieldData<R : Any, S : Any, T : Any> {
+    val propertyData: PropertyData<R, S, T>
 
     val name get() = propertyData.name
 
-    fun keyClassSimpleType():KClass<Any>
+    fun keyClassSimpleType(): KClass<Any>
+    fun keySimpleType(r: R): Any
+    fun keyLowSimpleType(t: T): Any
 
     fun listElementName(prefix: String?, i: Int): String {
         val indexedName = "${name}_$i"
@@ -50,7 +52,7 @@ internal interface FieldData<R : Any, T : Any> {
 //        return property.returnType.arguments.first().type!!.classifier as KClass<Any>
 //    }
 
-    fun <T : Any> storeManyToOneObject(persisterData: ReadPersisterData<T>, objectValue: T, persister: Persister) {
+    fun <T : Any> storeManyToOneObject(persisterData: ReadPersisterData<T, Any>, objectValue: T, persister: Persister) {
         val key = persisterData.getKey(objectValue)
         val table = persister.Table(objectValue::class as KClass<T>)
         table.read(key)?.let { dbValue ->
@@ -96,17 +98,19 @@ internal interface FieldData<R : Any, T : Any> {
      * @return the string for the "CREATE TABLE" command
      */
     fun toTableHead(prefix: String?): String?
-    fun createTable(keyClass: KClass<Any>)
+
+    fun createTable()
+    fun insertLists(keySimpleType: Any, r: R)
 
     fun key(prefix: String?): String
 
-    data class ForeignKey(val name:String, val clazzReference:String){
+    data class ForeignKey(val name: String, val clazzReference: String) {
         fun sqlMethod() = "FOREIGN KEY ($name) references $clazzReference"
     }
 
     fun foreignKey(): ForeignKey?
 
-    data class JoinName(val name:String, val clazzSimpleName: String, val keyName:String){
+    data class JoinName(val name: String, val clazzSimpleName: String, val keyName: String) {
         fun join() = "${clazzSimpleName} as $name ON $name = $name.${keyName}"
     }
 
@@ -114,6 +118,10 @@ internal interface FieldData<R : Any, T : Any> {
 
     fun underscoreName(prefix: String?): String
 
-    fun getValue(resultSet: ResultSet, number: Int): NextSize<T>
+    fun getValue(resultSet: ResultSet, number: Int, key: Any?): NextSize<S>
+}
 
+internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T> {
+    override fun createTable() {}
+    override fun insertLists(keySimpleType: Any, r: R) {}
 }

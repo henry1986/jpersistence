@@ -65,10 +65,9 @@ class Persister(val databaseInterface: DatabaseInterface,
         } catch (e: SQLException) {
             throw RuntimeException("query: $query", e)
         }
-
     }
 
-    inner class Table<R : Any> internal constructor(private val readPersisterData: ReadPersisterData<R>,
+    inner class Table<R : Any> internal constructor(private val readPersisterData: ReadPersisterData<R, Any>,
                                                     private val tableName: String) :
         Registerer<DBChangeListener> by registerer {
 
@@ -79,13 +78,12 @@ class Persister(val databaseInterface: DatabaseInterface,
         private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()
 
         private val selectHeader by lazy { readPersisterData.underscoreName() }
-        private val join by lazy {
-            readPersisterData.joinNames(tableName)
-                .map { "INNER JOIN ${it.join()}" }
-                .joinToString(" ")
-        }
-        private val idName
-            get() = readPersisterData.getIdName()
+//        private val join by lazy {
+//            readPersisterData.joinNames(tableName)
+//                .map { "INNER JOIN ${it.join()}" }
+//                .joinToString(" ")
+//        }
+        private val idName = readPersisterData.getIdName()
 
         private fun tableEvent() {
             registerer.forEach(DBChangeListener::onChange)
@@ -105,7 +103,7 @@ class Persister(val databaseInterface: DatabaseInterface,
             return if (id::class.java.isPrimitiveOrWrapperOrString()) {
                 "$fieldName = ${ReadSimpleType.makeString(id)}"
             } else {
-                val writePersisterData = ReadPersisterData.create(id::class as KClass<Any>, this@Persister)
+                val writePersisterData = ReadPersisterData.create<Any, Any>(id::class as KClass<Any>, this@Persister)
                 "${writePersisterData.fNEqualsValue(id, fieldName, sep)}"
             }
         }
@@ -133,6 +131,7 @@ class Persister(val databaseInterface: DatabaseInterface,
         fun insert(o: R) {
             val createTable = "INSERT INTO $tableName ${readPersisterData.insert(o)}"
             write(createTable)
+            readPersisterData.insertLists(o)
             tableEvent()
         }
 
@@ -201,7 +200,7 @@ class Persister(val databaseInterface: DatabaseInterface,
                 this@Persister.read("SELECT $fieldName from $tableName GROUP BY $fieldName;")
                     .getList { clazz.cast(getObject(1)) }
             } else {
-                val readPersisterData = ReadPersisterData.create(clazz, this@Persister)
+                val readPersisterData = ReadPersisterData.create<T, Any>(clazz, this@Persister)
                 val key = readPersisterData.createTableKeyData(fieldName)
                 this@Persister.read("SELECT $key from $tableName GROUP BY $key;")
                     .getList { clazz.cast(readPersisterData.evaluate(this)) }
@@ -220,7 +219,7 @@ class Persister(val databaseInterface: DatabaseInterface,
     companion object {
         private const val comma = ", "
         private const val and = " and "
-        const val createTable = "CREATE TABLE IF NOT EXISTS"
+        internal const val createTable = "CREATE TABLE IF NOT EXISTS"
         private val logger = KotlinLogging.logger {}
     }
 }
