@@ -23,16 +23,30 @@
 
 package org.daiv.reflection.common
 
-import org.daiv.reflection.annotations.ManyToOne
+import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.read.InsertObject
 import org.daiv.reflection.read.NextSize
 import org.daiv.reflection.read.ReadPersisterData
 import java.sql.ResultSet
 import kotlin.reflect.KClass
-import kotlin.reflect.KProperty1
-import kotlin.reflect.full.findAnnotation
-import kotlin.reflect.jvm.isAccessible
+
+internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValue: T, persister: Persister) {
+    if (objectValue::class.java.isPrimitiveOrWrapperOrString()) {
+        return
+    }
+    val key = getKey(objectValue)
+    val table = persister.Table(objectValue::class as KClass<T>)
+    table.read(key)?.let { dbValue ->
+        if (dbValue != objectValue) {
+            val msg = "values are not the same -> " +
+                    "databaseValue: $dbValue vs manyToOne Value: $objectValue"
+            throw RuntimeException(msg)
+        }
+    } ?: run {
+        table.insert(objectValue)
+    }
+}
 
 internal interface FieldData<R : Any, S : Any, T : Any> {
     val propertyData: PropertyData<R, S, T>
@@ -43,7 +57,7 @@ internal interface FieldData<R : Any, S : Any, T : Any> {
     fun keySimpleType(r: R): Any
     fun keyLowSimpleType(t: T): Any
 
-    fun listElementName(prefix: String?, i: Int): String {
+    fun collectionElementName(prefix: String?, i: Int): String {
         val indexedName = "${name}_$i"
         return prefix?.let { "${it}_$indexedName" } ?: "$indexedName"
     }
@@ -52,19 +66,6 @@ internal interface FieldData<R : Any, S : Any, T : Any> {
 //        return property.returnType.arguments.first().type!!.classifier as KClass<Any>
 //    }
 
-    fun <T : Any> storeManyToOneObject(persisterData: ReadPersisterData<T, Any>, objectValue: T, persister: Persister) {
-        val key = persisterData.getKey(objectValue)
-        val table = persister.Table(objectValue::class as KClass<T>)
-        table.read(key)?.let { dbValue ->
-            if (dbValue != objectValue) {
-                val msg = "values are not the same -> " +
-                        "databaseValue: $dbValue vs manyToOne Value: $objectValue"
-                throw RuntimeException(msg)
-            }
-        } ?: run {
-            table.insert(objectValue)
-        }
-    }
 
     /**
      * builds the name of the field in the database
@@ -95,7 +96,7 @@ internal interface FieldData<R : Any, S : Any, T : Any> {
      * @param prefix
      * a possible prefix for the variables name. Null, if no prefix
      * is wanted.
-     * @return the string for the "CREATE TABLE" command
+     * @return the string for the "CREATE TABLE" command or null, if not needed
      */
     fun toTableHead(prefix: String?): String?
 
@@ -124,4 +125,19 @@ internal interface FieldData<R : Any, S : Any, T : Any> {
 internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T> {
     override fun createTable() {}
     override fun insertLists(keySimpleType: Any, r: R) {}
+}
+
+internal interface CollectionFieldData<R : Any, S : Any, T : Any> : FieldData<R, S, T> {
+    override fun keyClassSimpleType() = throw RuntimeException("a collection cannot be a key")
+    override fun keySimpleType(r: R) = throw RuntimeException("a collection cannot be a key")
+    override fun keyLowSimpleType(t: T) = throw RuntimeException("a collection cannot be a key")
+    override fun key(prefix: String?) = throw RuntimeException("a collection cannot be a key")
+    override fun toTableHead(prefix: String?) = null
+    override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> = listOf()
+    override fun foreignKey() = null
+    override fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<FieldData.JoinName> =
+        emptyList()
+
+    override fun underscoreName(prefix: String?) = ""
+
 }

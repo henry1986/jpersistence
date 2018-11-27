@@ -29,5 +29,5 @@ annotation class ManyToOne(val tableName: String = "")
 
 @Target(AnnotationTarget.PROPERTY)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class Many(val size: Int = 1)
+annotation class Many(val tableName:String = "")
 

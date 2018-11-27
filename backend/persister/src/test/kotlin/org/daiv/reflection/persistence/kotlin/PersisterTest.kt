@@ -50,8 +50,9 @@ class PersisterTest :
              data class Transaction(val id: String, val bool: Boolean)
              data class ComplexM2O(val id: Int, val name: String, val value: Double)
              data class ComplexHost(val id: Int, @ManyToOne val x1: ComplexM2O, @ManyToOne val x2: ComplexM2O)
-             data class ComplexHost2(val id: Int, @ManyToOne @Many(2) val x1: List<ComplexM2O>, @ManyToOne @Many(2) val x2: List<ComplexM2O>)
-             data class ComplexHostList(val id: Int, @Many(2) val x1: List<ComplexM2O>, @Many(2) val x2: List<ComplexM2O>)
+             data class ComplexHost2(val id: Int, @ManyToOne @Many val x1: List<ComplexM2O>, @ManyToOne @Many val x2: List<ComplexM2O>)
+             data class ComplexHostList(val id: Int, @Many val x1: List<ComplexM2O>, @Many val x2: List<ComplexM2O>)
+             data class ComplexHostMap(val id: Int, @Many val x1: Map<String, ComplexM2O>, @Many val x2: Map<String, ComplexM2O>)
 
              data class L1(val r: Int, val s: String)
              data class L2(val id: Int, val l1: L1)
@@ -183,6 +184,13 @@ class PersisterTest :
                              val list = persister.Table(ComplexHostList::class)
                              list.persist()
                              val c = ComplexHostList(5, listOf(e1, e2), listOf(e2, e3))
+                             list.insert(c)
+                             assertEquals(c, list.read(5))
+                         }
+                         it("on map") {
+                             val list = persister.Table(ComplexHostMap::class)
+                             list.persist()
+                             val c = ComplexHostMap(5, mapOf("e1" to e1, "e2" to e2), mapOf("e2" to e2, "e3" to e3))
                              list.insert(c)
                              assertEquals(c, list.read(5))
                          }

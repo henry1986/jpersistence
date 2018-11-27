@@ -23,15 +23,11 @@
 
 package org.daiv.reflection.persistence.kotlin
 
-import org.daiv.reflection.read.ReadPersisterData
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
-import kotlin.reflect.KClass
 import kotlin.reflect.full.declaredMemberProperties
-import kotlin.reflect.full.isSubtypeOf
-import kotlin.test.assertEquals
 
 class KeyPersisterDataTest :
     Spek({

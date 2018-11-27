@@ -25,7 +25,6 @@ package org.daiv.reflection.read
 
 import org.daiv.reflection.annotations.Many
 import org.daiv.reflection.common.*
-import org.daiv.reflection.common.FieldData.JoinName
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.Table
 import java.sql.ResultSet
@@ -34,21 +33,20 @@ import kotlin.reflect.KClass
 internal class ReadListType<R : Any, T : Any>(override val propertyData: ListProperty<R, T>,
                                               private val many: Many,
                                               val persister: Persister,
-                                              keyClass: KClass<Any>) : FieldData<R, List<T>, T> {
+                                              keyClass: KClass<Any>) : CollectionFieldData<R, List<T>, T> {
 
-    private val persisterData = ReadPersisterData<T, Any>(propertyData.clazz, persister)
+    private val identity = Identity(propertyData.clazz, persister, propertyData.name, 1)
+    //    private val persisterData = ReadPersisterData<T, Any>(propertyData.clazz, persister)
     private val helperTable: Table<ComplexObject>
 
     private val helperTableName = "${propertyData.receiverType.simpleName}_$name"
 
     init {
         val readPersisterData: ReadPersisterData<InsertData, Any>
-        val fields = listOf(ReadSimpleType(SimpleProperty(keyClass, propertyData.receiverType.simpleName!!, true)),
-                            ReadSimpleType(SimpleProperty(persisterData.keyClassSimpleType(),
-                                                          propertyData.name,
-                                                          false)))
+        val fields = listOf(ReadSimpleType(SimpleProperty(keyClass, propertyData.receiverType.simpleName!!, 0)),
+                            ReadSimpleType(identity.simpleProperty))
         readPersisterData = ReadPersisterData(fields) { i: List<ReadFieldValue> ->
-            InsertData(i[0].value, i[1].value)
+            InsertData(listOf(i[0].value, i[1].value))
         }
         val fields2: List<ComplexListType<ComplexObject, Any>> = listOf(ComplexListType(ComplexProperty(
             helperTableName), readPersisterData as ReadPersisterData<Any, Any>))
@@ -62,47 +60,17 @@ internal class ReadListType<R : Any, T : Any>(override val propertyData: ListPro
     override fun insertLists(keySimpleType: Any, r: R) {
         val o = getObject(r)
         o.forEach {
-            helperTable.insert(ComplexObject(InsertData(keySimpleType, persisterData.keySimpleType(it))))
-            storeManyToOneObject(persisterData, it, persister)
+            helperTable.insert(ComplexObject(InsertData(listOf(keySimpleType,
+                                                               identity.persisterData.keySimpleType(it)))))
+            identity.storeManyToOneObject(it)
         }
     }
 
-    override fun createTable() {
-        helperTable.persist()
-    }
-
-    override fun keyClassSimpleType() = throw RuntimeException("a list cannot be a key")
-    override fun keySimpleType(r: R) = throw RuntimeException("a list cannot be a key")
-    override fun keyLowSimpleType(t: T) = throw RuntimeException("a list cannot be a key")
-
-    override fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<JoinName> = emptyList()
-    override fun foreignKey() = null
-
-    override fun underscoreName(prefix: String?) = ""
-
-//    override fun joins(prefix: String?):List<String> = emptyList()
-
-
-    private fun map(f: (Int) -> String): String {
-        return (0 until many.size).map(f)
-            .joinToString(", ")
-    }
+    override fun createTable() = helperTable.persist()
 
     override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
-        val f: (Int) -> String = { persisterData.fNEqualsValue(getObject(o)[it], name(prefix), sep) }
-        return map(f)
-    }
-
-    override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
-
-        return listOf()
-    }
-
-    override fun toTableHead(prefix: String?) = null
-
-
-    override fun key(prefix: String?): String {
-        return map { persisterData.createTableKeyData(listElementName(prefix, it)) }
+        return getObject(o).map { identity.persisterData.fNEqualsValue(it, name(prefix), sep) }
+            .joinToString(", ")
     }
 
 
@@ -111,9 +79,9 @@ internal class ReadListType<R : Any, T : Any>(override val propertyData: ListPro
         if (key == null) {
             throw NullPointerException("a List cannot be a key")
         }
-        val insertData = helperTable.read(propertyData.receiverType.simpleName!!, key)
-        val table = persister.Table(propertyData.clazz)
-        val t = insertData.map { table.read(it.insertData.b)!! }
+
+        val complexList = helperTable.read(propertyData.receiverType.simpleName!!, key)
+        val t = complexList.map { identity.getValue(it.insertData.list) }
         return NextSize(t, number)
     }
 }

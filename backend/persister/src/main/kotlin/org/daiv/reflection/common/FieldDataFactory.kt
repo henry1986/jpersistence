@@ -26,6 +26,7 @@ package org.daiv.reflection.common
 import org.daiv.reflection.getKClass
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.read.MapType
 import org.daiv.reflection.read.ReadComplexType
 import org.daiv.reflection.read.ReadListType
 import org.daiv.reflection.read.ReadSimpleType
@@ -35,9 +36,13 @@ import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
 
+internal fun <R : Any, T : Any> KProperty1<R, T>.isNoMapAndNoList() =
+    (returnType.classifier as KClass<T>) != List::class && (returnType.classifier as KClass<T>) != Map::class
+
 internal interface FieldDataFactory {
 
     companion object {
+
         private fun <T : Any, R : Any> create(property: KProperty1<R, T>,
                                               receiverClass: KClass<R>,
                                               persister: Persister,
@@ -45,20 +50,19 @@ internal interface FieldDataFactory {
             return when {
                 property.getKClass().java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property,
                                                                                                        receiverClass))
-                (property.returnType.classifier as KClass<T>) != List::class -> ReadComplexType(DefProperty(property,
-                                                                                                            receiverClass),
-                                                                                                persister)
+                property.isNoMapAndNoList() -> ReadComplexType(DefProperty(property, receiverClass), persister)
                 else -> {
-                    if (property.getKClass().java != List::class.java) {
-                        throw RuntimeException("Field's size is not 1, so type of field must be List")
-                    }
                     if (keyClass == null) {
-                        throw RuntimeException("the primary Key may not be a list!")
+                        throw RuntimeException("the primary Key must not be a collection!")
                     }
-                    ReadListType(ListProperty(property as KProperty1<R, List<T>>, receiverClass),
-                                 property.findAnnotation()!!,
-                                 persister,
-                                 keyClass)
+                    if (property.returnType.classifier as KClass<T> == Map::class) {
+                        MapType(MapProperty(property as KProperty1<R, Map<Any, T>>, receiverClass), persister, keyClass)
+                    } else {
+                        ReadListType(ListProperty(property as KProperty1<R, List<T>>, receiverClass),
+                                     property.findAnnotation()!!,
+                                     persister,
+                                     keyClass)
+                    }
                 }
             }
         }
@@ -83,6 +87,9 @@ internal interface FieldDataFactory {
 
         internal fun <R : Any, T : Any> fieldsRead(clazz: KClass<R>,
                                                    persister: Persister): List<FieldData<R, *, T>> {
+            if (clazz.java.isPrimitiveOrWrapperOrString()) {
+                return listOf(ReadSimpleType(SimpleTypeProperty(clazz, clazz.tableName())) as FieldData<R, *, T>)
+            }
             return next(clazz.declaredMemberProperties,
                         0,
                         clazz,
