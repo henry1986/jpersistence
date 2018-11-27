@@ -26,7 +26,8 @@ package org.daiv.reflection.persistence.kotlin
 import io.mockk.mockk
 import io.mockk.verify
 import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
-import org.daiv.reflection.annotations.Many
+import org.daiv.reflection.annotations.ManyList
+import org.daiv.reflection.annotations.ManyMap
 import org.daiv.reflection.annotations.ManyToOne
 import org.daiv.reflection.persister.DBChangeListener
 import org.daiv.reflection.persister.Persister
@@ -50,9 +51,9 @@ class PersisterTest :
              data class Transaction(val id: String, val bool: Boolean)
              data class ComplexM2O(val id: Int, val name: String, val value: Double)
              data class ComplexHost(val id: Int, @ManyToOne val x1: ComplexM2O, @ManyToOne val x2: ComplexM2O)
-             data class ComplexHost2(val id: Int, @ManyToOne @Many val x1: List<ComplexM2O>, @ManyToOne @Many val x2: List<ComplexM2O>)
-             data class ComplexHostList(val id: Int, @Many val x1: List<ComplexM2O>, @Many val x2: List<ComplexM2O>)
-             data class ComplexHostMap(val id: Int, @Many val x1: Map<String, ComplexM2O>, @Many val x2: Map<String, ComplexM2O>)
+             data class ComplexHost2(val id: Int, @ManyList val x1: List<ComplexM2O>, @ManyList val x2: List<ComplexM2O>)
+             data class ComplexHostList(val id: Int, @ManyList val x1: List<ComplexM2O>, @ManyList val x2: List<ComplexM2O>)
+             data class ComplexHostMap(val id: Int, @ManyMap val x1: Map<String, ComplexM2O>, @ManyMap val x2: Map<String, ComplexM2O>)
 
              data class L1(val r: Int, val s: String)
              data class L2(val id: Int, val l1: L1)

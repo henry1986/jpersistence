@@ -23,7 +23,7 @@
 
 package org.daiv.reflection.read
 
-import org.daiv.reflection.annotations.Many
+import org.daiv.reflection.annotations.ManyList
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.Table
@@ -31,11 +31,11 @@ import java.sql.ResultSet
 import kotlin.reflect.KClass
 
 internal class ReadListType<R : Any, T : Any>(override val propertyData: ListProperty<R, T>,
-                                              private val many: Many,
+                                              private val many: ManyList,
                                               val persister: Persister,
                                               keyClass: KClass<Any>) : CollectionFieldData<R, List<T>, T> {
 
-    private val identity = Identity(propertyData.clazz, persister, propertyData.name, 1)
+    private val identity = Identity(propertyData.clazz, persister, propertyData.name, 1, many.tableName)
     //    private val persisterData = ReadPersisterData<T, Any>(propertyData.clazz, persister)
     private val helperTable: Table<ComplexObject>
 

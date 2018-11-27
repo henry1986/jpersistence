@@ -71,14 +71,15 @@ class Persister(val databaseInterface: DatabaseInterface,
                                                     private val tableName: String) :
         Registerer<DBChangeListener> by registerer {
 
-        constructor(clazz: KClass<R>, tableName: String = clazz.tableName())
-                : this(ReadPersisterData.create(clazz, this@Persister), tableName)
+        constructor(clazz: KClass<R>, tableName: String = "")
+                : this(ReadPersisterData.create(clazz, this@Persister),
+                       if (tableName == "") clazz.tableName() else tableName)
 
         //        private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz, this@Persister)
         private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()
 
         private val selectHeader by lazy { readPersisterData.underscoreName() }
-//        private val join by lazy {
+        //        private val join by lazy {
 //            readPersisterData.joinNames(tableName)
 //                .map { "INNER JOIN ${it.join()}" }
 //                .joinToString(" ")

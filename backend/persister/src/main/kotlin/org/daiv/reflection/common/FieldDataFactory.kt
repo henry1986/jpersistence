@@ -23,6 +23,9 @@
 
 package org.daiv.reflection.common
 
+import org.daiv.reflection.annotations.ManyList
+import org.daiv.reflection.annotations.ManyMap
+import org.daiv.reflection.annotations.ManyToOne
 import org.daiv.reflection.getKClass
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.persister.Persister
@@ -50,16 +53,22 @@ internal interface FieldDataFactory {
             return when {
                 property.getKClass().java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property,
                                                                                                        receiverClass))
-                property.isNoMapAndNoList() -> ReadComplexType(DefProperty(property, receiverClass), persister)
+                property.isNoMapAndNoList() -> ReadComplexType(DefProperty(property, receiverClass),
+                                                               property.findAnnotation()
+                                                                   ?: ManyToOne::class.constructors.first().call(""),
+                                                               persister)
                 else -> {
                     if (keyClass == null) {
                         throw RuntimeException("the primary Key must not be a collection!")
                     }
                     if (property.returnType.classifier as KClass<T> == Map::class) {
-                        MapType(MapProperty(property as KProperty1<R, Map<Any, T>>, receiverClass), persister, keyClass)
+                        MapType(MapProperty(property as KProperty1<R, Map<Any, T>>, receiverClass),
+                                persister,
+                                property.findAnnotation() ?: ManyMap::class.constructors.first().call("", ""),
+                                keyClass)
                     } else {
                         ReadListType(ListProperty(property as KProperty1<R, List<T>>, receiverClass),
-                                     property.findAnnotation()!!,
+                                     property.findAnnotation() ?: ManyList::class.constructors.first().call(""),
                                      persister,
                                      keyClass)
                     }

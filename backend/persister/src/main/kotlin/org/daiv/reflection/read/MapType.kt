@@ -23,6 +23,7 @@
 
 package org.daiv.reflection.read
 
+import org.daiv.reflection.annotations.ManyMap
 import org.daiv.reflection.common.*
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.persister.Persister
@@ -32,17 +33,18 @@ import kotlin.reflect.KClass
 internal data class Identity<T : Any>(val clazz: KClass<T>,
                                       val persister: Persister,
                                       val name: String,
-                                      val index: Int) {
+                                      val index: Int,
+                                      val tableName: String) {
     val persisterData: ReadPersisterData<T, Any> = ReadPersisterData(clazz, persister)
     val simpleProperty = SimpleProperty(persisterData.keyClassSimpleType(), name, index)
 
-    fun storeManyToOneObject(t: T) = persisterData.storeManyToOneObject(t, persister)
+    fun storeManyToOneObject(t: T) = persisterData.storeManyToOneObject(t, persister, tableName)
 
     fun getValue(list: List<Any>): T {
         return if (clazz.java.isPrimitiveOrWrapperOrString()) {
             list[index] as T
         } else {
-            val table = persister.Table(clazz)
+            val table = persister.Table(clazz, tableName)
             table.read(list[index])!!
         }
     }
@@ -51,10 +53,19 @@ internal data class Identity<T : Any>(val clazz: KClass<T>,
 
 internal class MapType<R : Any, T : Any, M : Any>(override val propertyData: MapProperty<R, T, M>,
                                                   val persister: Persister,
+                                                  val manyMap: ManyMap,
                                                   keyClass: KClass<Any>) :
     CollectionFieldData<R, Map<M, T>, T> {
-    private val keyIdentity = Identity(propertyData.keyClazz, persister, "key_${propertyData.name}", 1)
-    private val valueIdentity = Identity(propertyData.clazz, persister, "value_${propertyData.name}", 2)
+    private val keyIdentity = Identity(propertyData.keyClazz,
+                                       persister,
+                                       "key_${propertyData.name}",
+                                       1,
+                                       manyMap.tableNameKey)
+    private val valueIdentity = Identity(propertyData.clazz,
+                                         persister,
+                                         "value_${propertyData.name}",
+                                         2,
+                                         manyMap.tableNameValue)
     private val helperTable: Persister.Table<ComplexObject>
 
     private val helperTableName = "${propertyData.receiverType.simpleName}_$name"
