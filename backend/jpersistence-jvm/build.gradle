@@ -21,8 +21,8 @@
  *
  */
 
-group 'org.daiv.jpersistence.persister'
+group 'org.daiv.jpersistence'
 
 dependencies{
-    expectedBy project(':data')
+    expectedBy project(':')
 }

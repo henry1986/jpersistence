@@ -36,6 +36,7 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
+import kotlin.reflect.KClass
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -156,7 +157,7 @@ class PersisterTest :
                              assertEquals(listOf(changed6, readValues.last()), read)
                          }
                          it("check distinct") {
-                             assertEquals(listOf("HalloX", "neu"), table.distinctValues("string", String::class))
+                             assertEquals(listOf("HalloX", "neu"), table.distinctValues("string"))
                          }
                          it("delete and check deletion") {
                              table.delete("string", "HalloX")
@@ -210,6 +211,22 @@ class PersisterTest :
                              val c = ComplexHost2(5, listOf(e1, e2), listOf(e2, e3))
                              host2.insert(c)
                              assertEquals(c, host2.read(5))
+                         }
+                         it("read keys") {
+                             val table = persister.Table(L1::class)
+                             table.persist()
+                             table.insert(L1(5, "hello"))
+                             table.insert(L1(6, "hello"))
+                             table.insert(L1(7, "hello"))
+                             val keys = table.readAllKeys<Int>()
+                             assertEquals(listOf(5, 6, 7), keys)
+                         }
+                         it("read keys complexType") {
+                             val table = persister.Table(L2b::class)
+                             table.persist()
+                             table.insert(L2b(L1(5, "hello"), L1(5, "hello")))
+                             val keys = table.readAllKeys<Int>()
+                             assertEquals(listOf(5), keys)
                          }
                      }
                      on("test namebuilding for joins") {

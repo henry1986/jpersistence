@@ -31,6 +31,8 @@ import java.sql.ResultSet
 internal data class ComplexListType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>,
                                                       val persisterData: ReadPersisterData<T, Any>) :
     NoList<R, T, T> {
+    override fun getColumnValue(resultSet: ResultSet) = persisterData.readKey(resultSet)
+
     override fun keyClassSimpleType() = throw RuntimeException("no simple Type")
 
     override fun keySimpleType(r: R) = r

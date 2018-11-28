@@ -122,6 +122,7 @@ internal interface FieldData<R : Any, S : Any, T : Any> {
     fun underscoreName(prefix: String?): String
 
     fun getValue(resultSet: ResultSet, number: Int, key: Any?): NextSize<S>
+    fun getColumnValue(resultSet: ResultSet): Any
 }
 
 internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T> {
@@ -139,6 +140,8 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any> : FieldData<R,
     override fun foreignKey() = null
     override fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<FieldData.JoinName> =
         emptyList()
+
+    override fun getColumnValue(resultSet: ResultSet) = throw RuntimeException("a collection cannot be a key")
 
     override fun underscoreName(prefix: String?) = ""
 

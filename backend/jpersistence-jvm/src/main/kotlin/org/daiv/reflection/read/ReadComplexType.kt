@@ -40,6 +40,7 @@ internal class ReadComplexType<R : Any, T : Any>(override val propertyData: Prop
                                                      persister)) : NoList<R, T, T> {
 
     val clazz = propertyData.clazz
+    override fun getColumnValue(resultSet: ResultSet) = persisterData.readKey(resultSet)
 
     override fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<JoinName> {
         return persisterData.onFields {

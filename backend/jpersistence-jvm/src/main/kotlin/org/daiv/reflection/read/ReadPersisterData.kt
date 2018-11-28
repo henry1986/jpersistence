@@ -59,6 +59,11 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
             .joinToString(", ")
     }
 
+    fun key(): String {
+        return fields.map { it.underscoreName(null) }
+            .joinToString(", ")
+    }
+
 //    fun joins(): String {
 //        return fields.map { it.joins(null) }
 //            .filterNotNull()
@@ -109,6 +114,14 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
                 + "PRIMARY KEY(${fields.first().key(null)})"
 //                + "${if (foreignKeys == "") "" else ", $foreignKeys"}"
                 + ");")
+    }
+
+    private fun readColumn(field: FieldData<R, *, T>, resultSet: ResultSet): Any {
+        return field.getColumnValue(resultSet)
+    }
+
+    fun readKey( resultSet: ResultSet): Any {
+        return readColumn(fields.first(), resultSet)
     }
 
     private tailrec fun read(resultSet: ResultSet,
@@ -169,6 +182,11 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
             .name
     }
 
+    fun keyName(prefix: String?): String {
+        return fields.first()
+            .key(prefix)
+    }
+
     fun keyClassSimpleType() = fields.first().keyClassSimpleType()
     fun keySimpleType(r: R) = fields.first().keySimpleType(r)
 
@@ -190,6 +208,10 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
         val headString = insertHeadString(insertObjects)
         val valueString = insertValueString(insertObjects)
         return "($headString ) VALUES ($valueString);"
+    }
+
+    fun classOfField(fieldName: String): KClass<T> {
+        return fields.find { it.name == fieldName }!!.propertyData.clazz
     }
 
     fun insertList(o: List<R>): String {

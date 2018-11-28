@@ -64,5 +64,4 @@ def commonModule(group, name) {
     jsModule("$group/$name", name + "-js")
 }
 
-commonModule("mods", "data")
-jvmModule("backend", "persister")
+jvmModule("backend", "jpersistence-jvm")

@@ -79,6 +79,7 @@ class Persister(val databaseInterface: DatabaseInterface,
         private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()
 
         private val selectHeader by lazy { readPersisterData.underscoreName() }
+        private val selectKeyHeader by lazy { readPersisterData.keyName(null) }
         //        private val join by lazy {
 //            readPersisterData.joinNames(tableName)
 //                .map { "INNER JOIN ${it.join()}" }
@@ -189,6 +190,19 @@ class Persister(val databaseInterface: DatabaseInterface,
             update(idName, id, fieldName2Set, value)
         }
 
+        private fun <T : Any> readColumn(fieldName: String, cmd: (Any) -> String): List<T> {
+            val clazz: KClass<T> = this.readPersisterData.classOfField(fieldName) as KClass<T>
+            return if (clazz.java.isPrimitiveOrWrapperOrString()) {
+                this@Persister.read(cmd(fieldName))
+                    .getList { clazz.cast(getObject(1)) }
+            } else {
+                val readPersisterData = ReadPersisterData.create<T, Any>(clazz, this@Persister)
+                val key = readPersisterData.createTableKeyData(fieldName)
+                this@Persister.read(cmd(key))
+                    .getList { readPersisterData.readKey(this) } as List<T>
+            }
+        }
+
         /**
          * returns all distinct values of the column [fieldName]
          *
@@ -196,16 +210,8 @@ class Persister(val databaseInterface: DatabaseInterface,
          *
          * @since 0.0.8 -> group by is used instead of distinct
          */
-        fun <T : Any> distinctValues(fieldName: String, clazz: KClass<T>): List<T> {
-            return if (clazz.java.isPrimitiveOrWrapperOrString()) {
-                this@Persister.read("SELECT $fieldName from $tableName GROUP BY $fieldName;")
-                    .getList { clazz.cast(getObject(1)) }
-            } else {
-                val readPersisterData = ReadPersisterData.create<T, Any>(clazz, this@Persister)
-                val key = readPersisterData.createTableKeyData(fieldName)
-                this@Persister.read("SELECT $key from $tableName GROUP BY $key;")
-                    .getList { clazz.cast(readPersisterData.evaluate(this)) }
-            }
+        fun <T : Any> distinctValues(fieldName: String): List<T> {
+            return readColumn(fieldName) { it -> "SELECT $it from $tableName GROUP BY $it;" }
         }
 
         /**
@@ -214,6 +220,13 @@ class Persister(val databaseInterface: DatabaseInterface,
         fun readAll(): List<R> {
             return this@Persister.read("SELECT $selectHeader from $tableName;")
                 .getList(readPersisterData::evaluate)
+        }
+
+        /**
+         * returns all keys from the current Table [clazz]
+         */
+        fun <T : Any> readAllKeys(): List<T> {
+            return readColumn(idName) { "SELECT $selectKeyHeader from $tableName;" }
         }
     }
 

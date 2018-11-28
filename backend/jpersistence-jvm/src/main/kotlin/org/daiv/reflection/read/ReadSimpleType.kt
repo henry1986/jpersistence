@@ -32,6 +32,7 @@ import kotlin.reflect.KClass
 
 internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>) : NoList<R, T, T> {
 
+    override fun getColumnValue(resultSet: ResultSet) = resultSet.getObject(1)!!
 
     override fun keyClassSimpleType() = propertyData.clazz as KClass<Any>
     override fun keySimpleType(r: R) = propertyData.getObject(r)
