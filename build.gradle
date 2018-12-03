@@ -38,9 +38,9 @@ buildscript {
     }
 }
 repositories {
-    mavenLocal()
     mavenCentral()
     maven { url "https://dl.bintray.com/kotlin/kotlinx" }
+    maven { url "https://daiv.org/artifactory" }
 }
 apply plugin: 'kotlin-platform-common'
 apply plugin: 'maven-publish'
@@ -63,6 +63,29 @@ allprojects {
     apply plugin: 'maven-publish'
     apply plugin: 'maven'
     repositories {
+    }
+    artifactory {
+        contextUrl = "${daiv_contextUrl}"
+        //The base Artifactory URL if not overridden by the publisher/resolver
+        publish {
+            repository {
+                repoKey = 'gradle-dev-local'
+                username = "${daiv_user}"
+                password = "${daiv_password}"
+                maven = true
+            }
+            defaults {
+                publications('mavenJava')
+            }
+        }
+        resolve {
+            repository {
+                repoKey = 'gradle-dev'
+                username = "${daiv_user}"
+                password = "${daiv_password}"
+                maven = true
+            }
+        }
     }
     publishing {
         publications {
@@ -87,8 +110,8 @@ configure(jvmProjects) {
 
     repositories {
         maven { url "https://kotlin.bintray.com/kotlinx" }
-        maven { url "http://dl.bintray.com/jetbrains/spek" }
-        mavenLocal()
+        maven { url "https://dl.bintray.com/jetbrains/spek" }
+        maven { url "https://daiv.org/artifactory" }
         mavenCentral()
     }
 
@@ -157,30 +180,6 @@ configure(jvmProjects) {
 //    outputDirectory = javadoc.destinationDir
 //    inputs.dir 'src/main/kotlin'
 //}
-
-
-artifactory {
-    contextUrl = "${artifactory_contextUrl}"   //The base Artifactory URL if not overridden by the publisher/resolver
-    publish {
-        repository {
-            repoKey = 'gradle-dev-local'
-            username = "${artifactory_user}"
-            password = "${artifactory_password}"
-            maven = true
-        }
-        defaults {
-            publications('mavenJava')
-        }
-    }
-    resolve {
-        repository {
-            repoKey = 'gradle-dev'
-            username = "${artifactory_user}"
-            password = "${artifactory_password}"
-            maven = true
-        }
-    }
-}
 
 
 //task javadocJar(type: Jar, dependsOn: dokkaJavadoc) {
