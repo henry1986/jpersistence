@@ -32,71 +32,79 @@ import java.sql.Statement;
 
 public class DatabaseWrapper implements DatabaseInterface {
 
-	private final String DB_PATH;
+    private final String DB_PATH;
 
-	private Connection connection;
+    private Connection connection;
 
-	private DatabaseWrapper(String dB_PATH) {
-		super();
-		DB_PATH = dB_PATH;
-	}
+    private DatabaseWrapper(String dB_PATH) {
+        super();
+        DB_PATH = dB_PATH;
+    }
 
-	public Connection getConnection() {
-		return connection;
-	}
+    public Connection getConnection() {
+        return connection;
+    }
 
-	public void close() {
-		try {
-			if (!connection.isClosed() && connection != null) {
-				connection.close();
-				if (connection.isClosed())
-					System.out.println("Connection to DatabaseInterface closed");
-			}
-		} catch (SQLException e) {
-			throw new RuntimeException(e);
-		}
-	}
+    public void close() {
+        try {
+            if (!connection.isClosed() && connection != null) {
+                connection.close();
+                if (connection.isClosed())
+                    System.out.println("Connection to DatabaseInterface closed");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-	public void open() {
-		try {
-			connection = DriverManager.getConnection("jdbc:sqlite:" + DB_PATH);
-			if (!connection.isClosed()) {
-				System.out.println("...Connection established to " + DB_PATH);
-			}
-		} catch (SQLException e) {
-			throw new RuntimeException(e);
-		}
-		Runtime.getRuntime()
-				.addShutdownHook(new Thread()
-		{
-					public void run() {
-						close();
-					}
-				});
-	}
+    public void open() {
+        try {
+            connection = DriverManager.getConnection("jdbc:sqlite:" + DB_PATH);
+            if (!connection.isClosed()) {
+                System.out.println("...Connection established to " + DB_PATH);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        Runtime.getRuntime()
+               .addShutdownHook(new Thread() {
+                   public void run() {
+                       close();
+                   }
+               });
+    }
 
-	public boolean delete() {
-		return new File(DB_PATH).delete();
-	}
+    public boolean delete() {
+        return new File(DB_PATH).delete();
+    }
 
-	public static DatabaseWrapper create(String path) {
-		try {
-			Class.forName("org.sqlite.JDBC");
-		} catch (ClassNotFoundException e) {
-			throw new RuntimeException(e);
-		}
-		return new DatabaseWrapper(path);
-	}
+    public static DatabaseWrapper create(String path) {
+        try {
+            Class.forName("org.sqlite.JDBC");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        return new DatabaseWrapper(path);
+    }
 
-	@Override
-	public Statement getStatement() {
-		try {
-			if(connection == null){
-				throw new NullPointerException("Database connection not opened");
-			}
-			return connection.createStatement();
-		} catch (SQLException e) {
-			throw new RuntimeException(e);
-		}
-	}
+    @Override
+    public Statement getStatement() {
+        try {
+            if (connection == null) {
+                throw new NullPointerException("Database connection not opened");
+            }
+            return connection.createStatement();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void commit() {
+        try {
+            connection.commit();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

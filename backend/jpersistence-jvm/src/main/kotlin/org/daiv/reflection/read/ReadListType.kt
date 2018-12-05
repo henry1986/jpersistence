@@ -67,6 +67,7 @@ internal class ReadListType<R : Any, T : Any>(override val propertyData: ListPro
     }
 
     override fun createTable() = helperTable.persist()
+    override fun createTableForeign() = identity.persist()
 
     override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
         return getObject(o).map { identity.persisterData.fNEqualsValue(it, name(prefix), sep) }

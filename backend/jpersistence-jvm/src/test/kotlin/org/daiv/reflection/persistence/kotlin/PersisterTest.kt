@@ -61,35 +61,14 @@ class PersisterTest :
              data class L2b(val l1Id: L1, val l1Value: L1)
              data class L3(val id: Int, val l2Value: L2)
              data class L4(val idL2b: L2b, val l3Value: L3)
+             data class L5(val x: Int, val s:String)
+             data class L6(val id:Int, val l5: L5)
 
              val simpleObject = SimpleObject(5, "Hallo")
 
              val s = ObjectToTest(simpleObject,
                                   "(x Int NOT NULL, y Text NOT NULL, PRIMARY KEY(x))",
                                   "(x, y ) VALUES (5, \"Hallo\")", "KotlinSimpleObject", 5)
-//             val persisterObject = PersisterObject(5, 3.0, 1, "Hallo")
-//             val p = ObjectToTest(persisterObject,
-//                                  "(i1 Int NOT NULL, d2 Double NOT NULL, i2 Int NOT NULL, s1 Text NOT NULL, PRIMARY KEY(i1))",
-//                                  "(i1, d2, i2, s1 ) VALUES (5, 3.0, 1, \"Hallo\")",
-//                                  "JavaSimpleObject", 5)
-//             val c = ObjectToTest(ComplexObject(3, 6, persisterObject),
-//                                  "(i1 Int NOT NULL, i3 Int NOT NULL, p1_i1 Int NOT NULL, p1_d2 Double NOT NULL, "
-//                                          + "p1_i2 Int NOT NULL, p1_s1 Text NOT NULL, PRIMARY KEY(i1))",
-//                                  "(i1, i3, p1_i1, p1_d2, p1_i2, p1_s1 ) VALUES (3, 6, 5, 3.0, 1, \"Hallo\")",
-//                                  "JavaComplexObject",
-//                                  3)
-//             val k = ObjectToTest(ComplexKObject(1, simpleObject),
-//                                  "(x Int NOT NULL, y_x Int NOT NULL, y_y Text NOT NULL, PRIMARY KEY(x))",
-//                                  "(x, y_x, y_y ) VALUES (1, 5, \"Hallo\")",
-//                                  "KotlinComplexObject",
-//                                  1)
-
-//             val key = ComplexKey(simpleObject, "hello")
-//             val t = ObjectToTest(key,
-//                                  "(x_x Int NOT NULL, x_y Text NOT NULL, string Text NOT NULL, PRIMARY KEY(x_x, x_y))",
-//                                  "(x_x, x_y, string ) VALUES (5, \"Hallo\", \"hello\")",
-//                                  "KotlinComplexKeyObject",
-//                                  simpleObject)
              val u = ObjectToTest(Transaction("x5", false),
                                   "(id Text NOT NULL, bool Boolean NOT NULL, PRIMARY KEY(id))",
                                   "(id, bool ) VALUES (\"x5\", 0)",
@@ -225,6 +204,13 @@ class PersisterTest :
                              val table = persister.Table(L2b::class)
                              table.persist()
                              table.insert(L2b(L1(5, "hello"), L1(5, "hello")))
+                             val keys = table.readAllKeys<Int>()
+                             assertEquals(listOf(5), keys)
+                         }
+                         it("create Table complexType") {
+                             val table = persister.Table(L6::class)
+                             table.persist()
+                             table.insert(L6(5, L5(5, "wow")))
                              val keys = table.readAllKeys<Int>()
                              assertEquals(listOf(5), keys)
                          }

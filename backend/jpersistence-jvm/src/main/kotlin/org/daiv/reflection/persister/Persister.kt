@@ -94,6 +94,7 @@ class Persister(val databaseInterface: DatabaseInterface,
 
         fun persist() {
             write("$createTable $tableName ${readPersisterData.createTable()}")
+            readPersisterData.createTableForeign()
             event()
         }
 
@@ -138,8 +139,8 @@ class Persister(val databaseInterface: DatabaseInterface,
         }
 
         fun insert(o: List<R>) {
-            val createTable = "INSERT INTO $tableName ${readPersisterData.insertList(o)}"
-            write(createTable)
+            write("INSERT INTO $tableName ${readPersisterData.insertList(o)}")
+            readPersisterData.insertLists(o)
             tableEvent()
         }
 
@@ -227,6 +228,10 @@ class Persister(val databaseInterface: DatabaseInterface,
          */
         fun <T : Any> readAllKeys(): List<T> {
             return readColumn(idName) { "SELECT $selectKeyHeader from $tableName;" }
+        }
+
+        fun dropTable() {
+            this@Persister.write("DROP TABLE $tableName;")
         }
     }
 

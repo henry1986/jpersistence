@@ -31,6 +31,7 @@ import org.daiv.reflection.common.PropertyData
 import org.daiv.reflection.common.storeManyToOneObject
 import org.daiv.reflection.persister.Persister
 import java.sql.ResultSet
+import kotlin.reflect.KClass
 
 internal class ReadComplexType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>,
                                                  private val manyToOne: ManyToOne,
@@ -38,6 +39,8 @@ internal class ReadComplexType<R : Any, T : Any>(override val propertyData: Prop
                                                  private val persisterData: ReadPersisterData<T, Any> = ReadPersisterData.create(
                                                      propertyData.clazz,
                                                      persister)) : NoList<R, T, T> {
+    private val table = persister.Table(propertyData.clazz, manyToOne.tableName)
+    override fun createTableForeign() = table.persist()
 
     val clazz = propertyData.clazz
     override fun getColumnValue(resultSet: ResultSet) = persisterData.readKey(resultSet)
@@ -86,7 +89,7 @@ internal class ReadComplexType<R : Any, T : Any>(override val propertyData: Prop
 
     override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
         val objectValue = getObject(o)
-        persisterData.storeManyToOneObject(objectValue, persister, manyToOne.tableName)
+        persisterData.storeManyToOneObject(objectValue, table)
         val n = name(prefix)
         return persisterData.onKey { insertObject(objectValue, n) }
     }

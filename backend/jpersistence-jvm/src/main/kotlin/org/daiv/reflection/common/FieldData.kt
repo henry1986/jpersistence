@@ -31,14 +31,11 @@ import org.daiv.reflection.read.ReadPersisterData
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 
-internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValue: T,
-                                                                      persister: Persister,
-                                                                      tableName: String) {
+internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValue: T, table: Persister.Table<T>) {
     if (objectValue::class.java.isPrimitiveOrWrapperOrString()) {
         return
     }
     val key = getKey(objectValue)
-    val table = persister.Table(objectValue::class as KClass<T>, tableName)
     table.read(key)?.let { dbValue ->
         if (dbValue != objectValue) {
             val msg = "values are not the same -> " +
@@ -104,6 +101,7 @@ internal interface FieldData<R : Any, S : Any, T : Any> {
 
     fun createTable()
     fun insertLists(keySimpleType: Any, r: R)
+    fun createTableForeign()
 
     fun key(prefix: String?): String
 
@@ -127,6 +125,7 @@ internal interface FieldData<R : Any, S : Any, T : Any> {
 
 internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T> {
     override fun createTable() {}
+    override fun createTableForeign() {}
     override fun insertLists(keySimpleType: Any, r: R) {}
 }
 

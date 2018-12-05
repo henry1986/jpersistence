@@ -54,6 +54,11 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
         return read(resultSet).t
     }
 
+    fun createTableForeign(){
+        fields.forEach { it.createTableForeign() }
+    }
+
+
     fun underscoreName(): String {
         return fields.map { it.underscoreName(null) }
             .joinToString(", ")
@@ -120,7 +125,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
         return field.getColumnValue(resultSet)
     }
 
-    fun readKey( resultSet: ResultSet): Any {
+    fun readKey(resultSet: ResultSet): Any {
         return readColumn(fields.first(), resultSet)
     }
 
@@ -201,6 +206,10 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
 
     fun insertLists(o: R) {
         fields.forEach { it.insertLists(keySimpleType(o), o) }
+    }
+
+    fun insertLists(l: List<R>) {
+        l.forEach { o -> fields.forEach { it.insertLists(keySimpleType(o), o) } }
     }
 
     fun insert(o: R): String {

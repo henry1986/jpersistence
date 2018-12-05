@@ -28,9 +28,10 @@ import org.daiv.reflection.common.NoList
 import org.daiv.reflection.common.PropertyData
 import java.sql.ResultSet
 
-internal data class ComplexListType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>,
+internal data class ComplexListType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
                                                       val persisterData: ReadPersisterData<T, Any>) :
     NoList<R, T, T> {
+
     override fun getColumnValue(resultSet: ResultSet) = persisterData.readKey(resultSet)
 
     override fun keyClassSimpleType() = throw RuntimeException("no simple Type")

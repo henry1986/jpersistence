@@ -111,7 +111,7 @@ configure(jvmProjects) {
     repositories {
         maven { url "https://kotlin.bintray.com/kotlinx" }
         maven { url "https://dl.bintray.com/jetbrains/spek" }
-        maven { url "https://daiv.org/artifactory" }
+        maven { url "https://daiv.org/artifactory/gradle-dev-local" }
         mavenCentral()
     }
 

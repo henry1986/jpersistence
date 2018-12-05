@@ -59,7 +59,7 @@ internal interface FieldDataFactory {
                                                                persister)
                 else -> {
                     if (keyClass == null) {
-                        throw RuntimeException("the primary Key must not be a collection!")
+                        throw RuntimeException("class: $keyClass -> the primary Key must not be a collection!")
                     }
                     if (property.returnType.classifier as KClass<T> == Map::class) {
                         MapType(MapProperty(property as KProperty1<R, Map<Any, T>>, receiverClass),

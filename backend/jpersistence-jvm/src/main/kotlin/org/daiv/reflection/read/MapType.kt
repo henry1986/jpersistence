@@ -30,7 +30,7 @@ import org.daiv.reflection.persister.Persister
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 
-internal data class Identity<T : Any>(val clazz: KClass<T>,
+internal data class Identity<T : Any> constructor(val clazz: KClass<T>,
                                       val persister: Persister,
                                       val name: String,
                                       val index: Int,
@@ -38,13 +38,15 @@ internal data class Identity<T : Any>(val clazz: KClass<T>,
     val persisterData: ReadPersisterData<T, Any> = ReadPersisterData(clazz, persister)
     val simpleProperty = SimpleProperty(persisterData.keyClassSimpleType(), name, index)
 
-    fun storeManyToOneObject(t: T) = persisterData.storeManyToOneObject(t, persister, tableName)
+    private val table = persister.Table(clazz, tableName)
+    fun storeManyToOneObject(t: T) = persisterData.storeManyToOneObject(t, table)
+
+    fun persist() = table.persist()
 
     fun getValue(list: List<Any>): T {
         return if (clazz.java.isPrimitiveOrWrapperOrString()) {
             list[index] as T
         } else {
-            val table = persister.Table(clazz, tableName)
             table.read(list[index])!!
         }
     }
@@ -56,6 +58,7 @@ internal class MapType<R : Any, T : Any, M : Any>(override val propertyData: Map
                                                   val manyMap: ManyMap,
                                                   keyClass: KClass<Any>) :
     CollectionFieldData<R, Map<M, T>, T> {
+
     private val keyIdentity = Identity(propertyData.keyClazz,
                                        persister,
                                        "key_${propertyData.name}",
@@ -94,6 +97,10 @@ internal class MapType<R : Any, T : Any, M : Any>(override val propertyData: Map
     }
 
     override fun createTable() = helperTable.persist()
+    override fun createTableForeign() {
+        keyIdentity.persist()
+        valueIdentity.persist()
+    }
 
     override fun insertLists(keySimpleType: Any, r: R) {
         val o = getObject(r)
