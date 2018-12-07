@@ -64,10 +64,6 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
             .joinToString(", ")
     }
 
-    fun key(): String {
-        return fields.map { it.underscoreName(null) }
-            .joinToString(", ")
-    }
 
 //    fun joins(): String {
 //        return fields.map { it.joins(null) }

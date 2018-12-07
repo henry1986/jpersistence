@@ -35,3 +35,8 @@ annotation class ManyList(val tableName: String = "")
 @Retention(AnnotationRetention.RUNTIME)
 annotation class ManyMap(val tableNameKey: String = "", val tableNameValue: String = "")
 
+
+
+@Target(AnnotationTarget.PROPERTY)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class SameTable

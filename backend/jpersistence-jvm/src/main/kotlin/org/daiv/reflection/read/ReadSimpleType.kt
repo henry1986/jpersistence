@@ -47,7 +47,7 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
 
     override fun foreignKey() = null
 
-    override fun underscoreName(prefix: String?) = prefix?.let { "${it}.$name" } ?: name
+    override fun underscoreName(prefix: String?) = prefix?.let { "${it}_$name" } ?: name
 
 //    override fun joins(prefix: String?): List<String> = emptyList()
 

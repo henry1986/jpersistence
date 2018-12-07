@@ -82,7 +82,7 @@ internal class MapType<R : Any, T : Any, M : Any>(override val propertyData: Map
             InsertData(listOf(i[0].value, i[1].value, i[2].value))
         }
         val fields2: List<ComplexListType<ComplexObject, Any>> = listOf(ComplexListType(ComplexProperty(
-            helperTableName), readPersisterData as ReadPersisterData<Any, Any>))
+            ""), readPersisterData as ReadPersisterData<Any, Any>))
         val n: ReadPersisterData<ComplexObject, Any> = ReadPersisterData(fields2) { i: List<ReadFieldValue> ->
             ComplexObject(i.first().value as InsertData)
         }
@@ -118,7 +118,7 @@ internal class MapType<R : Any, T : Any, M : Any>(override val propertyData: Map
         if (key == null) {
             throw NullPointerException("a List cannot be a key")
         }
-        val complexObjectList = helperTable.read(propertyData.receiverType.simpleName!!, key)
+        val complexObjectList = helperTable.read("_${propertyData.receiverType.simpleName!!}", key)
         val t = complexObjectList.map { keyIdentity.getValue(it.insertData.list) to valueIdentity.getValue(it.insertData.list) }
             .toMap()
         return NextSize(t, number)

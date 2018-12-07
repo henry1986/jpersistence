@@ -61,8 +61,8 @@ class PersisterTest :
              data class L2b(val l1Id: L1, val l1Value: L1)
              data class L3(val id: Int, val l2Value: L2)
              data class L4(val idL2b: L2b, val l3Value: L3)
-             data class L5(val x: Int, val s:String)
-             data class L6(val id:Int, val l5: L5)
+             data class L5(val x: Int, val s: String)
+             data class L6(val id: Int, val l5: L5)
 
              val simpleObject = SimpleObject(5, "Hallo")
 
@@ -76,7 +76,6 @@ class PersisterTest :
                                   "x5")
 
              val listOf = listOf(s/*, k, t*/, u)
-             val database = DatabaseWrapper.create("ReadValue.db")
 
 
              describe("Persister Table creation, read and insert") {
@@ -94,164 +93,168 @@ class PersisterTest :
                              o.checkReadData()
                          }
                      }
-                     database.open()
-                     val persister = Persister(database)
-                     on("special reads") {
+                     afterGroup { o.delete() }
+                 }
+                 val database = DatabaseWrapper.create("ReadValue.db")
+                 database.open()
+                 val persister = Persister(database)
+                 on("special reads") {
 
-                         val persisterListener = mockk<DBChangeListener>(relaxed = true)
-                         val tableListener = mockk<DBChangeListener>(relaxed = true)
-                         val table = persister.Table(ReadValue::class)
-                         table.persist()
-                         val readValues = listOf(ReadValue(5, "HalloX"), ReadValue(6, "HollaY"), ReadValue(7, "neu"))
-                         val changed6 = ReadValue(6, "neu")
-                         readValues.forEach(table::insert)
-                         it("read from column") {
-                             val read = table.read("string", "HalloX")
-                             assertEquals(readValues[0], read[0])
-                         }
-                         it("check key existence") {
-                             assertTrue(table.exists(5))
-                         }
-                         it("check key no Existence") {
-                             assertFalse(table.exists(35))
-                         }
-                         it("check record existence") {
-                             assertTrue(table.exists("string", "HalloX"))
-                         }
-                         it("check Record no existence") {
-                             assertFalse(table.exists("string", "blub"))
-                         }
-                         it("get all values") {
-                             assertEquals(readValues, table.readAll())
-                         }
-                         it("check update") {
-                             persister.register(persisterListener)
-                             table.update(6, "string", "neu")
-                             verify { persisterListener.onChange() }
-                             assertEquals(changed6, table.read(6))
-                         }
-                         it("multiple read from column") {
-                             val read = table.read("string", "neu")
-                             assertEquals(2, read.size)
-                             assertEquals(listOf(changed6, readValues.last()), read)
-                         }
-                         it("check distinct") {
-                             assertEquals(listOf("HalloX", "neu"), table.distinctValues("string"))
-                         }
-                         it("delete and check deletion") {
-                             table.delete("string", "HalloX")
-                             assertFalse(table.exists("string", "HalloX"))
-                         }
-                         it("delete key and check deletion") {
-                             table.delete(6)
-                             assertFalse(table.exists("string", "HollaY"))
-                         }
-                         it("delete whole table") {
-                             table.clear()
-                             assertTrue(table.readAll().isEmpty())
-                         }
-                         it("insert list") {
-                             table.register(tableListener)
-                             table.insert(readValues)
-                             verify { tableListener.onChange() }
-                             assertEquals(readValues, table.readAll())
-                         }
-                         persister.Table(ComplexM2O::class)
-                             .persist()
-                         val e1 = ComplexM2O(2, "myName", 6.0)
-                         val e2 = ComplexM2O(3, "nextName", 7.0)
-                         val e3 = ComplexM2O(4, "e3", 4.0)
-                         it("on list") {
-                             val list = persister.Table(ComplexHostList::class)
-                             list.persist()
-                             val c = ComplexHostList(5, listOf(e1, e2), listOf(e2, e3))
-                             list.insert(c)
-                             assertEquals(c, list.read(5))
-                         }
-                         it("on map") {
-                             val list = persister.Table(ComplexHostMap::class)
-                             list.persist()
-                             val c = ComplexHostMap(5, mapOf("e1" to e1, "e2" to e2), mapOf("e2" to e2, "e3" to e3))
-                             list.insert(c)
-                             assertEquals(c, list.read(5))
-                         }
-                         it("onManyToOne SimpleObject") {
-                             //                             data class ComplexM2O(val id: Int, val name: String, val value: Double)
-//                             data class ComplexHost(val id: Int, @ManyToOne val x1: ComplexM2O, @ManyToOne val x2: ComplexM2O)
-                             val complexHostTable = persister.Table(ComplexHost::class)
-                             complexHostTable.persist()
-                             val c = ComplexHost(5, e1, e2)
-                             complexHostTable.insert(c)
-                             assertEquals(c, complexHostTable.read(5))
-                         }
-                         it("onManyToOne list") {
-                             val host2 = persister.Table(ComplexHost2::class)
-                             host2.persist()
-                             val c = ComplexHost2(5, listOf(e1, e2), listOf(e2, e3))
-                             host2.insert(c)
-                             assertEquals(c, host2.read(5))
-                         }
-                         it("read keys") {
-                             val table = persister.Table(L1::class)
-                             table.persist()
-                             table.insert(L1(5, "hello"))
-                             table.insert(L1(6, "hello"))
-                             table.insert(L1(7, "hello"))
-                             val keys = table.readAllKeys<Int>()
-                             assertEquals(listOf(5, 6, 7), keys)
-                         }
-                         it("read keys complexType") {
-                             val table = persister.Table(L2b::class)
-                             table.persist()
-                             table.insert(L2b(L1(5, "hello"), L1(5, "hello")))
-                             val keys = table.readAllKeys<Int>()
-                             assertEquals(listOf(5), keys)
-                         }
-                         it("create Table complexType") {
-                             val table = persister.Table(L6::class)
-                             table.persist()
-                             table.insert(L6(5, L5(5, "wow")))
-                             val keys = table.readAllKeys<Int>()
-                             assertEquals(listOf(5), keys)
-                         }
+                     val persisterListener = mockk<DBChangeListener>(relaxed = true)
+                     val tableListener = mockk<DBChangeListener>(relaxed = true)
+                     val table = persister.Table(ReadValue::class)
+                     table.persist()
+                     val readValues = listOf(ReadValue(5, "HalloX"), ReadValue(6, "HollaY"), ReadValue(7, "neu"))
+                     val changed6 = ReadValue(6, "neu")
+                     readValues.forEach(table::insert)
+                     it("read from column") {
+                         val read = table.read("string", "HalloX")
+                         assertEquals(readValues[0], read[0])
                      }
-                     on("test namebuilding for joins") {
-                         //                         data class L1(val r:Int, val s:String)
+                     it("check key existence") {
+                         assertTrue(table.exists(5))
+                     }
+                     it("check key no Existence") {
+                         assertFalse(table.exists(35))
+                     }
+                     it("check record existence") {
+                         assertTrue(table.exists("string", "HalloX"))
+                     }
+                     it("check Record no existence") {
+                         assertFalse(table.exists("string", "blub"))
+                     }
+                     it("get all values") {
+                         assertEquals(readValues, table.readAll())
+                     }
+                     it("check update") {
+                         persister.register(persisterListener)
+                         table.update(6, "string", "neu")
+                         verify { persisterListener.onChange() }
+                         assertEquals(changed6, table.read(6))
+                     }
+                     it("multiple read from column") {
+                         val read = table.read("string", "neu")
+                         assertEquals(2, read.size)
+                         assertEquals(listOf(changed6, readValues.last()), read)
+                     }
+                     it("check distinct") {
+                         assertEquals(listOf("HalloX", "neu"), table.distinctValues("string"))
+                     }
+                     it("delete and check deletion") {
+                         table.delete("string", "HalloX")
+                         assertFalse(table.exists("string", "HalloX"))
+                     }
+                     it("delete key and check deletion") {
+                         table.delete(6)
+                         assertFalse(table.exists("string", "HollaY"))
+                     }
+                     it("delete whole table") {
+                         table.clear()
+                         assertTrue(table.readAll().isEmpty())
+                     }
+                     it("insert list") {
+                         table.register(tableListener)
+                         table.insert(readValues)
+                         verify { tableListener.onChange() }
+                         assertEquals(readValues, table.readAll())
+                     }
+                     persister.Table(ComplexM2O::class)
+                         .persist()
+                     val e1 = ComplexM2O(2, "myName", 6.0)
+                     val e2 = ComplexM2O(3, "nextName", 7.0)
+                     val e3 = ComplexM2O(4, "e3", 4.0)
+                     it("on list") {
+                         val list = persister.Table(ComplexHostList::class)
+                         list.persist()
+                         val c = ComplexHostList(5, listOf(e1, e2), listOf(e2, e3))
+                         list.insert(c)
+                         assertEquals(c, list.read(5))
+                     }
+                     it("on map") {
+                         val list = persister.Table(ComplexHostMap::class)
+                         list.persist()
+                         val c = ComplexHostMap(5, mapOf("e1" to e1, "e2" to e2), mapOf("e2" to e2, "e3" to e3))
+                         list.insert(c)
+                         assertEquals(c, list.read(5))
+                     }
+                     it("onManyToOne SimpleObject") {
+                         //                             data class ComplexM2O(val id: Int, val name: String, val value: Double)
+//                             data class ComplexHost(val id: Int, @ManyToOne val x1: ComplexM2O, @ManyToOne val x2: ComplexM2O)
+                         val complexHostTable = persister.Table(ComplexHost::class)
+                         complexHostTable.persist()
+                         val c = ComplexHost(5, e1, e2)
+                         complexHostTable.insert(c)
+                         assertEquals(c, complexHostTable.read(5))
+                     }
+                     it("onManyToOne list") {
+                         val host2 = persister.Table(ComplexHost2::class)
+                         host2.persist()
+                         val c = ComplexHost2(5, listOf(e1, e2), listOf(e2, e3))
+                         host2.insert(c)
+                         assertEquals(c, host2.read(5))
+                     }
+                     it("read keys") {
+                         val table = persister.Table(L1::class)
+                         table.persist()
+                         table.insert(L1(5, "hello"))
+                         table.insert(L1(6, "hello"))
+                         table.insert(L1(7, "hello"))
+                         val keys = table.readAllKeys<Int>()
+                         assertEquals(listOf(5, 6, 7), keys)
+                     }
+                     it("read keys complexType") {
+                         val table = persister.Table(L2b::class)
+                         table.persist()
+                         table.insert(L2b(L1(5, "hello"), L1(5, "hello")))
+                         val keys = table.readAllKeys<Int>()
+                         assertEquals(listOf(5), keys)
+                     }
+                     it("create Table complexType") {
+                         val table = persister.Table(L6::class)
+                         table.persist()
+                         val l6 = L6(5, L5(5, "wow"))
+                         table.insert(l6)
+                         assertEquals(listOf(l6), table.readAll())
+                         val keys = table.readAllKeys<Int>()
+                         assertEquals(listOf(5), keys)
+                     }
+                 }
+                 on("test namebuilding for joins") {
+                     //                         data class L1(val r:Int, val s:String)
 //                         data class L2(val id:Int, val l1:L1)
 //                         data class L2b(val l1Id:L1, val l1Value:L1)
 //                         data class L3(val id:Int, val l2Value:L2)
 //                         data class L4(val idL2b:L2b, val l3Value:L3)
-                         val r = ReadPersisterData.create<L3, Any>(L3::class, persister)
-                         val n = r.underscoreName()
+                     val r = ReadPersisterData.create<L3, Any>(L3::class, persister)
+                     val n = r.underscoreName()
 
-                         // JOIN L2 as l2Value ON L3.l2Value = l2Value.id
-                         // JOIN L1 as l2Value_l1 ON L2.l2Value_l1 = l2Value_l1.id
-                         println("n: $n")
+                     // JOIN L2 as l2Value ON L3.l2Value = l2Value.id
+                     // JOIN L1 as l2Value_l1 ON L2.l2Value_l1 = l2Value_l1.id
+                     println("n: $n")
 //                         println("n: INNER JOIN ${r.joinNames("L3").map { it.join() }}")
-                         println("foreignKey: ${r.foreignKey()}")
-                         listOf(L1::class, L2::class, L2b::class, L3::class, L4::class).forEach {
-                             persister.Table(it)
-                                 .persist()
-                         }
-
-                         it("test L2") {
-                             val t = persister.Table(L2::class)
-                             val insert = L2(5, L1(2, "Hallo"))
-                             t.insert(insert)
-                             val xRes = t.read(5)
-                             assertEquals(insert, xRes)
-                         }
-                         it("test L4") {
-                             val t = persister.Table(L4::class)
-                             val key = L2b(L1(3, "L1-3"), L1(4, "L1-4"))
-                             val insert = L4(key, L3(5, L2(1, L1(9, "L1-9"))))
-                             t.insert(insert)
-                             val xRes = t.read(key)
-                             assertEquals(insert, xRes)
-                         }
+                     println("foreignKey: ${r.foreignKey()}")
+                     listOf(L1::class, L2::class, L2b::class, L3::class, L4::class).forEach {
+                         persister.Table(it)
+                             .persist()
                      }
-                     afterGroup { o.delete(); database.delete() }
+
+                     it("test L2") {
+                         val t = persister.Table(L2::class)
+                         val insert = L2(5, L1(2, "Hallo"))
+                         t.insert(insert)
+                         val xRes = t.read(5)
+                         assertEquals(insert, xRes)
+                     }
+                     it("test L4") {
+                         val t = persister.Table(L4::class)
+                         val key = L2b(L1(3, "L1-3"), L1(4, "L1-4"))
+                         val insert = L4(key, L3(5, L2(1, L1(9, "L1-9"))))
+                         t.insert(insert)
+                         val xRes = t.read(key)
+                         assertEquals(insert, xRes)
+                     }
                  }
+                 afterGroup { database.delete() }
              }
          })
 

@@ -41,16 +41,17 @@ internal class ReadListType<R : Any, T : Any>(override val propertyData: ListPro
 
     private val helperTableName = "${propertyData.receiverType.simpleName}_$name"
 
+    val n: ReadPersisterData<ComplexObject, Any>
+
     init {
-        val readPersisterData: ReadPersisterData<InsertData, Any>
         val fields = listOf(ReadSimpleType(SimpleProperty(keyClass, propertyData.receiverType.simpleName!!, 0)),
                             ReadSimpleType(identity.simpleProperty))
-        readPersisterData = ReadPersisterData(fields) { i: List<ReadFieldValue> ->
+        val readPersisterData = ReadPersisterData(fields) { i: List<ReadFieldValue> ->
             InsertData(listOf(i[0].value, i[1].value))
         }
         val fields2: List<ComplexListType<ComplexObject, Any>> = listOf(ComplexListType(ComplexProperty(
-            helperTableName), readPersisterData as ReadPersisterData<Any, Any>))
-        val n: ReadPersisterData<ComplexObject, Any> = ReadPersisterData(fields2) { i: List<ReadFieldValue> ->
+            ""), readPersisterData as ReadPersisterData<Any, Any>))
+        n = ReadPersisterData(fields2) { i: List<ReadFieldValue> ->
             ComplexObject(i.first().value as InsertData)
         }
         helperTable = persister.Table(n, helperTableName)
@@ -81,7 +82,7 @@ internal class ReadListType<R : Any, T : Any>(override val propertyData: ListPro
             throw NullPointerException("a List cannot be a key")
         }
 
-        val complexList = helperTable.read(propertyData.receiverType.simpleName!!, key)
+        val complexList = helperTable.read("_${propertyData.receiverType.simpleName!!}", key)
         val t = complexList.map { identity.getValue(it.insertData.list) }
         return NextSize(t, number)
     }

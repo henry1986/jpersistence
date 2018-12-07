@@ -26,13 +26,11 @@ package org.daiv.reflection.common
 import org.daiv.reflection.annotations.ManyList
 import org.daiv.reflection.annotations.ManyMap
 import org.daiv.reflection.annotations.ManyToOne
+import org.daiv.reflection.annotations.SameTable
 import org.daiv.reflection.getKClass
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.persister.Persister
-import org.daiv.reflection.read.MapType
-import org.daiv.reflection.read.ReadComplexType
-import org.daiv.reflection.read.ReadListType
-import org.daiv.reflection.read.ReadSimpleType
+import org.daiv.reflection.read.*
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.KProperty1
@@ -53,25 +51,28 @@ internal interface FieldDataFactory {
             return when {
                 property.getKClass().java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property,
                                                                                                        receiverClass))
+                property.findAnnotation<SameTable>() != null -> {
+                    val propertyData = DefProperty(property, receiverClass)
+                    ComplexListType(propertyData, ReadPersisterData(propertyData.clazz, persister))
+                }
                 property.isNoMapAndNoList() -> ReadComplexType(DefProperty(property, receiverClass),
                                                                property.findAnnotation()
                                                                    ?: ManyToOne::class.constructors.first().call(""),
                                                                persister)
+                keyClass == null -> {
+                    throw RuntimeException("class: $keyClass -> the primary Key must not be a collection!")
+                }
+                property.returnType.classifier as KClass<T> == Map::class -> {
+                    MapType(MapProperty(property as KProperty1<R, Map<Any, T>>, receiverClass),
+                            persister,
+                            property.findAnnotation() ?: ManyMap::class.constructors.first().call("", ""),
+                            keyClass)
+                }
                 else -> {
-                    if (keyClass == null) {
-                        throw RuntimeException("class: $keyClass -> the primary Key must not be a collection!")
-                    }
-                    if (property.returnType.classifier as KClass<T> == Map::class) {
-                        MapType(MapProperty(property as KProperty1<R, Map<Any, T>>, receiverClass),
-                                persister,
-                                property.findAnnotation() ?: ManyMap::class.constructors.first().call("", ""),
-                                keyClass)
-                    } else {
-                        ReadListType(ListProperty(property as KProperty1<R, List<T>>, receiverClass),
-                                     property.findAnnotation() ?: ManyList::class.constructors.first().call(""),
-                                     persister,
-                                     keyClass)
-                    }
+                    ReadListType(ListProperty(property as KProperty1<R, List<T>>, receiverClass),
+                                 property.findAnnotation() ?: ManyList::class.constructors.first().call(""),
+                                 persister,
+                                 keyClass)
                 }
             }
         }

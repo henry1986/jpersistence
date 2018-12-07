@@ -29,7 +29,7 @@ import org.daiv.reflection.common.PropertyData
 import java.sql.ResultSet
 
 internal data class ComplexListType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
-                                                      val persisterData: ReadPersisterData<T, Any>) :
+                                                                  val persisterData: ReadPersisterData<T, Any>) :
     NoList<R, T, T> {
 
     override fun getColumnValue(resultSet: ResultSet) = persisterData.readKey(resultSet)
@@ -41,7 +41,7 @@ internal data class ComplexListType<R : Any, T : Any> constructor(override val p
 
     override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
         val t = propertyData.getObject(o)
-        return persisterData.onFields { insertObject(t, prefix) }
+        return persisterData.onFields { insertObject(t, this@ComplexListType.name(prefix)) }
             .flatMap { it }
     }
 
@@ -52,13 +52,15 @@ internal data class ComplexListType<R : Any, T : Any> constructor(override val p
     }
 
     override fun toTableHead(prefix: String?): String? {
-//        val name = name(prefix)
-        return persisterData.onFields { toTableHead(prefix) }
+        val name = name(prefix)
+        return persisterData.onFields { toTableHead(name) }
             .joinToString(", ")
     }
 
     override fun key(prefix: String?): String {
-        return persisterData.createTableKeyData(prefix)
+        return persisterData.onFields { key(this@ComplexListType.name(prefix)) }
+            .joinToString(", ")//persisterData.createTableKeyData(name(prefix))
+//        return persisterData.createTableKeyData(prefix)
     }
 
     override fun foreignKey(): FieldData.ForeignKey? {

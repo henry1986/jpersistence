@@ -61,8 +61,8 @@ internal class ReadComplexType<R : Any, T : Any>(override val propertyData: Prop
     }
 
     override fun underscoreName(prefix: String?): String {
-        return persisterData.onFields { underscoreName(this@ReadComplexType.name(prefix)) }
-            .joinToString(", ")
+        return persisterData.onKey { underscoreName(this@ReadComplexType.name(prefix)) }
+//            .joinToString(", ")
     }
 
     override fun key(prefix: String?): String {
