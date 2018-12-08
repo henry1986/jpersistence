@@ -42,7 +42,7 @@ internal data class ComplexListType<R : Any, T : Any> constructor(override val p
     override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
         val t = propertyData.getObject(o)
         return persisterData.onFields { insertObject(t, this@ComplexListType.name(prefix)) }
-            .flatMap { it }
+            .flatten()
     }
 
     override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
@@ -72,7 +72,8 @@ internal data class ComplexListType<R : Any, T : Any> constructor(override val p
     }
 
     override fun underscoreName(prefix: String?): String {
-        return ""
+        return persisterData.onFields { underscoreName(this@ComplexListType.name(prefix)) }
+            .joinToString(", ")
     }
 
     override fun getValue(resultSet: ResultSet, number: Int, key: Any?): NextSize<T> {

@@ -65,3 +65,4 @@ def commonModule(group, name) {
 }
 
 jvmModule("backend", "jpersistence-jvm")
+jsModule("frontend", "jpersistence-js")

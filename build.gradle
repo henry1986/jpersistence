@@ -99,7 +99,15 @@ allprojects {
         }
     }
 }
+configure(jsProjects){
+    apply plugin: 'kotlin2js'
+    apply plugin: 'kotlin-platform-js'
+    
+    dependencies {
+        compile "org.jetbrains.kotlin:kotlin-stdlib-js"
+    }
 
+}
 
 configure(jvmProjects) {
     apply plugin: 'java'
@@ -171,8 +179,6 @@ configure(jvmProjects) {
     compileTestKotlin {
         kotlinOptions.jvmTarget = "1.8"
     }
-
-
 }
 
 //task dokkaJavadoc(type: org.jetbrains.dokka.gradle.DokkaTask) {

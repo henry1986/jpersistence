@@ -219,7 +219,7 @@ class Persister(val databaseInterface: DatabaseInterface,
          * returns all data from the current Table [clazz]
          */
         fun readAll(): List<R> {
-            return this@Persister.read("SELECT $selectHeader from $tableName;")
+            return this@Persister.read("SELECT * from $tableName;")
                 .getList(readPersisterData::evaluate)
         }
 
