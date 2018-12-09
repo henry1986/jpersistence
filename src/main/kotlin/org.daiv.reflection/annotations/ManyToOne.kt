@@ -36,7 +36,33 @@ annotation class ManyList(val tableName: String = "")
 annotation class ManyMap(val tableNameKey: String = "", val tableNameValue: String = "")
 
 
-
 @Target(AnnotationTarget.PROPERTY)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class SameTable
+
+
+data class TableData(val tableName: String, val header: List<String>, val values: List<List<String>>) {
+    fun insertCmd() = "INSERT INTO $tableName ${header.joinToString(", ", "(", ")")} VALUES" +
+            " ${values.joinToString(", ", postfix = ";") { it.joinToString(", ", "(", ")") }};"
+
+    fun insertCmd(index: Int) = "INSERT INTO $tableName ${header.joinToString(", ", "(", ")")} VALUES" +
+            " ${values[index].joinToString(", ", "(", ")")};"
+
+    fun deleteCmd(index: Int) = "DELETE FROM $tableName WHERE ${header.first()} = ${values[index].first()};"
+
+    fun existsCmd(index: Int) =
+        "SELECT EXISTS( SELECT 1 FROM $tableName WHERE ${header.first()} = ${values[index].first()} LIMIT 1);"
+
+    fun canAppend(list: List<String>): Boolean {
+        val key = list.first()
+        return values.none { it.first() == key }
+    }
+
+    fun appendValues(list: List<String>) = copy(values = values.plus(element = list))
+}
+
+data class AllTables(val tableData: TableData, val helper: List<TableData>, val keyTables: List<TableData>){
+    val all = helper + keyTables
+
+
+}

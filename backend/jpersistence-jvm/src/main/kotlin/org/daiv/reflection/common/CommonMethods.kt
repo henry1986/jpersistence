@@ -23,6 +23,9 @@
 
 package org.daiv.reflection.common
 
+import org.daiv.reflection.annotations.AllTables
+import org.daiv.reflection.persister.Persister.Table
+import java.lang.RuntimeException
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 
@@ -34,4 +37,48 @@ fun <R : Any> ResultSet.getList(method: ResultSet.() -> R): List<R> {
     return mutableList.toList()
 }
 
-fun <T : Any> KClass<T>.tableName() = "`${this.java.simpleName}`"
+fun <T : Any> KClass<T>.tableName() = "${this.java.simpleName}"
+
+
+interface ReadValue {
+    fun getObject(number: Int, clazz: KClass<Any>): Any
+    fun <T : Any> read(table: Table<T>, t: Any): T
+    fun helperTable(table: Table<ComplexObject>, fieldName: String, key: Any): List<ComplexObject>
+}
+
+class DBReadValue(private val resultSet: ResultSet) : ReadValue {
+    override fun getObject(number: Int, clazz: KClass<Any>) = resultSet.getObject(number)!!
+
+    override fun <T : Any> read(table: Table<T>, t: Any) = table.read(t)!!
+
+    override fun helperTable(table: Table<ComplexObject>, fieldName: String, key: Any) = table.read(fieldName, key)
+}
+
+class TableDataReadValue(val tables: AllTables, val values: List<String>) : ReadValue {
+    override fun getObject(number: Int, clazz: KClass<Any>): Any {
+        val x = values[number-1]
+        try {
+            return when (clazz) {
+                Boolean::class -> x.toBoolean()
+                String::class -> x
+                Int::class -> x.toInt()
+                Double::class -> x.toDouble()
+                else -> throw RuntimeException("unknow type: $clazz")
+            }
+        } catch (e: NumberFormatException) {
+            throw e
+        }
+    }
+
+    override fun <T : Any> read(table: Table<T>, t: Any): T {
+        return table.readTableData(tables.copy(tableData = tables.keyTables.find { it.tableName == table._tableName }!!),
+                                   t)
+    }
+
+    override fun helperTable(table: Table<ComplexObject>, fieldName: String, key: Any): List<ComplexObject> {
+        val tableData = tables.helper.find { it.tableName == table._tableName }!!
+        return table.readTableData(tables, tableData, fieldName, key)
+
+    }
+
+}

@@ -38,6 +38,7 @@ internal class ReadListType<R : Any, T : Any>(override val propertyData: ListPro
     private val identity = Identity(propertyData.clazz, persister, propertyData.name, 1, many.tableName)
     //    private val persisterData = ReadPersisterData<T, Any>(propertyData.clazz, persister)
     private val helperTable: Table<ComplexObject>
+    private val firstColumn = "_${propertyData.receiverType.simpleName!!}"
 
     private val helperTableName = "${propertyData.receiverType.simpleName}_$name"
 
@@ -49,7 +50,7 @@ internal class ReadListType<R : Any, T : Any>(override val propertyData: ListPro
         val readPersisterData = ReadPersisterData(fields) { i: List<ReadFieldValue> ->
             InsertData(listOf(i[0].value, i[1].value))
         }
-        val fields2: List<ComplexListType<ComplexObject, Any>> = listOf(ComplexListType(ComplexProperty(
+        val fields2: List<ComplexSameTableType<ComplexObject, Any>> = listOf(ComplexSameTableType(ComplexProperty(
             ""), readPersisterData as ReadPersisterData<Any, Any>))
         n = ReadPersisterData(fields2) { i: List<ReadFieldValue> ->
             ComplexObject(i.first().value as InsertData)
@@ -67,6 +68,10 @@ internal class ReadListType<R : Any, T : Any>(override val propertyData: ListPro
         }
     }
 
+    override fun deleteLists(keySimpleType: Any) {
+        helperTable.delete(firstColumn, keySimpleType)
+    }
+
     override fun createTable() = helperTable.persist()
     override fun createTableForeign() = identity.persist()
 
@@ -77,13 +82,17 @@ internal class ReadListType<R : Any, T : Any>(override val propertyData: ListPro
 
 
     @Suppress("UNCHECKED_CAST")
-    override fun getValue(resultSet: ResultSet, number: Int, key: Any?): NextSize<List<T>> {
+    override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<List<T>> {
         if (key == null) {
             throw NullPointerException("a List cannot be a key")
         }
-
-        val complexList = helperTable.read("_${propertyData.receiverType.simpleName!!}", key)
-        val t = complexList.map { identity.getValue(it.insertData.list) }
+        val complexList = readValue.helperTable(helperTable, firstColumn, key)
+//        val complexList = helperTable.read("_${propertyData.receiverType.simpleName!!}", key)
+        val t = complexList.map { identity.getValue(it.insertData.list, readValue) }
         return NextSize(t, number)
     }
+
+    override fun helperTables() = identity.helperTables() + helperTable.tableData()
+
+    override fun keyTables() = identity.keyTables()
 }

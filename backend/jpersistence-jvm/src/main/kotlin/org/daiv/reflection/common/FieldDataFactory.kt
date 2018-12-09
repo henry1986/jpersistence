@@ -53,7 +53,7 @@ internal interface FieldDataFactory {
                                                                                                        receiverClass))
                 property.findAnnotation<SameTable>() != null -> {
                     val propertyData = DefProperty(property, receiverClass)
-                    ComplexListType(propertyData, ReadPersisterData(propertyData.clazz, persister))
+                    ComplexSameTableType(propertyData, ReadPersisterData(propertyData.clazz, persister))
                 }
                 property.isNoMapAndNoList() -> ReadComplexType(DefProperty(property, receiverClass),
                                                                property.findAnnotation()

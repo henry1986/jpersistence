@@ -23,15 +23,17 @@
 
 package org.daiv.reflection.common
 
+import org.daiv.reflection.annotations.TableData
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.persister.Persister.Table
 import org.daiv.reflection.read.InsertObject
 import org.daiv.reflection.read.NextSize
 import org.daiv.reflection.read.ReadPersisterData
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 
-internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValue: T, table: Persister.Table<T>) {
+internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValue: T, table: Table<T>) {
     if (objectValue::class.java.isPrimitiveOrWrapperOrString()) {
         return
     }
@@ -46,6 +48,7 @@ internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValu
         table.insert(objectValue)
     }
 }
+
 
 internal interface FieldData<R : Any, S : Any, T : Any> {
     val propertyData: PropertyData<R, S, T>
@@ -101,6 +104,7 @@ internal interface FieldData<R : Any, S : Any, T : Any> {
 
     fun createTable()
     fun insertLists(keySimpleType: Any, r: R)
+    fun deleteLists(keySimpleType: Any)
     fun createTableForeign()
 
     fun key(prefix: String?): String
@@ -117,31 +121,40 @@ internal interface FieldData<R : Any, S : Any, T : Any> {
 
     fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<JoinName>
 
-    fun underscoreName(prefix: String?): String
+    fun underscoreName(prefix: String?): String?
 
-    fun getValue(resultSet: ResultSet, number: Int, key: Any?): NextSize<S>
-    fun getColumnValue(resultSet: ResultSet): Any
+    fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<S>
+
+    fun getColumnValue(readValue: ReadValue): Any
+    fun header(prefix: String?): List<String>
+    fun size() = 1
+
+    fun helperTables(): List<TableData>
+    fun keyTables(): List<TableData>
 }
 
 internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T> {
     override fun createTable() {}
     override fun createTableForeign() {}
     override fun insertLists(keySimpleType: Any, r: R) {}
+    override fun deleteLists(keySimpleType: Any){}
 }
 
 internal interface CollectionFieldData<R : Any, S : Any, T : Any> : FieldData<R, S, T> {
     override fun keyClassSimpleType() = throw RuntimeException("a collection cannot be a key")
     override fun keySimpleType(r: R) = throw RuntimeException("a collection cannot be a key")
-    override fun keyLowSimpleType(t: T) = throw RuntimeException("a collection cannot be a key")
+    override fun keyLowSimpleType(t: T) = t
     override fun key(prefix: String?) = throw RuntimeException("a collection cannot be a key")
     override fun toTableHead(prefix: String?) = null
+    override fun header(prefix: String?): List<String> = emptyList()
+
     override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> = listOf()
     override fun foreignKey() = null
     override fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<FieldData.JoinName> =
         emptyList()
 
-    override fun getColumnValue(resultSet: ResultSet) = throw RuntimeException("a collection cannot be a key")
+    override fun getColumnValue(readValue: ReadValue) = throw RuntimeException("a collection cannot be a key")
 
-    override fun underscoreName(prefix: String?) = ""
-
+    override fun underscoreName(prefix: String?) = null
+    override fun size() = 0
 }

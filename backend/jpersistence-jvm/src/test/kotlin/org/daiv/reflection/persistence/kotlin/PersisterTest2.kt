@@ -38,8 +38,9 @@ class PersisterTest2
                data class L2(val id: Int, @SameTable val l1: L1)
 
                data class B1(val r: Int, val s: String)
-               data class B2(val id: Int, val s:String)
-               data class B3(val id: Int, val b2:B2, @SameTable val b1:B1)
+               data class B2(val id: Int, val s: String)
+               data class B3(val id: Int, val b2: B2, @SameTable val b1: B1)
+               data class B4(val id: Int, val b2: List<B2>, @SameTable val b1: B1)
 
                val database = DatabaseWrapper.create("PersisterTest2.db")
                describe("Persister") {
@@ -61,7 +62,25 @@ class PersisterTest2
                            table.readAll()
                            assertEquals(l2, table.read(4))
                        }
+                       it("printTableDatas") {
+                           val table = persister.Table(B4::class)
+                           table.persist()
+                           val l2 = listOf(B4(4, listOf(B2(5, "wow"), B2(9, "cool")), B1(6, "hi")),
+                                           B4(5, listOf(), B1(9, "now")))
+                           table.insert(l2)
+                           val allTables = table.allTables()
+                           val new = allTables.copy(tableData = allTables.tableData.appendValues(listOf("6",
+                                                                                                        "6",
+                                                                                                        "hi")),
+                                                    helper = listOf(allTables.helper.first().appendValues(listOf("6",
+                                                                                                                 "9"))))
+                           val values = table.readAllTableData(new)
+                           println(values)
+                           table.resetTable(values)
+                           val x = table.read(6)
+                           assertEquals(B4(6, listOf(B2(9, "cool")), B1(6, "hi")), x)
+                       }
                    }
-                   afterGroup {database.delete() }
+                   afterGroup { database.delete() }
                }
            })

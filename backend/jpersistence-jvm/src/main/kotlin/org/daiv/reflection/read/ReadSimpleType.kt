@@ -23,16 +23,19 @@
 
 package org.daiv.reflection.read
 
+import org.daiv.reflection.annotations.TableData
 import org.daiv.reflection.common.FieldData.JoinName
 import org.daiv.reflection.common.NoList
 import org.daiv.reflection.common.PropertyData
+import org.daiv.reflection.common.ReadValue
+import org.daiv.reflection.persister.Persister
 import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.reflect.KClass
 
 internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>) : NoList<R, T, T> {
 
-    override fun getColumnValue(resultSet: ResultSet) = resultSet.getObject(1)!!
+    override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1, propertyData.clazz as KClass<Any>)!!
 
     override fun keyClassSimpleType() = propertyData.clazz as KClass<Any>
     override fun keySimpleType(r: R) = propertyData.getObject(r)
@@ -41,6 +44,7 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
     override fun toTableHead(prefix: String?) = toTableHead(propertyData.clazz, name(prefix))
 
     override fun key(prefix: String?) = name(prefix)
+    override fun header(prefix: String?) = listOf(name(prefix))
 
     override fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<JoinName> =
         listOfNotNull(prefix).map { JoinName(it, clazzSimpleName, keyName) }
@@ -51,9 +55,9 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
 
 //    override fun joins(prefix: String?): List<String> = emptyList()
 
-    override fun getValue(resultSet: ResultSet, number: Int, key:Any?): NextSize<T> {
+    override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
         try {
-            val any = resultSet.getObject(number)
+            val any = readValue.getObject(number, propertyData.clazz as KClass<Any>)
             val x = if (propertyData.clazz == Boolean::class) {
                 any == 1
             } else {
@@ -83,6 +87,8 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
         return "${name(prefix)} = ${makeString(getObject(o))}"
     }
 
+    override fun keyTables(): List<TableData> = emptyList()
+    override fun helperTables(): List<TableData> = emptyList()
 
     companion object {
         private val valueMappingJavaSQL = mapOf("long" to "bigInt", "String" to "Text")

@@ -26,13 +26,15 @@ package org.daiv.reflection.read
 import org.daiv.reflection.common.FieldData
 import org.daiv.reflection.common.NoList
 import org.daiv.reflection.common.PropertyData
+import org.daiv.reflection.common.ReadValue
+import org.daiv.reflection.persister.Persister
 import java.sql.ResultSet
 
-internal data class ComplexListType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
-                                                                  val persisterData: ReadPersisterData<T, Any>) :
+internal data class ComplexSameTableType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
+                                                                       val persisterData: ReadPersisterData<T, Any>) :
     NoList<R, T, T> {
 
-    override fun getColumnValue(resultSet: ResultSet) = persisterData.readKey(resultSet)
+    override fun getColumnValue(resultSet: ReadValue) = persisterData.readKey(resultSet)
 
     override fun keyClassSimpleType() = throw RuntimeException("no simple Type")
 
@@ -41,7 +43,7 @@ internal data class ComplexListType<R : Any, T : Any> constructor(override val p
 
     override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
         val t = propertyData.getObject(o)
-        return persisterData.onFields { insertObject(t, this@ComplexListType.name(prefix)) }
+        return persisterData.onFields { insertObject(t, this@ComplexSameTableType.name(prefix)) }
             .flatten()
     }
 
@@ -58,7 +60,7 @@ internal data class ComplexListType<R : Any, T : Any> constructor(override val p
     }
 
     override fun key(prefix: String?): String {
-        return persisterData.onFields { key(this@ComplexListType.name(prefix)) }
+        return persisterData.onFields { key(this@ComplexSameTableType.name(prefix)) }
             .joinToString(", ")//persisterData.createTableKeyData(name(prefix))
 //        return persisterData.createTableKeyData(prefix)
     }
@@ -72,11 +74,20 @@ internal data class ComplexListType<R : Any, T : Any> constructor(override val p
     }
 
     override fun underscoreName(prefix: String?): String {
-        return persisterData.onFields { underscoreName(this@ComplexListType.name(prefix)) }
+        return persisterData.onFields { underscoreName(this@ComplexSameTableType.name(prefix)) }
             .joinToString(", ")
     }
 
-    override fun getValue(resultSet: ResultSet, number: Int, key: Any?): NextSize<T> {
-        return persisterData.read(resultSet, number)
+    override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
+        return persisterData.read(readValue, number)
     }
+
+    override fun header(prefix: String?) =
+        persisterData.onFields { header(this@ComplexSameTableType.name(prefix)) }.flatten()
+
+    override fun size() = persisterData.onFields { size() }.sum()
+
+    override fun keyTables() = persisterData.keyTables()
+
+    override fun helperTables() = persisterData.helperTables()
 }

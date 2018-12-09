@@ -24,6 +24,10 @@
 package org.daiv.reflection.persister
 
 import mu.KotlinLogging
+import org.daiv.reflection.annotations.AllTables
+import org.daiv.reflection.annotations.TableData
+import org.daiv.reflection.common.DBReadValue
+import org.daiv.reflection.common.TableDataReadValue
 import org.daiv.reflection.common.getList
 import org.daiv.reflection.common.tableName
 import org.daiv.reflection.database.DatabaseInterface
@@ -34,7 +38,6 @@ import org.daiv.util.DefaultRegisterer
 import org.daiv.util.Registerer
 import java.sql.ResultSet
 import java.sql.SQLException
-import java.sql.Statement
 import kotlin.reflect.KClass
 import kotlin.reflect.full.cast
 
@@ -68,8 +71,9 @@ class Persister(val databaseInterface: DatabaseInterface,
     }
 
     inner class Table<R : Any> internal constructor(private val readPersisterData: ReadPersisterData<R, Any>,
-                                                    private val tableName: String) :
+                                                    val _tableName: String) :
         Registerer<DBChangeListener> by registerer {
+        private val tableName = "`$_tableName`"
 
         constructor(clazz: KClass<R>, tableName: String = "")
                 : this(ReadPersisterData.create(clazz, this@Persister),
@@ -99,7 +103,7 @@ class Persister(val databaseInterface: DatabaseInterface,
         }
 
         /**
-         * returns "[fieldName] = [id]" for primitive Types, or the complex variant for complex types
+         * returns "[fieldName] = [id]" for primitive Types, or the complex variant
          * for complex types, the [sep] is needed
          */
         private fun fNEqualsValue(fieldName: String, id: Any, sep: String): String {
@@ -123,7 +127,8 @@ class Persister(val databaseInterface: DatabaseInterface,
         fun read(fieldName: String, id: Any): List<R> {
 //            val req = "SELECT $selectHeader FROM $tableName $join ${whereClause(fieldName, id, and)};"
             val req = "SELECT * ${fromWhere(fieldName, id, and)};"
-            return readPersisterData.evaluateToList(this@Persister.read(req))
+            return this@Persister.read(req)
+                .getList { readPersisterData.evaluate(DBReadValue(this)) }
         }
 
 
@@ -155,8 +160,14 @@ class Persister(val databaseInterface: DatabaseInterface,
         }
 
         fun delete(fieldName: String, id: Any) {
-            this@Persister.write("DELETE ${fromWhere(fieldName, id, comma)};")
-            tableEvent()
+            try {
+                val list = read(fieldName, id)
+                this@Persister.write("DELETE ${fromWhere(fieldName, id, comma)};")
+                list.forEach { readPersisterData.deleteLists(it) }
+                tableEvent()
+            } catch (e:Throwable){
+                throw e
+            }
         }
 
         fun delete(id: Any) {
@@ -200,7 +211,7 @@ class Persister(val databaseInterface: DatabaseInterface,
                 val readPersisterData = ReadPersisterData.create<T, Any>(clazz, this@Persister)
                 val key = readPersisterData.createTableKeyData(fieldName)
                 this@Persister.read(cmd(key))
-                    .getList { readPersisterData.readKey(this) } as List<T>
+                    .getList { readPersisterData.readKey(DBReadValue(this)) } as List<T>
             }
         }
 
@@ -220,7 +231,7 @@ class Persister(val databaseInterface: DatabaseInterface,
          */
         fun readAll(): List<R> {
             return this@Persister.read("SELECT * from $tableName;")
-                .getList(readPersisterData::evaluate)
+                .getList { readPersisterData.evaluate(DBReadValue(this)) }
         }
 
         /**
@@ -228,6 +239,42 @@ class Persister(val databaseInterface: DatabaseInterface,
          */
         fun <T : Any> readAllKeys(): List<T> {
             return readColumn(idName) { "SELECT $selectKeyHeader from $tableName;" }
+        }
+
+        fun tableData(): TableData {
+            val values = this@Persister.read("SELECT * from $tableName;")
+                .getList { readPersisterData.readToString { getObject(it) } }
+            return TableData(_tableName, readPersisterData.header(), values)
+        }
+
+        fun helperTables() = readPersisterData.helperTables()
+        fun keyTables() = readPersisterData.keyTables()
+
+        fun allTables() = AllTables(tableData(), helperTables(), keyTables())
+
+        fun readAllTableData(tables: AllTables): List<R> {
+            return tables.tableData.values.map { readPersisterData.evaluate(TableDataReadValue(tables, it)) }
+        }
+
+        fun readTableData(tables: AllTables, id: Any): R {
+            return readPersisterData.evaluate(TableDataReadValue(tables,
+                                                                 tables.tableData.values.find { it.first() == id.toString() }!!))
+        }
+
+        fun readTableData(tables: AllTables, tableData: TableData, fieldName: String, id: Any): List<R> {
+            val i = tableData.header.indexOf(fieldName)
+            return tableData.values.filter { it[i] == id.toString() }
+                .map { readPersisterData.evaluate(TableDataReadValue(tables, it)) }
+        }
+
+        fun resetTable(list: List<R>) {
+            list.forEach {
+                val id = readPersisterData.keySimpleType(it)
+                if (exists(id)) {
+                    delete(id)
+                }
+                insert(it)
+            }
         }
 
         fun dropTable() {

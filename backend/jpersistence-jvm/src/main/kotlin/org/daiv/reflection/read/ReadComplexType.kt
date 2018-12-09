@@ -24,17 +24,20 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.annotations.ManyToOne
+import org.daiv.reflection.annotations.TableData
 import org.daiv.reflection.common.FieldData.ForeignKey
 import org.daiv.reflection.common.FieldData.JoinName
 import org.daiv.reflection.common.NoList
 import org.daiv.reflection.common.PropertyData
+import org.daiv.reflection.common.ReadValue
 import org.daiv.reflection.common.storeManyToOneObject
 import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.persister.Persister.Table
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 
 internal class ReadComplexType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>,
-                                                 private val manyToOne: ManyToOne,
+                                                 manyToOne: ManyToOne,
                                                  private val persister: Persister,
                                                  private val persisterData: ReadPersisterData<T, Any> = ReadPersisterData.create(
                                                      propertyData.clazz,
@@ -43,7 +46,7 @@ internal class ReadComplexType<R : Any, T : Any>(override val propertyData: Prop
     override fun createTableForeign() = table.persist()
 
     val clazz = propertyData.clazz
-    override fun getColumnValue(resultSet: ResultSet) = persisterData.readKey(resultSet)
+    override fun getColumnValue(resultSet: ReadValue) = persisterData.readKey(resultSet)
 
     override fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<JoinName> {
         return persisterData.onFields {
@@ -61,7 +64,7 @@ internal class ReadComplexType<R : Any, T : Any>(override val propertyData: Prop
     }
 
     override fun underscoreName(prefix: String?): String {
-        return persisterData.onKey { underscoreName(this@ReadComplexType.name(prefix)) }
+        return persisterData.onKey { underscoreName(this@ReadComplexType.name(prefix)) }!!
 //            .joinToString(", ")
     }
 
@@ -74,10 +77,12 @@ internal class ReadComplexType<R : Any, T : Any>(override val propertyData: Prop
         return persisterData.onKey { toTableHead(name) }
     }
 
-    override fun getValue(resultSet: ResultSet, number: Int, key: Any?): NextSize<T> {
-        val table = persister.Table(clazz, manyToOne.tableName)
-        val nextSize = persisterData.onKey { getValue(resultSet, number, key) }
-        val value = table.read(nextSize.t)!!
+    override fun header(prefix: String?) = persisterData.onKey { header(this@ReadComplexType.name(prefix)) }
+
+    override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
+        val nextSize = persisterData.onKey { getValue(readValue, number, key) }
+        val value = readValue.read(table, nextSize.t)
+//        val value = table.read(nextSize.t)!!
         return NextSize(value, nextSize.i)
     }
 
@@ -93,4 +98,8 @@ internal class ReadComplexType<R : Any, T : Any>(override val propertyData: Prop
         val n = name(prefix)
         return persisterData.onKey { insertObject(objectValue, n) }
     }
+
+    override fun keyTables() = table.keyTables() + table.tableData()
+
+    override fun helperTables() = table.helperTables()
 }
