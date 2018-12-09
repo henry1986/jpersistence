@@ -25,6 +25,7 @@ package org.daiv.reflection.persistence.kotlin
 
 import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
 import org.daiv.reflection.annotations.SameTable
+import org.daiv.reflection.annotations.appendValues
 import org.daiv.reflection.persister.Persister
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe

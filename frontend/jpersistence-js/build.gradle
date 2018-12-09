@@ -22,6 +22,22 @@
  */
 
 group 'org.daiv.jpersistence'
+buildscript {
+
+    repositories {
+        jcenter()
+        maven { url "https://dl.bintray.com/kotlin/kotlinx" }
+    }
+
+    dependencies {
+        classpath "org.jetbrains.kotlinx:kotlinx-gradle-serialization-plugin:$serialization_version"
+    }
+}
+apply plugin: 'kotlinx-serialization'
+compileKotlin2Js {
+//    kotlinOptions.moduleKind = "amd"
+    kotlinOptions.sourceMap = true
+}
 
 dependencies{
     expectedBy project(':')
