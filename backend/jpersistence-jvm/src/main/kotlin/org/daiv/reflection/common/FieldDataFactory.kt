@@ -36,6 +36,7 @@ import kotlin.reflect.KFunction
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
+import kotlin.reflect.full.isSubclassOf
 
 internal fun <R : Any, T : Any> KProperty1<R, T>.isNoMapAndNoList() =
     (returnType.classifier as KClass<T>) != List::class && (returnType.classifier as KClass<T>) != Map::class
@@ -51,6 +52,8 @@ internal interface FieldDataFactory {
             return when {
                 property.getKClass().java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property,
                                                                                                        receiverClass))
+                property.getKClass().isSubclassOf(Enum::class) -> EnumType(DefProperty(property as KProperty1<R, Enum<*>>,
+                                                                                       receiverClass)) as FieldData<R, *, T>
                 property.findAnnotation<SameTable>() != null -> {
                     val propertyData = DefProperty(property, receiverClass)
                     ComplexSameTableType(propertyData, ReadPersisterData(propertyData.clazz, persister))

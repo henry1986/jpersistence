@@ -28,4 +28,5 @@ import java.sql.Statement
 interface DatabaseInterface : SimpleDatabase{
     val statement: Statement
     fun commit()
+    val path:String
 }

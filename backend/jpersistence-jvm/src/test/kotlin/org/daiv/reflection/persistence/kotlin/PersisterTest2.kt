@@ -38,10 +38,15 @@ class PersisterTest2
                data class L1(val r: Int, val s: String)
                data class L2(val id: Int, @SameTable val l1: L1)
 
+
                data class B1(val r: Int, val s: String)
                data class B2(val id: Int, val s: String)
                data class B3(val id: Int, val b2: B2, @SameTable val b1: B1)
                data class B4(val id: Int, val b2: List<B2>, @SameTable val b1: B1)
+
+               data class C1(val id: X1, val x: Int)
+               data class C2(val id: Int, val x: X1)
+               data class C3(val id: X2, val x: Int)
 
                val database = DatabaseWrapper.create("PersisterTest2.db")
                describe("Persister") {
@@ -80,6 +85,33 @@ class PersisterTest2
                            table.resetTable(values)
                            val x = table.read(6)
                            assertEquals(B4(6, listOf(B2(9, "cool")), B1(6, "hi")), x)
+                       }
+                       it("enum key test") {
+                           val table = persister.Table(C1::class)
+                           table.persist()
+                           val v = C1(X1.B1, 5)
+                           table.insert(v)
+                           table.insert(C1(X1.B2, 9))
+                           val x = table.read(X1.B1)
+                           assertEquals(v, x)
+                       }
+                       it("enum test") {
+                           val table = persister.Table(C2::class)
+                           table.persist()
+                           val v = C2(5, X1.B1)
+                           table.insert(v)
+                           table.insert(C2(4, X1.B2))
+                           val x = table.read(5)
+                           assertEquals(v, x)
+                       }
+                       it("enum complex test"){
+                           val table = persister.Table(C3::class)
+                           table.persist()
+                           val v = C3(X2.B1, 5)
+                           table.insert(v)
+                           table.insert(C3(X2.B2, 9))
+                           val x = table.read(X2.B1)
+                           assertEquals(v, x)
                        }
                    }
                    afterGroup { database.delete() }

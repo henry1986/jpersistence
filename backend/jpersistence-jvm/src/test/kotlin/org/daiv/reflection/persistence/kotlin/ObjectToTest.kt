@@ -30,17 +30,23 @@ import org.daiv.reflection.read.ReadPersisterData
 import kotlin.reflect.KClass
 import kotlin.test.assertEquals
 
+enum class X1 { B1, B2, B3 }
+enum class X2(private val s: String) {
+    B1("1"), B2("2"), B3("3");
+}
+
+
 class ObjectToTest<T : Any>(private val o: T,
                             tableString: String,
                             insertString: String,
                             private val testName: String,
                             private val key: Any) {
-    private val tableCreateString: String = createTableString( tableString)
+    private val tableCreateString: String = createTableString(tableString)
     private val insertString: String = createInsertString(insertString)
     private val d: DatabaseInterface = DatabaseWrapper.create("PersisterTest$testName.db")
     private val p by lazy { Persister(d) }
     private val table by lazy { p.Table(o::class as KClass<T>) }
-    private val r by lazy { ReadPersisterData.create<T,Any>(o::class as KClass<T>, p) }
+    private val r by lazy { ReadPersisterData.create<T, Any>(o::class as KClass<T>, p) }
 
     fun open() {
         d.open()

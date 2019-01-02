@@ -43,7 +43,9 @@ annotation class ManyMap(val tableNameKey: String = "", val tableNameValue: Stri
 annotation class SameTable
 
 @Serializable
-data class TableData(val tableName: String, val header: List<String>, val values: List<List<String>>) {
+data class TableData(val tableName: String, val db: String, val header: List<String>, val values: List<List<String>>) {
+
+    fun identifier() = "$db - $tableName"
 //    fun insertCmd() = "INSERT INTO $tableName ${header.joinToString(", ", "(", ")")} VALUES" +
 //            " ${values.joinToString(", ", postfix = ";") { it.joinToString(", ", "(", ")") }};"
 //
@@ -59,7 +61,6 @@ data class TableData(val tableName: String, val header: List<String>, val values
 //        val key = list.first()
 //        return values.none { it.first() == key }
 //    }
-
 }
 
 fun TableData.appendValues(list: List<String>) = copy(values = values.plus(element = list))

@@ -32,6 +32,7 @@ import org.daiv.reflection.common.getList
 import org.daiv.reflection.common.tableName
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
+import org.daiv.reflection.read.EnumType
 import org.daiv.reflection.read.ReadPersisterData
 import org.daiv.reflection.read.ReadSimpleType
 import org.daiv.util.DefaultRegisterer
@@ -40,11 +41,12 @@ import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.reflect.KClass
 import kotlin.reflect.full.cast
+import kotlin.reflect.full.isSubclassOf
 
 /**
  * @author Martin Heinrich
  */
-class Persister(val databaseInterface: DatabaseInterface,
+class Persister(private val databaseInterface: DatabaseInterface,
                 private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
     Registerer<DBChangeListener> by registerer {
 
@@ -107,11 +109,17 @@ class Persister(val databaseInterface: DatabaseInterface,
          * for complex types, the [sep] is needed
          */
         private fun fNEqualsValue(fieldName: String, id: Any, sep: String): String {
-            return if (id::class.java.isPrimitiveOrWrapperOrString()) {
-                "$fieldName = ${ReadSimpleType.makeString(id)}"
-            } else {
-                val writePersisterData = ReadPersisterData.create<Any, Any>(id::class as KClass<Any>, this@Persister)
-                "${writePersisterData.fNEqualsValue(id, fieldName, sep)}"
+            return when {
+                id::class.java.isPrimitiveOrWrapperOrString() -> {
+                    "$fieldName = ${ReadSimpleType.makeString(id)}"
+                }
+                id::class.isSubclassOf(Enum::class) -> {
+                    "$fieldName = ${EnumType.makeString(id)}"
+                }
+                else -> {
+                    val persisterData = ReadPersisterData.create<Any, Any>(id::class as KClass<Any>, this@Persister)
+                    "${persisterData.fNEqualsValue(id, fieldName, sep)}"
+                }
             }
         }
 
@@ -165,7 +173,7 @@ class Persister(val databaseInterface: DatabaseInterface,
                 this@Persister.write("DELETE ${fromWhere(fieldName, id, comma)};")
                 list.forEach { readPersisterData.deleteLists(it) }
                 tableEvent()
-            } catch (e:Throwable){
+            } catch (e: Throwable) {
                 throw e
             }
         }
@@ -244,7 +252,7 @@ class Persister(val databaseInterface: DatabaseInterface,
         fun tableData(): TableData {
             val values = this@Persister.read("SELECT * from $tableName;")
                 .getList { readPersisterData.readToString { getObject(it) } }
-            return TableData(_tableName, readPersisterData.header(), values)
+            return TableData(_tableName, databaseInterface.path, readPersisterData.header(), values)
         }
 
         fun helperTables() = readPersisterData.helperTables()
