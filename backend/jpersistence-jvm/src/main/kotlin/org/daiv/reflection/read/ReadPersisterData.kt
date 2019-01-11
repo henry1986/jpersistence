@@ -35,11 +35,18 @@ internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any,
 
 
 internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List<FieldData<R, *, T>>,
+                                                        private val className: String = "no name",
                                                         private val method: (List<ReadFieldValue>) -> R) {
 
     constructor(clazz: KClass<R>, persister: Persister) : this(FieldDataFactory.fieldsRead(clazz, persister),
+                                                               clazz.simpleName ?: "no name",
                                                                readValue(clazz.constructors.first()))
 
+    init {
+        if (fields.isEmpty()) {
+            throw RuntimeException("this class has no fields: $className")
+        }
+    }
 //    override fun evaluateToList(func:(Int) -> Any): List<R> {
 //        return func.getList(::evaluate)
 //    }

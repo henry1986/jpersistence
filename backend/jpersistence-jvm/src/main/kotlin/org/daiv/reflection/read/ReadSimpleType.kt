@@ -28,10 +28,12 @@ import org.daiv.reflection.common.FieldData.JoinName
 import org.daiv.reflection.common.NoList
 import org.daiv.reflection.common.PropertyData
 import org.daiv.reflection.common.ReadValue
+import org.daiv.reflection.isEnum
 import org.daiv.reflection.persister.Persister
 import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.reflect.KClass
+import kotlin.reflect.full.isSubclassOf
 
 internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>) : NoList<R, T, T> {
 
@@ -84,7 +86,7 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
     }
 
     override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
-        return "${name(prefix)} = ${makeString(getObject(o))}"
+        return static_fNEqualsValue(getObject(o), name(prefix), sep)
     }
 
     override fun keyTables(): List<TableData> = emptyList()
@@ -94,9 +96,10 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
         private val valueMappingJavaSQL = mapOf("long" to "bigInt", "String" to "Text")
         internal fun makeString(any: Any): String {
             val s = any.toString()
-            return when (any::class) {
-                String::class -> "\"" + s + "\""
-                Boolean::class -> if (s.toBoolean()) "1" else "0"
+            return when {
+                any::class == String::class -> "\"" + s + "\""
+                any::class == Boolean::class -> if (s.toBoolean()) "1" else "0"
+                any::class.isEnum() -> "\"${(any as Enum<*>).name}\""
                 else -> s
             }
         }
@@ -105,6 +108,9 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
             val simpleName = clazz.simpleName
             val typeName = valueMappingJavaSQL[simpleName] ?: simpleName
             return "$name $typeName${" NOT NULL"}"
+        }
+        internal fun<R:Any> static_fNEqualsValue(o: R, prefixed: String?, sep: String): String {
+            return "${(prefixed)} = ${makeString(o)}"
         }
     }
 }

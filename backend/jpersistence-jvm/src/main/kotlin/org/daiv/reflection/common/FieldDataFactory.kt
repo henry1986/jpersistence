@@ -28,6 +28,7 @@ import org.daiv.reflection.annotations.ManyMap
 import org.daiv.reflection.annotations.ManyToOne
 import org.daiv.reflection.annotations.SameTable
 import org.daiv.reflection.getKClass
+import org.daiv.reflection.isEnum
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.read.*
@@ -45,14 +46,14 @@ internal interface FieldDataFactory {
 
     companion object {
 
-        private fun <T : Any, R : Any> create(property: KProperty1<R, T>,
-                                              receiverClass: KClass<R>,
-                                              persister: Persister,
-                                              keyClass: KClass<Any>?): FieldData<R, *, T> {
+        fun <T : Any, R : Any> create(property: KProperty1<R, T>,
+                                      receiverClass: KClass<R>,
+                                      persister: Persister,
+                                      keyClass: KClass<Any>?): FieldData<R, *, T> {
             return when {
                 property.getKClass().java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property,
                                                                                                        receiverClass))
-                property.getKClass().isSubclassOf(Enum::class) -> EnumType(DefProperty(property as KProperty1<R, Enum<*>>,
+                property.getKClass().isEnum() -> EnumType(DefProperty(property as KProperty1<R, Enum<*>>,
                                                                                        receiverClass)) as FieldData<R, *, T>
                 property.findAnnotation<SameTable>() != null -> {
                     val propertyData = DefProperty(property, receiverClass)

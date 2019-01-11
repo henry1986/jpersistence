@@ -25,6 +25,7 @@ package org.daiv.reflection.common
 
 import org.daiv.reflection.annotations.TableData
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
+import org.daiv.reflection.isPrimitiveOrWrapperOrStringOrEnum
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.Table
 import org.daiv.reflection.read.InsertObject
@@ -34,7 +35,7 @@ import java.sql.ResultSet
 import kotlin.reflect.KClass
 
 internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValue: T, table: Table<T>) {
-    if (objectValue::class.java.isPrimitiveOrWrapperOrString()) {
+    if (objectValue::class.isPrimitiveOrWrapperOrStringOrEnum()) {
         return
     }
     val key = getKey(objectValue)

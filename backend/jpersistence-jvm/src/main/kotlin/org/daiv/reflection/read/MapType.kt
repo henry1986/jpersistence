@@ -26,42 +26,110 @@ package org.daiv.reflection.read
 import org.daiv.reflection.annotations.ManyMap
 import org.daiv.reflection.annotations.TableData
 import org.daiv.reflection.common.*
+import org.daiv.reflection.isEnum
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
+import org.daiv.reflection.isPrimitiveOrWrapperOrStringOrEnum
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.Table
 import kotlin.reflect.KClass
 
-internal data class Identity<T : Any> constructor(val clazz: KClass<T>,
-                                                  val persister: Persister,
-                                                  val name: String,
-                                                  val index: Int,
-                                                  val tableName: String) {
-    val persisterData: ReadPersisterData<T, Any> = ReadPersisterData(clazz, persister)
-    val simpleProperty = SimpleProperty(persisterData.keyClassSimpleType(), name, index)
+internal interface Identity<T : Any> {
+    val simpleProperty: SimpleProperty
 
-    private val table = persister.Table(clazz, tableName)
-    fun storeManyToOneObject(t: T) = persisterData.storeManyToOneObject(t, table)
+    fun storeManyToOneObject(t: T)
 
-    fun persist() = table.persist()
+    fun persist()
 
-    fun getValue(list: List<Any>, readValue: ReadValue): T {
-        return if (clazz.java.isPrimitiveOrWrapperOrString()) {
-            list[index] as T
-        } else {
-            readValue.read(table, list[index])
-//            table.read(list[index])!!
-        }
-    }
+    fun getValue(tableRow: List<Any>, readValue: ReadValue): T
+    fun keySimpleType(t: T): Any
 
-    fun keyTables(): List<TableData> {
-        return persisterData.keyTables() + table.tableData()
-    }
+    fun keyTables(): List<TableData>
 
-    fun helperTables(): List<TableData> {
-        return persisterData.helperTables()
+    fun helperTables(): List<TableData>
+
+    fun fNEqualsValue(it: T, name: String, sep: String): String
+}
+
+internal data class SimpleIdentity<T : Any>(val clazz: KClass<T>,
+                                            val name: String,
+                                            val columnOfHelperTable: Int,
+                                            val tableName: String) : Identity<T> {
+    override val simpleProperty = SimpleProperty(clazz as KClass<Any>, name, columnOfHelperTable)
+
+    override fun storeManyToOneObject(t: T) {}
+
+    override fun persist() {}
+
+    override fun getValue(tableRow: List<Any>, readValue: ReadValue): T = tableRow[columnOfHelperTable] as T
+
+    override fun keySimpleType(t: T): Any = t
+
+    override fun keyTables(): List<TableData> = emptyList()
+
+    override fun helperTables(): List<TableData> = emptyList()
+
+    override fun fNEqualsValue(it: T, name: String, sep: String): String {
+        return ReadSimpleType.static_fNEqualsValue(it, this.name, sep)
     }
 }
 
+internal data class EnumIdentity<T : Any>(val simpleIdentity: SimpleIdentity<T>) : Identity<T> by simpleIdentity {
+
+    override fun getValue(tableRow: List<Any>, readValue: ReadValue): T =
+        EnumType.getEnumValue(simpleIdentity.clazz.qualifiedName!!,
+                              tableRow[simpleIdentity.columnOfHelperTable] as String)
+
+}
+
+
+internal data class ComplexIdentity<T : Any> constructor(val clazz: KClass<T>,
+                                                         val persister: Persister,
+                                                         val name: String,
+                                                         val columnOfHelperTable: Int,
+                                                         val tableName: String) : Identity<T> {
+    private val persisterData: ReadPersisterData<T, Any> = ReadPersisterData(clazz, persister)
+    override val simpleProperty = SimpleProperty(persisterData.keyClassSimpleType(), name, columnOfHelperTable)
+
+    private val table = persister.Table(clazz, tableName)
+    override fun storeManyToOneObject(t: T) = persisterData.storeManyToOneObject(t, table)
+
+    override fun persist() = table.persist()
+
+    override fun getValue(tableRow: List<Any>, readValue: ReadValue): T {
+        return if (clazz.java.isPrimitiveOrWrapperOrString()) {
+            tableRow[columnOfHelperTable] as T
+        } else {
+            readValue.read(table, tableRow[columnOfHelperTable])
+//            table.read(tableRow[columnOfHelperTable])!!
+        }
+    }
+
+    override fun keySimpleType(t: T) = persisterData.keySimpleType(t)
+
+    override fun keyTables() = persisterData.keyTables() + table.tableData()
+
+    override fun helperTables() = persisterData.helperTables()
+
+    override fun fNEqualsValue(it: T, name: String, sep: String) = persisterData.fNEqualsValue(it, name, sep)
+}
+
+internal fun <T : Any> getIdentity(clazz: KClass<T>,
+                                   persister: Persister,
+                                   name: String,
+                                   columnOfHelperTable: Int,
+                                   tableName: String): Identity<T> {
+    return when {
+        clazz.java.isPrimitiveOrWrapperOrString() -> {
+            SimpleIdentity(clazz, name, columnOfHelperTable, tableName)
+        }
+        clazz.isEnum() ->{
+            EnumIdentity(SimpleIdentity(clazz, name, columnOfHelperTable, tableName))
+        }
+        else -> {
+            ComplexIdentity(clazz, persister, name, columnOfHelperTable, tableName)
+        }
+    }
+}
 
 internal class MapType<R : Any, T : Any, M : Any>(override val propertyData: MapProperty<R, T, M>,
                                                   val persister: Persister,
@@ -69,16 +137,16 @@ internal class MapType<R : Any, T : Any, M : Any>(override val propertyData: Map
                                                   keyClass: KClass<Any>) :
     CollectionFieldData<R, Map<M, T>, T> {
 
-    private val keyIdentity = Identity(propertyData.keyClazz,
-                                       persister,
-                                       "key_${propertyData.name}",
-                                       1,
-                                       manyMap.tableNameKey)
-    private val valueIdentity = Identity(propertyData.clazz,
-                                         persister,
-                                         "value_${propertyData.name}",
-                                         2,
-                                         manyMap.tableNameValue)
+    private val keyIdentity = getIdentity(propertyData.keyClazz,
+                                              persister,
+                                              "key_${propertyData.name}",
+                                              1,
+                                              manyMap.tableNameKey)
+    private val valueIdentity = getIdentity(propertyData.clazz,
+                                                persister,
+                                                "value_${propertyData.name}",
+                                                2,
+                                                manyMap.tableNameValue)
     private val helperTable: Table<ComplexObject>
 
     private val helperTableName = "${propertyData.receiverType.simpleName}_$name"
@@ -103,8 +171,8 @@ internal class MapType<R : Any, T : Any, M : Any>(override val propertyData: Map
 
     override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
         val m = getObject(o)
-        return sequenceOf(m.values.map { valueIdentity.persisterData.fNEqualsValue(it, name(prefix), sep) },
-                          m.keys.map { keyIdentity.persisterData.fNEqualsValue(it, name(prefix), sep) })
+        return sequenceOf(m.values.map { valueIdentity.fNEqualsValue(it, name(prefix), sep) },
+                          m.keys.map { keyIdentity.fNEqualsValue(it, name(prefix), sep) })
             .joinToString(", ")
     }
 
@@ -118,8 +186,8 @@ internal class MapType<R : Any, T : Any, M : Any>(override val propertyData: Map
         val o = getObject(r)
         o.forEach {
             helperTable.insert(ComplexObject(InsertData(listOf(keySimpleType,
-                                                               keyIdentity.persisterData.keySimpleType(it.key),
-                                                               valueIdentity.persisterData.keySimpleType(it.value)))))
+                                                               keyIdentity.keySimpleType(it.key),
+                                                               valueIdentity.keySimpleType(it.value)))))
             keyIdentity.storeManyToOneObject(it.key)
             valueIdentity.storeManyToOneObject(it.value)
         }

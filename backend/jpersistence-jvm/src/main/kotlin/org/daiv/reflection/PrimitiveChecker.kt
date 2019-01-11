@@ -27,6 +27,7 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KClassifier
 import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
+import kotlin.reflect.full.isSubclassOf
 
 
 private val primitiveWrapperTypeMap = setOf(
@@ -57,7 +58,7 @@ internal fun Class<*>.isPrimitiveWrapperOrString(): Boolean {
 /**
  * Check if the parameter represents a primitive (boolean, byte, char,
  * short, int, long, float, or double) or a primitive wrapper (Boolean,
- * Byte, Character, Short, Integer, Long, Float, or Double) or a String.
+ * Byte, Character, Short, Integer, Long, Float, or Double) or a String or an enum
  *
  * @param clazz
  * the class to check
@@ -66,6 +67,14 @@ internal fun Class<*>.isPrimitiveWrapperOrString(): Boolean {
  */
 internal fun Class<*>.isPrimitiveOrWrapperOrString(): Boolean {
     return isPrimitive || isPrimitiveWrapperOrString()
+}
+
+internal fun KClass<*>.isPrimitiveOrWrapperOrStringOrEnum():Boolean{
+    return java.isPrimitiveOrWrapperOrString() || isEnum()
+}
+
+internal fun KClass<*>.isEnum():Boolean{
+    return isSubclassOf(Enum::class)
 }
 
 internal fun<R:Any> KType.getKClass(): KClass<R> {

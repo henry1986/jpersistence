@@ -27,7 +27,6 @@ import org.daiv.reflection.annotations.ManyList
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.Table
-import java.sql.ResultSet
 import kotlin.reflect.KClass
 
 internal class ReadListType<R : Any, T : Any>(override val propertyData: ListProperty<R, T>,
@@ -35,7 +34,7 @@ internal class ReadListType<R : Any, T : Any>(override val propertyData: ListPro
                                               val persister: Persister,
                                               keyClass: KClass<Any>) : CollectionFieldData<R, List<T>, T> {
 
-    private val identity = Identity(propertyData.clazz, persister, propertyData.name, 1, many.tableName)
+    private val identity = getIdentity(propertyData.clazz, persister, propertyData.name, 1, many.tableName)
     //    private val persisterData = ReadPersisterData<T, Any>(propertyData.clazz, persister)
     private val helperTable: Table<ComplexObject>
     private val firstColumn = "_${propertyData.receiverType.simpleName!!}"
@@ -63,7 +62,7 @@ internal class ReadListType<R : Any, T : Any>(override val propertyData: ListPro
         val o = getObject(r)
         o.forEach {
             helperTable.insert(ComplexObject(InsertData(listOf(keySimpleType,
-                                                               identity.persisterData.keySimpleType(it)))))
+                                                               identity.keySimpleType(it)))))
             identity.storeManyToOneObject(it)
         }
     }
@@ -76,7 +75,7 @@ internal class ReadListType<R : Any, T : Any>(override val propertyData: ListPro
     override fun createTableForeign() = identity.persist()
 
     override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
-        return getObject(o).map { identity.persisterData.fNEqualsValue(it, name(prefix), sep) }
+        return getObject(o).map { identity.fNEqualsValue(it, name(prefix), sep) }
             .joinToString(", ")
     }
 

@@ -38,6 +38,8 @@ class PersisterTest2
                data class L1(val r: Int, val s: String)
                data class L2(val id: Int, @SameTable val l1: L1)
 
+               data class SimpleObject(val x: Int, val y: String)
+               data class ComplexKey(val x: SimpleObject, val string: String)
 
                data class B1(val r: Int, val s: String)
                data class B2(val id: Int, val s: String)
@@ -47,6 +49,9 @@ class PersisterTest2
                data class C1(val id: X1, val x: Int)
                data class C2(val id: Int, val x: X1)
                data class C3(val id: X2, val x: Int)
+               data class C4(val id: Int, val x: List<X1>)
+
+               data class D1(val x:Int, val y:List<Int>)
 
                val database = DatabaseWrapper.create("PersisterTest2.db")
                describe("Persister") {
@@ -111,6 +116,34 @@ class PersisterTest2
                            table.insert(v)
                            table.insert(C3(X2.B2, 9))
                            val x = table.read(X2.B1)
+                           assertEquals(v, x)
+                       }
+                       it("enum listTest") {
+                           val table = persister.Table(C4::class)
+                           table.persist()
+                           val v = C4(5, listOf(X1.B1))
+                           table.insert(v)
+                           table.insert(C4(4, listOf(X1.B2)))
+                           val x = table.read(5)
+                           assertEquals(v, x)
+                       }
+                       it("complexKey test"){
+                           val table = persister.Table(ComplexKey::class)
+                           table.persist()
+                           val s = SimpleObject(1, "hello")
+                           val v = ComplexKey(SimpleObject(1, "hello"), "world")
+                           table.insert(v)
+                           table.insert(ComplexKey(SimpleObject(2, "wow"), "kow"))
+                           val x = table.read(s)
+                           assertEquals(v, x)
+                       }
+                       it("List simpleType test"){
+                           val table = persister.Table(D1::class)
+                           table.persist()
+                           val v = D1(5, listOf(1,3,4))
+                           table.insert(v)
+                           table.insert(D1(4, listOf(5,92,4)))
+                           val x = table.read(5)
                            assertEquals(v, x)
                        }
                    }

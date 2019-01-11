@@ -34,7 +34,7 @@ import kotlin.reflect.KClass
 /**
  * [T] is the enum Value
  */
-internal class EnumType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>) : NoList<R, T, T> {
+internal class EnumType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>) : NoList<R, T, T> {
 
     override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1, propertyData.clazz as KClass<Any>)!!
 
@@ -56,9 +56,6 @@ internal class EnumType<R : Any, T : Any>(override val propertyData: PropertyDat
 
 //    override fun joins(prefix: String?): List<String> = emptyList()
 
-    private fun getEnumValue(clazzName: String, s: String): T {
-        return Class.forName(clazzName).enumConstants.filterIsInstance(Enum::class.java).first { it.name == s } as T
-    }
 
     override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
         try {
@@ -83,16 +80,19 @@ internal class EnumType<R : Any, T : Any>(override val propertyData: PropertyDat
     }
 
     override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
-        return "${name(prefix)} = ${makeString(getObject(o))}"
+        return ReadSimpleType.static_fNEqualsValue(getObject(o), name(prefix), sep)
     }
 
     override fun keyTables(): List<TableData> = emptyList()
     override fun helperTables(): List<TableData> = emptyList()
 
     companion object {
+        internal fun<T:Any> getEnumValue(clazzName: String, s: String): T {
+            return Class.forName(clazzName).enumConstants.filterIsInstance(Enum::class.java).first { it.name == s } as T
+        }
+
         internal fun makeString(any: Any): String {
             return "\"${(any as Enum<*>).name}\""
         }
-
     }
 }

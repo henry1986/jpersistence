@@ -45,8 +45,6 @@ import kotlin.test.assertTrue
 class PersisterTest :
     Spek({
              data class SimpleObject(val x: Int, val y: String)
-             //             data class ComplexKObject(val x: Int, val y: SimpleObject)
-//             data class ComplexKey(val x: SimpleObject, val string: String)
              data class ReadValue(val id: Int, val string: String)
 
              data class Transaction(val id: String, val bool: Boolean)
