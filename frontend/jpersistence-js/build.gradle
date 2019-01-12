@@ -30,7 +30,7 @@ buildscript {
     }
 
     dependencies {
-        classpath "org.jetbrains.kotlinx:kotlinx-gradle-serialization-plugin:$serialization_version"
+        classpath "org.jetbrains.kotlin:kotlin-serialization:$kotlin_version"
     }
 }
 apply plugin: 'kotlinx-serialization'
