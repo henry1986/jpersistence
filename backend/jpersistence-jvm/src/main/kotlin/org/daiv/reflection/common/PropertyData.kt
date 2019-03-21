@@ -34,7 +34,7 @@ import kotlin.reflect.jvm.isAccessible
  */
 interface PropertyData<R : Any, S : Any, T : Any> {
     val clazz: KClass<T>
-    //    val receiverType: KClass<T>
+        val receiverType: KClass<R>?
     val name: String
 
     fun getObject(r: R): S
@@ -46,44 +46,44 @@ private fun <R : Any, T : Any> KProperty1<R, T>.getObject(r: R): T {
 }
 
 data class SimpleTypeProperty<R : Any>(override val clazz: KClass<R>, override val name: String) :
-    PropertyData<R, R, R> {
+        PropertyData<R, R, R> {
+    override val receiverType: KClass<R>? = null
     override fun getObject(r: R) = r
 }
 
-data class DefProperty<R : Any, T : Any>(val property: KProperty1<R, T>, val receiverType: KClass<R>) :
-    PropertyData<R, T, T> {
+data class DefProperty<R : Any, T : Any>(val property: KProperty1<R, T>, override val receiverType: KClass<R>) :
+        PropertyData<R, T, T> {
     override val clazz: KClass<T> = property.returnType.classifier as KClass<T>
     override val name: String = property.name
     override fun getObject(r: R) = property.getObject(r)
 }
 
-data class ListProperty<R : Any, T : Any>(val property: KProperty1<R, List<T>>,
-                                          val receiverType: KClass<R>) :
-    PropertyData<R, List<T>, T> {
+data class ListProperty<R : Any, T : Any>constructor(val property: KProperty1<R, List<T>>,
+                                                     override val receiverType: KClass<R>) :
+        PropertyData<R, List<T>, T> {
     override val clazz: KClass<T> = property.returnType.arguments.first().type!!.classifier as KClass<T>
     override val name = property.name
     override fun getObject(r: R) = property.getObject(r)
 }
 
 data class MapProperty<R : Any, T : Any, M : Any>(val property: KProperty1<R, Map<M, T>>,
-                                                  val receiverType: KClass<R>) :
-    PropertyData<R, Map<M, T>, T> {
+                                                  override val receiverType: KClass<R>) :
+        PropertyData<R, Map<M, T>, T> {
     override val clazz: KClass<T> = property.returnType.arguments[1].type!!.classifier as KClass<T>
     val keyClazz: KClass<M> = property.returnType.arguments.first().type!!.classifier as KClass<M>
     override val name = property.name
     override fun getObject(r: R) = property.getObject(r)
 }
 
-data class InsertData(val list: List<Any>)
-
-data class ComplexObject(val insertData: InsertData)
-
-internal class ComplexProperty(override val name: String) : PropertyData<ComplexObject, Any, Any> {
-    override val clazz: KClass<Any> = InsertData::class as KClass<Any>
-    override fun getObject(r: ComplexObject) = r.insertData
-}
-
-data class SimpleProperty(override val clazz: KClass<Any>, override val name: String, val index: Int) :
-    PropertyData<InsertData, Any, Any> {
-    override fun getObject(r: InsertData) = r.list[index]
-}
+//data class InsertData(val list: List<Any>)
+//
+//data class ComplexObject(val insertData: InsertData)
+//
+//internal class ComplexProperty(override val name: String) : PropertyData<ComplexObject, Any, Any> {
+//    override val clazz: KClass<Any> = InsertData::class as KClass<Any>
+//    override fun getObject(r: ComplexObject) = r.insertData
+//}
+//
+//data class SimpleProperty(override val clazz: KClass<Any>, override val name: String, val index: Int) : PropertyData<InsertData, Any, Any> {
+//    override fun getObject(r: InsertData) = r.list[index]
+//}

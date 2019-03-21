@@ -43,7 +43,7 @@ fun <T : Any> KClass<T>.tableName() = "${this.java.simpleName}"
 interface ReadValue {
     fun getObject(number: Int, clazz: KClass<Any>): Any
     fun <T : Any> read(table: Table<T>, t: Any): T
-    fun helperTable(table: Table<ComplexObject>, fieldName: String, key: Any): List<ComplexObject>
+    fun <T:Any>helperTable(table: Table<T>, fieldName: String, key: Any): List<T>
 }
 
 class DBReadValue(private val resultSet: ResultSet) : ReadValue {
@@ -51,7 +51,7 @@ class DBReadValue(private val resultSet: ResultSet) : ReadValue {
 
     override fun <T : Any> read(table: Table<T>, t: Any) = table.read(t)!!
 
-    override fun helperTable(table: Table<ComplexObject>, fieldName: String, key: Any) = table.read(fieldName, key)
+    override fun <T:Any>helperTable(table: Table<T>, fieldName: String, key: Any) = table.read(fieldName, key)
 }
 
 class TableDataReadValue(val tables: AllTables, val values: List<String>) : ReadValue {
@@ -75,7 +75,7 @@ class TableDataReadValue(val tables: AllTables, val values: List<String>) : Read
                                    t)
     }
 
-    override fun helperTable(table: Table<ComplexObject>, fieldName: String, key: Any): List<ComplexObject> {
+    override fun <T:Any>helperTable(table: Table<T>, fieldName: String, key: Any): List<T> {
         val tableData = tables.helper.find { it.tableName == table._tableName }!!
         return table.readTableData(tables, tableData, fieldName, key)
 

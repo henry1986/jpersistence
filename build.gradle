@@ -24,7 +24,7 @@
 buildscript {
     ext.kotlin_version = '1.3.11'
     ext.dokka_version = '0.9.16'
-    ext.jpersistence_version = '0.2.0-SNAPSHOT'
+    ext.jpersistence_version = '0.2.1-SNAPSHOT'
     ext.serialization_version = '0.9.1'
 
     repositories {
@@ -62,6 +62,7 @@ group 'org.daiv.jpersistence'
 allprojects {
     version "$jpersistence_version"
     apply plugin: 'idea'
+    apply plugin: 'java'
     apply plugin: "com.jfrog.artifactory"
     apply plugin: 'maven-publish'
     apply plugin: 'maven'
@@ -138,7 +139,7 @@ configure(jvmProjects) {
         compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
         compile group: 'org.xerial', name: 'sqlite-jdbc', version: '3.21.0.1'
 
-        testCompile "io.mockk:mockk:1.8.6"
+        testCompile "io.mockk:mockk:1.9.2"
         testCompile 'org.jetbrains.kotlin:kotlin-test:1.1.0'
         testCompile('org.jetbrains.spek:spek-api:1.1.5') {
             exclude group: 'org.jetbrains.kotlin'

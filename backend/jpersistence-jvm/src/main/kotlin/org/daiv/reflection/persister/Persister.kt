@@ -26,29 +26,23 @@ package org.daiv.reflection.persister
 import mu.KotlinLogging
 import org.daiv.reflection.annotations.AllTables
 import org.daiv.reflection.annotations.TableData
-import org.daiv.reflection.common.DBReadValue
-import org.daiv.reflection.common.TableDataReadValue
-import org.daiv.reflection.common.getList
-import org.daiv.reflection.common.tableName
+import org.daiv.reflection.common.*
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
-import org.daiv.reflection.read.EnumType
 import org.daiv.reflection.read.ReadPersisterData
-import org.daiv.reflection.read.ReadSimpleType
 import org.daiv.util.DefaultRegisterer
 import org.daiv.util.Registerer
 import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.reflect.KClass
 import kotlin.reflect.full.cast
-import kotlin.reflect.full.isSubclassOf
 
 /**
  * @author Martin Heinrich
  */
 class Persister(private val databaseInterface: DatabaseInterface,
                 private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
-    Registerer<DBChangeListener> by registerer {
+        Registerer<DBChangeListener> by registerer {
 
     private fun event() {
         registerer.forEach(DBChangeListener::onChange)
@@ -74,18 +68,18 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     inner class Table<R : Any> internal constructor(private val readPersisterData: ReadPersisterData<R, Any>,
                                                     val _tableName: String) :
-        Registerer<DBChangeListener> by registerer {
+            Registerer<DBChangeListener> by registerer {
         private val tableName = "`$_tableName`"
 
         constructor(clazz: KClass<R>, tableName: String = "")
-                : this(ReadPersisterData.create(clazz, this@Persister),
+                : this(ReadPersisterData(clazz, null, this@Persister),
                        if (tableName == "") clazz.tableName() else tableName)
 
         //        private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz, this@Persister)
         private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()
 
         private val selectHeader by lazy { readPersisterData.underscoreName() }
-        private val selectKeyHeader by lazy { readPersisterData.keyName(null) }
+        private val selectKeyHeader by lazy { readPersisterData.keyName() }
         //        private val join by lazy {
 //            readPersisterData.joinNames(tableName)
 //                .map { "INNER JOIN ${it.join()}" }
@@ -108,27 +102,28 @@ class Persister(private val databaseInterface: DatabaseInterface,
          * returns "[fieldName] = [id]" for primitive Types, or the complex variant
          * for complex types, the [sep] is needed
          */
-        private fun fNEqualsValue(fieldName: String, id: Any, sep: String): String {
-            return when {
-                id::class.java.isPrimitiveOrWrapperOrString() -> {
-                    "$fieldName = ${ReadSimpleType.makeString(id)}"
-                }
-                id::class.isSubclassOf(Enum::class) -> {
-                    "$fieldName = ${EnumType.makeString(id)}"
-                }
-                else -> {
-                    val persisterData = ReadPersisterData.create<Any, Any>(id::class as KClass<Any>, this@Persister)
-                    "${persisterData.fNEqualsValue(id, fieldName, sep)}"
-                }
-            }
+        private fun fNEqualsValue(field: FieldData<R, Any, Any>, id: Any, sep: String): String {
+            return field.fNEqualsValue(id, sep)
+//            return when {
+//                id::class.java.isPrimitiveOrWrapperOrString() -> {
+//                    "$fieldName = ${ReadSimpleType.makeString(id)}"
+//                }
+//                id::class.isSubclassOf(Enum::class) -> {
+//                    "$fieldName = ${EnumType.makeString(id)}"
+//                }
+//                else -> {
+//                    val persisterData = ReadPersisterData.create<Any, Any>(id::class as KClass<Any>, this@Persister)
+//                    "${persisterData.fNEqualsValue(id, fieldName, sep)}"
+//                }
+//            }
         }
 
-        private fun whereClause(fieldName: String, id: Any, sep: String): String {
-            return "WHERE ${fNEqualsValue(fieldName, id, sep)}"
+        private fun whereClause(field: FieldData<R, Any, Any>, id: Any, sep: String): String {
+            return "WHERE ${fNEqualsValue(field, id, sep)}"
         }
 
         private fun fromWhere(fieldName: String, id: Any, sep: String): String {
-            return " FROM $tableName ${whereClause(fieldName, id, sep)}"
+            return " FROM $tableName ${whereClause(readPersisterData.field(fieldName) as FieldData<R, Any, Any>, id, sep)}"
         }
 
 
@@ -136,7 +131,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 //            val req = "SELECT $selectHeader FROM $tableName $join ${whereClause(fieldName, id, and)};"
             val req = "SELECT * ${fromWhere(fieldName, id, and)};"
             return this@Persister.read(req)
-                .getList { readPersisterData.evaluate(DBReadValue(this)) }
+                    .getList { readPersisterData.evaluate(DBReadValue(this)) }
         }
 
 
@@ -194,9 +189,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
          * e.g. UPDATE [clazz] SET [fieldName2Set] = [value] WHERE [fieldName2Find] = [id];
          */
         fun update(fieldName2Find: String, id: Any, fieldName2Set: String, value: Any) {
-            write("UPDATE $tableName SET ${fNEqualsValue(fieldName2Set, value, comma)} ${whereClause(fieldName2Find,
-                                                                                                     id,
-                                                                                                     comma)}")
+            val field2Find = readPersisterData.field(fieldName2Find) as FieldData<R, Any, Any>
+            val field2Set = readPersisterData.field(fieldName2Set) as FieldData<R, Any, Any>
+            write("UPDATE $tableName SET ${fNEqualsValue(field2Set, value, comma)} ${whereClause(field2Find, id, comma)}")
             tableEvent()
         }
 
@@ -214,12 +209,13 @@ class Persister(private val databaseInterface: DatabaseInterface,
             val clazz: KClass<T> = this.readPersisterData.classOfField(fieldName) as KClass<T>
             return if (clazz.java.isPrimitiveOrWrapperOrString()) {
                 this@Persister.read(cmd(fieldName))
-                    .getList { clazz.cast(getObject(1)) }
+                        .getList { clazz.cast(getObject(1)) }
             } else {
-                val readPersisterData = ReadPersisterData.create<T, Any>(clazz, this@Persister)
-                val key = readPersisterData.createTableKeyData(fieldName)
+                val readPersisterData = ReadPersisterData<T, Any>(clazz, null, this@Persister)
+                val key = readPersisterData.createTableKeyData()
+//                val key = readPersisterData.createTableKeyData(fieldName)
                 this@Persister.read(cmd(key))
-                    .getList { readPersisterData.readKey(DBReadValue(this)) } as List<T>
+                        .getList { readPersisterData.readKey(DBReadValue(this)) } as List<T>
             }
         }
 
@@ -239,7 +235,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
          */
         fun readAll(): List<R> {
             return this@Persister.read("SELECT * from $tableName;")
-                .getList { readPersisterData.evaluate(DBReadValue(this)) }
+                    .getList { readPersisterData.evaluate(DBReadValue(this)) }
         }
 
         /**
@@ -251,7 +247,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         fun tableData(): TableData {
             val values = this@Persister.read("SELECT * from $tableName;")
-                .getList { readPersisterData.readToString { getObject(it) } }
+                    .getList { readPersisterData.readToString { getObject(it) } }
             return TableData(_tableName, databaseInterface.path, readPersisterData.header(), values)
         }
 
@@ -272,7 +268,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         fun readTableData(tables: AllTables, tableData: TableData, fieldName: String, id: Any): List<R> {
             val i = tableData.header.indexOf(fieldName)
             return tableData.values.filter { it[i] == id.toString() }
-                .map { readPersisterData.evaluate(TableDataReadValue(tables, it)) }
+                    .map { readPersisterData.evaluate(TableDataReadValue(tables, it)) }
         }
 
         fun resetTable(list: List<R>) {

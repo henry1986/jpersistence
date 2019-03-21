@@ -97,7 +97,6 @@ class PersisterTest :
                  database.open()
                  val persister = Persister(database)
                  on("special reads") {
-
                      val persisterListener = mockk<DBChangeListener>(relaxed = true)
                      val tableListener = mockk<DBChangeListener>(relaxed = true)
                      val table = persister.Table(ReadValue::class)
@@ -176,8 +175,6 @@ class PersisterTest :
                          assertEquals(c, list.read(5))
                      }
                      it("onManyToOne SimpleObject") {
-                         //                             data class ComplexM2O(val id: Int, val name: String, val value: Double)
-//                             data class ComplexHost(val id: Int, @ManyToOne val x1: ComplexM2O, @ManyToOne val x2: ComplexM2O)
                          val complexHostTable = persister.Table(ComplexHost::class)
                          complexHostTable.persist()
                          val c = ComplexHost(5, e1, e2)
@@ -223,14 +220,14 @@ class PersisterTest :
 //                         data class L2b(val l1Id:L1, val l1Value:L1)
 //                         data class L3(val id:Int, val l2Value:L2)
 //                         data class L4(val idL2b:L2b, val l3Value:L3)
-                     val r = ReadPersisterData.create<L3, Any>(L3::class, persister)
+                     val r = ReadPersisterData<L3, Any>(L3::class, null, persister)
                      val n = r.underscoreName()
 
                      // JOIN L2 as l2Value ON L3.l2Value = l2Value.id
                      // JOIN L1 as l2Value_l1 ON L2.l2Value_l1 = l2Value_l1.id
                      println("n: $n")
 //                         println("n: INNER JOIN ${r.joinNames("L3").map { it.join() }}")
-                     println("foreignKey: ${r.foreignKey()}")
+//                     println("foreignKey: ${r.foreignKey()}")
                      listOf(L1::class, L2::class, L2b::class, L3::class, L4::class).forEach {
                          persister.Table(it)
                              .persist()

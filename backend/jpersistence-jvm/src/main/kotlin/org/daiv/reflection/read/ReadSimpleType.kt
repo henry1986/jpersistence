@@ -24,6 +24,7 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.annotations.TableData
+import org.daiv.reflection.common.FieldData
 import org.daiv.reflection.common.FieldData.JoinName
 import org.daiv.reflection.common.NoList
 import org.daiv.reflection.common.PropertyData
@@ -35,7 +36,15 @@ import java.sql.SQLException
 import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
 
-internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>) : NoList<R, T, T> {
+internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
+        NoList<R, T, T> {
+    override fun idFieldSimpleType() = this as FieldData<Any, Any, Any>
+
+    override fun subFields(): List<FieldData<Any, Any, Any>> = emptyList()
+
+    override fun storeManyToOneObject(t: T) {}
+
+    override fun persist() {}
 
     override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1, propertyData.clazz as KClass<Any>)!!
 
@@ -43,19 +52,19 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
     override fun keySimpleType(r: R) = propertyData.getObject(r)
     override fun keyLowSimpleType(t: T) = t
 
-    override fun toTableHead(prefix: String?) = toTableHead(propertyData.clazz, name(prefix))
+    override fun toTableHead() = toTableHead(propertyData.clazz, prefixedName)
 
-    override fun key(prefix: String?) = name(prefix)
-    override fun header(prefix: String?) = listOf(name(prefix))
+    override fun key() = prefixedName
+    override fun header() = listOf(prefixedName)
 
-    override fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<JoinName> =
-        listOfNotNull(prefix).map { JoinName(it, clazzSimpleName, keyName) }
+//    override fun joinNames(clazzSimpleName: String, keyName: String): List<JoinName> =
+//            listOfNotNull(prefix).map { JoinName(it, clazzSimpleName, keyName) }
 
-    override fun foreignKey() = null
+//    override fun foreignKey() = null
 
-    override fun underscoreName(prefix: String?) = prefix?.let { "${it}_$name" } ?: name
+    override fun underscoreName() = prefix?.let { "${it}_$name" } ?: name
 
-//    override fun joins(prefix: String?): List<String> = emptyList()
+//    override fun joins(): List<String> = emptyList()
 
     override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
         try {
@@ -72,45 +81,56 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
         }
     }
 
-    override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
+    override fun insertObject(t: T): List<InsertObject<Any>> {
         return listOf(object : InsertObject<Any> {
             override fun insertValue(): String {
-                val any = getObject(o)
-                return makeString(any)
+                return makeString(t)
             }
 
             override fun insertHead(): String {
-                return name(prefix)
+                return prefixedName
             }
         })
     }
 
-    override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
-        return static_fNEqualsValue(getObject(o), name(prefix), sep)
+    override fun fNEqualsValue(o: T, sep: String): String {
+        return "${prefixedName} = ${makeString(o)}"
+//        return static_fNEqualsValue(getObject(o), prefixedName, sep)
     }
 
     override fun keyTables(): List<TableData> = emptyList()
     override fun helperTables(): List<TableData> = emptyList()
 
+    private fun makeString(any: T): String {
+        val s = any.toString()
+        return when {
+            any::class == String::class -> "\"" + s + "\""
+            any::class == Boolean::class -> if (s.toBoolean()) "1" else "0"
+//            any::class.isEnum() -> "\"${(any as Enum<*>).name}\""
+            else -> s
+        }
+    }
+
     companion object {
         private val valueMappingJavaSQL = mapOf("long" to "bigInt", "String" to "Text")
-        internal fun makeString(any: Any): String {
-            val s = any.toString()
-            return when {
-                any::class == String::class -> "\"" + s + "\""
-                any::class == Boolean::class -> if (s.toBoolean()) "1" else "0"
-                any::class.isEnum() -> "\"${(any as Enum<*>).name}\""
-                else -> s
-            }
-        }
+//        internal fun makeString(any: Any): String {
+//            val s = any.toString()
+//            return when {
+//                any::class == String::class -> "\"" + s + "\""
+//                any::class == Boolean::class -> if (s.toBoolean()) "1" else "0"
+//                any::class.isEnum() -> "\"${(any as Enum<*>).name}\""
+//                else -> s
+//            }
+//        }
 
         internal fun <T : Any> toTableHead(clazz: KClass<T>, name: String): String {
             val simpleName = clazz.simpleName
             val typeName = valueMappingJavaSQL[simpleName] ?: simpleName
             return "$name $typeName${" NOT NULL"}"
         }
-        internal fun<R:Any> static_fNEqualsValue(o: R, prefixed: String?, sep: String): String {
-            return "${(prefixed)} = ${makeString(o)}"
-        }
+//
+//        internal fun <R : Any> static_fNEqualsValue(o: R, prefixed: String?, sep: String): String {
+//            return "${(prefixed)} = ${makeString(o)}"
+//        }
     }
 }

@@ -34,7 +34,14 @@ import kotlin.reflect.KClass
 /**
  * [T] is the enum Value
  */
-internal class EnumType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>) : NoList<R, T, T> {
+internal class EnumType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
+        NoList<R, T, T> {
+    override fun subFields(): List<FieldData<Any, Any, Any>> = emptyList()
+    override fun idFieldSimpleType() = this as FieldData<Any, Any, Any>
+
+    override fun storeManyToOneObject(t: T) {}
+
+    override fun persist() {}
 
     override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1, propertyData.clazz as KClass<Any>)!!
 
@@ -42,19 +49,19 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
     override fun keySimpleType(r: R) = propertyData.getObject(r)
     override fun keyLowSimpleType(t: T) = t
 
-    override fun toTableHead(prefix: String?) = "${name(prefix)} Text NOT NULL"
+    override fun toTableHead() = "${prefixedName} Text NOT NULL"
 
-    override fun key(prefix: String?) = name(prefix)
-    override fun header(prefix: String?) = listOf(name(prefix))
+    override fun key() = prefixedName
+    override fun header() = listOf(prefixedName)
 
-    override fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<FieldData.JoinName> =
-        listOfNotNull(prefix).map { FieldData.JoinName(it, clazzSimpleName, keyName) }
+//    override fun joinNames(clazzSimpleName: String, keyName: String): List<FieldData.JoinName> =
+//            listOfNotNull(this.prefix).map { FieldData.JoinName(it, clazzSimpleName, keyName) }
 
-    override fun foreignKey() = null
+//    override fun foreignKey() = null
 
-    override fun underscoreName(prefix: String?) = prefix?.let { "${it}_$name" } ?: name
+    override fun underscoreName() = this.prefix?.let { "${it}_$name" } ?: name
 
-//    override fun joins(prefix: String?): List<String> = emptyList()
+//    override fun joins(): List<String> = emptyList()
 
 
     override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
@@ -66,33 +73,34 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
         }
     }
 
-    override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
+    override fun insertObject(t: T): List<InsertObject<Any>> {
         return listOf(object : InsertObject<Any> {
             override fun insertValue(): String {
-                val any = getObject(o)
-                return makeString(any)
+                return makeString(t)
             }
 
             override fun insertHead(): String {
-                return name(prefix)
+                return prefixedName
             }
         })
     }
 
-    override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
-        return ReadSimpleType.static_fNEqualsValue(getObject(o), name(prefix), sep)
+    override fun fNEqualsValue(o: T, sep: String): String {
+        return "${prefixedName} = ${makeString(o)}"
+//        return makeString(o)
+//        return ReadSimpleType.static_fNEqualsValue(getObject(o), name(prefix), sep)
     }
 
     override fun keyTables(): List<TableData> = emptyList()
     override fun helperTables(): List<TableData> = emptyList()
+    private fun makeString(any: T): String {
+        return "\"${(any as Enum<*>).name}\""
+    }
 
     companion object {
-        internal fun<T:Any> getEnumValue(clazzName: String, s: String): T {
+        internal fun <T : Any> getEnumValue(clazzName: String, s: String): T {
             return Class.forName(clazzName).enumConstants.filterIsInstance(Enum::class.java).first { it.name == s } as T
         }
 
-        internal fun makeString(any: Any): String {
-            return "\"${(any as Enum<*>).name}\""
-        }
     }
 }

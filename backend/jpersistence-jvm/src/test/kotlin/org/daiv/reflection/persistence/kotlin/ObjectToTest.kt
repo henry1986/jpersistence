@@ -46,7 +46,7 @@ class ObjectToTest<T : Any>(private val o: T,
     private val d: DatabaseInterface = DatabaseWrapper.create("PersisterTest$testName.db")
     private val p by lazy { Persister(d) }
     private val table by lazy { p.Table(o::class as KClass<T>) }
-    private val r by lazy { ReadPersisterData.create<T, Any>(o::class as KClass<T>, p) }
+    private val r by lazy { ReadPersisterData<T, Any>(o::class as KClass<T>,null, p) }
 
     fun open() {
         d.open()

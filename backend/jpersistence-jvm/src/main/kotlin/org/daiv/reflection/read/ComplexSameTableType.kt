@@ -29,61 +29,68 @@ import org.daiv.reflection.common.PropertyData
 import org.daiv.reflection.common.ReadValue
 import org.daiv.reflection.persister.Persister
 import java.sql.ResultSet
+import kotlin.reflect.KClass
 
 internal data class ComplexSameTableType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
+                                                                       override val prefix: String?,
                                                                        val persisterData: ReadPersisterData<T, Any>) :
-    NoList<R, T, T> {
+        NoList<R, T, T> {
+    override fun subFields() = persisterData.fields as List<FieldData<Any, Any, Any>>
+
+    override fun idFieldSimpleType() = this as FieldData<Any, Any, Any>
+
+    override fun storeManyToOneObject(t: T) {
+
+    }
+
+    override fun persist() {}
 
     override fun getColumnValue(resultSet: ReadValue) = persisterData.readKey(resultSet)
 
-    override fun keyClassSimpleType() = throw RuntimeException("no simple Type")
+    override fun keyClassSimpleType() = propertyData.clazz as KClass<Any>
 
     override fun keySimpleType(r: R) = r
     override fun keyLowSimpleType(t: T) = t
 
-    override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
-        val t = propertyData.getObject(o)
-        return persisterData.onFields { insertObject(t, this@ComplexSameTableType.name(prefix)) }
-            .flatten()
+    override fun insertObject(o: T): List<InsertObject<Any>> {
+        return persisterData.onFields { this.insertObject(this.getObject(o)) }
+                .flatten()
     }
 
-    override fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
-        val t = propertyData.getObject(o)
-        return persisterData.onFields { fNEqualsValue(t, prefix, sep) }
-            .joinToString(sep)
+    override fun fNEqualsValue(o: T,  sep: String): String {
+        return persisterData.onFields { fNEqualsValue(getObject(o), sep) }
+                .joinToString(sep)
     }
 
-    override fun toTableHead(prefix: String?): String? {
-        val name = name(prefix)
-        return persisterData.onFields { toTableHead(name) }
-            .joinToString(", ")
+    override fun toTableHead(): String? {
+        return persisterData.onFields { toTableHead() }
+                .joinToString(", ")
     }
 
-    override fun key(prefix: String?): String {
-        return persisterData.onFields { key(this@ComplexSameTableType.name(prefix)) }
-            .joinToString(", ")//persisterData.createTableKeyData(name(prefix))
+    override fun key(): String {
+        return persisterData.onFields { key() }
+                .joinToString(", ")//persisterData.createTableKeyData(name(prefix))
 //        return persisterData.createTableKeyData(prefix)
     }
 
-    override fun foreignKey(): FieldData.ForeignKey? {
-        return null
-    }
+    //    override fun foreignKey(): FieldData.ForeignKey? {
+//        return null
+//    }
+//
+//    override fun joinNames(clazzSimpleName: String, keyName: String): List<FieldData.JoinName> {
+//        return listOf()
+//    }
 
-    override fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<FieldData.JoinName> {
-        return listOf()
-    }
-
-    override fun underscoreName(prefix: String?): String {
-        return persisterData.onFields { underscoreName(this@ComplexSameTableType.name(prefix)) }
-            .joinToString(", ")
+    override fun underscoreName(): String {
+        return persisterData.onFields { underscoreName() }
+                .joinToString(", ")
     }
 
     override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
         return persisterData.read(readValue, number)
     }
 
-    override fun header(prefix: String?) =
-        persisterData.onFields { header(this@ComplexSameTableType.name(prefix)) }.flatten()
+    override fun header() = persisterData.onFields { header() }.flatten()
 
     override fun size() = persisterData.onFields { size() }.sum()
 

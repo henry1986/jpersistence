@@ -34,13 +34,13 @@ import kotlin.reflect.KFunction
 internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any, Any, Any>)
 
 
-internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List<FieldData<R, *, T>>,
+internal data class ReadPersisterData<R : Any, T : Any>(val fields: List<FieldData<R, Any, T>>,
                                                         private val className: String = "no name",
                                                         private val method: (List<ReadFieldValue>) -> R) {
 
-    constructor(clazz: KClass<R>, persister: Persister) : this(FieldDataFactory.fieldsRead(clazz, persister),
-                                                               clazz.simpleName ?: "no name",
-                                                               readValue(clazz.constructors.first()))
+    constructor(clazz: KClass<R>, prefix: String?, persister: Persister) : this(FieldDataFactory.fieldsRead(clazz, prefix, persister),
+                                                                                clazz.simpleName ?: "no name",
+                                                                                readValue(clazz.constructors.first()))
 
     init {
         if (fields.isEmpty()) {
@@ -55,14 +55,20 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
         return read(readValue).t
     }
 
+    fun field(fieldName: String): FieldData<Any, Any, Any> {
+        return fields.find { it.name == fieldName } as FieldData<Any, Any, Any>?
+                ?: fields.flatMap { it.subFields() }.find { it.name == fieldName } ?: throw RuntimeException(
+                        "couldn't find any fields with name: $fieldName")
+    }
+
     fun createTableForeign() {
         fields.forEach { it.createTableForeign() }
     }
 
 
     fun underscoreName(): String {
-        return fields.mapNotNull { it.underscoreName(null) }
-            .joinToString(", ")
+        return fields.mapNotNull { it.underscoreName() }
+                .joinToString(", ")
     }
 
 
@@ -72,24 +78,24 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
 //            .joinToString(" ")
 //    }
 
-    fun joinNames(tableName: String): List<JoinName> {
-        return fields.map { it.joinNames(null, tableName, keyName()) }
-            .flatMap { it }
-            .distinct()
-    }
+//    fun joinNames(tableName: String): List<JoinName> {
+//        return fields.map { it.joinNames(null, tableName, keyName()) }
+//                .flatMap { it }
+//                .distinct()
+//    }
 
-    private fun createTableInnerData(prefix: String?, skip: Int): String {
+    private fun createTableInnerData(skip: Int): String {
         return fields
-            .asSequence()
-            .drop(skip)
-            .map { it.toTableHead(prefix) }
-            .filterNotNull()
-            .joinToString(separator = ", ")
+                .asSequence()
+                .drop(skip)
+                .map { it.toTableHead() }
+                .filterNotNull()
+                .joinToString(separator = ", ")
 
     }
 
-    fun createTableKeyData(prefix: String?): String {
-        return fields.joinToString(separator = ", ", transform = { it.key(prefix) })
+    fun createTableKeyData(): String {
+        return fields.joinToString(separator = ", ", transform = { it.key() })
     }
 
 //    fun createTableString(prefix: String): String {
@@ -98,13 +104,13 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
 
     fun getIdName(): String {
         return fields.first()
-            .name(null)
+                .name(null)
     }
 
-    internal fun foreignKey() = fields.map { it.foreignKey() }.filterNotNull().map { it.sqlMethod() }.joinToString(", ")
+//    internal fun foreignKey() = fields.map { it.foreignKey() }.filterNotNull().map { it.sqlMethod() }.joinToString(", ")
 
     fun createTable(): String {
-        val createTableInnerData = createTableInnerData(null, 1)
+        val createTableInnerData = createTableInnerData(1)
 //        val foreignKeys = fields.asSequence()
 //            .mapNotNull { it.foreignKey() }
 //            .map { it.sqlMethod() }
@@ -112,8 +118,8 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
 
         fields.forEach { it.createTable() }
         val s = if (createTableInnerData == "") "" else "$createTableInnerData, "
-        return ("(${fields.first().toTableHead(null)}, $s"
-                + "PRIMARY KEY(${fields.first().key(null)})"
+        return ("(${fields.first().toTableHead()}, $s"
+                + "PRIMARY KEY(${fields.first().key()})"
 //                + "${if (foreignKeys == "") "" else ", $foreignKeys"}"
                 + ");")
     }
@@ -173,58 +179,53 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
         return read(readValue, 1)
     }
 
-    private fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> {
-        return fields.flatMap { it.insertObject(o, prefix) }
+    private fun insertObject(o: R): List<InsertObject<Any>> {
+        return fields.flatMap { it.insertObject(it.getObject(o) as T) }
     }
 
     private fun insertHeadString(insertObjects: List<InsertObject<Any>>): String {
         return insertObjects.asSequence()
-            .map { it.insertHead() }
-            .joinToString(", ")
+                .map { it.insertHead() }
+                .joinToString(", ")
     }
 
     private fun insertValueString(insertObjects: List<InsertObject<Any>>): String {
         return insertObjects.asSequence()
-            .map { it.insertValue() }
-            .joinToString(", ")
+                .map { it.insertValue() }
+                .joinToString(", ")
     }
 
-    fun fNEqualsValue(o: R, prefix: String?, sep: String): String {
-        val field = fields.first()
-        return field.fNEqualsValue(o, prefix, sep)
-        //joinToString(separator = sep, transform = { it.fNEqualsValue(o, prefix, sep) })
-    }
+//    fun fNEqualsValue(o: R, sep: String): String {
+//        val field = fields.first() as FieldData<Any, Any, Any>
+//        return field.fNEqualsValue(field.getObject(o), sep)
+//        //joinToString(separator = sep, transform = { it.fNEqualsValue(o, prefix, sep) })
+//    }
 
     fun getKey(o: R): Any {
         return fields.first()
-            .getObject(o)
+                .getObject(o)
     }
 
     fun keyName(): String {
         return fields.first()
-            .name
+                .key()
     }
 
-    fun keyName(prefix: String?): String {
-        return fields.first()
-            .key(prefix)
-    }
-
-    fun keyClassSimpleType() = fields.first().keyClassSimpleType()
+    //    fun keyClassSimpleType() = fields.first().keyClassSimpleType()
     fun keySimpleType(r: R) = fields.first().keySimpleType(r)
 
-    fun <X> onKey(f: FieldData<R, *, T>.() -> X): X {
-        return fields.first()
-            .f()
+    fun <X> onKey(f: FieldData<R, Any, T>.() -> X): X {
+        return (fields.first())
+                .f()
     }
 
-    fun <X> onFields(f: FieldData<R, *, T>.() -> X): List<X> {
+    fun <X> onFields(f: FieldData<R, Any, T>.() -> X): List<X> {
         return fields.map(f)
     }
 
     fun insertLists(o: R) {
-        val key = keySimpleType(o)
-        onFields { insertLists(key, o) }
+//        val key = keySimpleType(o)
+        onFields { insertLists(o, o) }
     }
 
     fun deleteLists(o: R) {
@@ -233,11 +234,11 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
     }
 
     fun insertLists(l: List<R>) {
-        l.forEach { o -> fields.forEach { it.insertLists(keySimpleType(o), o) } }
+        l.forEach { o -> fields.forEach { it.insertLists(o, o) } }
     }
 
     fun insert(o: R): String {
-        val insertObjects = insertObject(o, null)
+        val insertObjects = insertObject(o)
         val headString = insertHeadString(insertObjects)
         val valueString = insertValueString(insertObjects)
         return "($headString ) VALUES ($valueString);"
@@ -247,14 +248,14 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
         return fields.find { it.name == fieldName }!!.propertyData.clazz
     }
 
-    fun header() = fields.map { it.header(null) }.flatten()
+    fun header() = fields.map { it.header() }.flatten()
 
     fun insertList(o: List<R>): String {
         if (o.isEmpty()) {
             return "() VALUES ();"
         }
-        val headString = insertHeadString(insertObject(o.first(), null))
-        val valueString = o.joinToString(separator = "), (") { insertValueString(insertObject(it, null)) }
+        val headString = insertHeadString(insertObject(o.first()))
+        val valueString = o.joinToString(separator = "), (") { insertValueString(insertObject(it)) }
         return "($headString ) VALUES ($valueString);"
     }
 
@@ -263,14 +264,9 @@ internal data class ReadPersisterData<R : Any, T : Any>(private val fields: List
         private fun <T : Any> readValue(primaryConstructor: KFunction<T>): (List<ReadFieldValue>) -> T {
             return { values ->
                 primaryConstructor.callBy(
-                    primaryConstructor.parameters.map { it to values.first { v -> v.fieldData.name == it.name }.value }
-                        .toMap())
+                        primaryConstructor.parameters.map { it to values.first { v -> v.fieldData.name == it.name }.value }
+                                .toMap())
             }
-        }
-
-
-        fun <R : Any, T : Any> create(clazz: KClass<R>, persister: Persister): ReadPersisterData<R, T> {
-            return ReadPersisterData(clazz, persister)
         }
     }
 }

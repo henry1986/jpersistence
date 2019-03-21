@@ -24,14 +24,11 @@
 package org.daiv.reflection.common
 
 import org.daiv.reflection.annotations.TableData
-import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.isPrimitiveOrWrapperOrStringOrEnum
-import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.Table
 import org.daiv.reflection.read.InsertObject
 import org.daiv.reflection.read.NextSize
 import org.daiv.reflection.read.ReadPersisterData
-import java.sql.ResultSet
 import kotlin.reflect.KClass
 
 internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValue: T, table: Table<T>) {
@@ -50,13 +47,21 @@ internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValu
     }
 }
 
-
+/**
+ * [R] is the type of the receiver of the property
+ * [T] is the generic type of the PropertyData
+ * [S] is the type of the value returned by the getObject method
+ */
 internal interface FieldData<R : Any, S : Any, T : Any> {
     val propertyData: PropertyData<R, S, T>
 
     val name get() = propertyData.name
+    val prefix: String?
+    val prefixedName
+        get() = name(prefix)
 
     fun keyClassSimpleType(): KClass<Any>
+    fun idFieldSimpleType(): FieldData<Any, Any, Any>
     fun keySimpleType(r: R): Any
     fun keyLowSimpleType(t: T): Any
 
@@ -78,20 +83,21 @@ internal interface FieldData<R : Any, S : Any, T : Any> {
      * it is to be given here. null otherwise.
      * @return the name of the field in the database
      */
-    fun name(prefix: String?) = prefix?.let { "${it}_$name" } ?: name
+    fun name(prefix: String?, name: String = this.name) = prefix?.let { "${it}_$name" } ?: name
 
 //    fun <R : Any> onMany2One(onManyToOne: (ManyToOne) -> R, noManyToOne: () -> R): R {
 //        return property.findAnnotation<ManyToOne>()?.let(onManyToOne) ?: run(noManyToOne)
 //    }
+
 
     /**
      * gets the [property] value of [o]
      */
     fun getObject(o: R) = propertyData.getObject(o)
 
-    fun insertObject(o: R, prefix: String?): List<InsertObject<Any>>
+    fun insertObject(o: T): List<InsertObject<Any>>
 
-    fun fNEqualsValue(o: R, prefix: String?, sep: String): String
+    fun fNEqualsValue(o: S, sep: String): String
 
     /**
      * this method creates the string for the sql command "CREATE TABLE".
@@ -101,61 +107,70 @@ internal interface FieldData<R : Any, S : Any, T : Any> {
      * is wanted.
      * @return the string for the "CREATE TABLE" command or null, if not needed
      */
-    fun toTableHead(prefix: String?): String?
+    fun toTableHead(): String?
 
     fun createTable()
     fun insertLists(keySimpleType: Any, r: R)
     fun deleteLists(keySimpleType: Any)
     fun createTableForeign()
 
-    fun key(prefix: String?): String
+    fun key(): String
 
     data class ForeignKey(val name: String, val clazzReference: String) {
         fun sqlMethod() = "FOREIGN KEY ($name) references $clazzReference"
     }
 
-    fun foreignKey(): ForeignKey?
+//    fun foreignKey(): ForeignKey?
 
     data class JoinName(val name: String, val clazzSimpleName: String, val keyName: String) {
         fun join() = "${clazzSimpleName} as $name ON $name = $name.${keyName}"
     }
 
-    fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<JoinName>
+//    fun joinNames(clazzSimpleName: String, keyName: String): List<JoinName>
 
-    fun underscoreName(prefix: String?): String?
+    fun underscoreName(): String?
 
     fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<S>
 
     fun getColumnValue(readValue: ReadValue): Any
-    fun header(prefix: String?): List<String>
+    fun header(): List<String>
     fun size() = 1
 
     fun helperTables(): List<TableData>
     fun keyTables(): List<TableData>
+    fun storeManyToOneObject(t: T)
+    fun persist()
+    fun subFields(): List<FieldData<Any, Any, Any>>
+
+//    fun makeString(any: R): String
 }
 
 internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T> {
     override fun createTable() {}
     override fun createTableForeign() {}
     override fun insertLists(keySimpleType: Any, r: R) {}
-    override fun deleteLists(keySimpleType: Any){}
+    override fun deleteLists(keySimpleType: Any) {}
 }
 
 internal interface CollectionFieldData<R : Any, S : Any, T : Any> : FieldData<R, S, T> {
+    override fun subFields(): List<FieldData<Any, Any, Any>>  = listOf(idFieldSimpleType())
     override fun keyClassSimpleType() = throw RuntimeException("a collection cannot be a key")
     override fun keySimpleType(r: R) = throw RuntimeException("a collection cannot be a key")
+    override fun idFieldSimpleType(): FieldData<Any, Any, Any> = throw RuntimeException("a collection cannot be a key")
     override fun keyLowSimpleType(t: T) = t
-    override fun key(prefix: String?) = throw RuntimeException("a collection cannot be a key")
-    override fun toTableHead(prefix: String?) = null
-    override fun header(prefix: String?): List<String> = emptyList()
+    override fun key() = throw RuntimeException("a collection cannot be a key")
+    override fun toTableHead() = null
+    override fun header(): List<String> = emptyList()
 
-    override fun insertObject(o: R, prefix: String?): List<InsertObject<Any>> = listOf()
-    override fun foreignKey() = null
-    override fun joinNames(prefix: String?, clazzSimpleName: String, keyName: String): List<FieldData.JoinName> =
-        emptyList()
+    override fun insertObject(o: T): List<InsertObject<Any>> = listOf()
+    //    override fun foreignKey() = null
+//    override fun joinNames(clazzSimpleName: String, keyName: String): List<FieldData.JoinName> =
+//            emptyList()
 
     override fun getColumnValue(readValue: ReadValue) = throw RuntimeException("a collection cannot be a key")
 
-    override fun underscoreName(prefix: String?) = null
+    override fun underscoreName() = null
     override fun size() = 0
+    override fun storeManyToOneObject(t: T) {}
+    override fun persist() {}
 }
