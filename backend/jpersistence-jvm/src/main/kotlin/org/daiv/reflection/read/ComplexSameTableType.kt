@@ -31,10 +31,12 @@ import org.daiv.reflection.persister.Persister
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 
-internal data class ComplexSameTableType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
+internal class ComplexSameTableType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
                                                                        override val prefix: String?,
-                                                                       val persisterData: ReadPersisterData<T, Any>) :
+                                                                       persister: Persister,
+                                                                       val _persisterData: ReadPersisterData<T, Any>? = null) :
         NoList<R, T, T> {
+    private val persisterData = _persisterData ?: ReadPersisterData(propertyData.clazz, prefixedName, persister)
     override fun subFields() = persisterData.fields as List<FieldData<Any, Any, Any>>
 
     override fun idFieldSimpleType() = this as FieldData<Any, Any, Any>
@@ -57,13 +59,15 @@ internal data class ComplexSameTableType<R : Any, T : Any> constructor(override 
                 .flatten()
     }
 
-    override fun fNEqualsValue(o: T,  sep: String): String {
+    override fun fNEqualsValue(o: T, sep: String): String {
         return persisterData.onFields { fNEqualsValue(getObject(o), sep) }
                 .joinToString(sep)
     }
 
     override fun toTableHead(): String? {
-        return persisterData.onFields { toTableHead() }
+        return persisterData.onFields {
+            toTableHead()
+        }
                 .joinToString(", ")
     }
 

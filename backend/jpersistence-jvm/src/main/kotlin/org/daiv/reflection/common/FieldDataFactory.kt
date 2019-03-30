@@ -67,7 +67,7 @@ internal fun <T : Any, R : Any> KClass<T>.toFieldData(checkAnnotation: CheckAnno
         this.isEnum() -> EnumType(SimpleTypeProperty(this, this.simpleName!!), prefix) as FieldData<Any, Any, T>
         checkAnnotation.isSameTabe() -> {
             val propertyData = SimpleTypeProperty(this, this.simpleName!!)
-            ComplexSameTableType(propertyData, prefix, ReadPersisterData(propertyData.clazz, prefix, persister)) as FieldData<Any, Any, T>
+            ComplexSameTableType(propertyData, prefix, persister) as FieldData<Any, Any, T>
         }
         this.isNoMapAndNoList() -> ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
                                                    checkAnnotation.manyToOne(),
@@ -94,7 +94,7 @@ internal interface FieldDataFactory {
                                                                       receiverClass), prefix) as FieldData<R, *, T>
                 property.findAnnotation<SameTable>() != null -> {
                     val propertyData = DefProperty(property, receiverClass)
-                    ComplexSameTableType(propertyData, prefix, ReadPersisterData(propertyData.clazz, prefix, persister))
+                    ComplexSameTableType(propertyData, prefix, persister)
                 }
                 (property.returnType.classifier as KClass<T>).isNoMapAndNoList() -> ReadComplexType(DefProperty(property, receiverClass),
                                                                                                     property.findAnnotation()

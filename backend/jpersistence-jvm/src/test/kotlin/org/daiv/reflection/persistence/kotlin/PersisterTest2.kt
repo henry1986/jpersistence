@@ -54,6 +54,8 @@ class PersisterTest2
                data class C4(val id: Int, val x: List<X1>)
 
                data class D1(val x: Int, val y: List<Int>)
+               data class E1(val x: Int, val y: String)
+               data class E2(val x: Int, @SameTable val y: E1)
 
                val database = DatabaseWrapper.create("PersisterTest2.db")
                describe("Persister") {
@@ -82,11 +84,8 @@ class PersisterTest2
                                            B4(5, listOf(), B1(9, "now")))
                            table.insert(l2)
                            val allTables = table.allTables()
-                           val new = allTables.copy(tableData = allTables.tableData.appendValues(listOf("6",
-                                                                                                        "6",
-                                                                                                        "hi")),
-                                                    helper = listOf(allTables.helper.first().appendValues(listOf("6",
-                                                                                                                 "9"))))
+                           val new = allTables.copy(tableData = allTables.tableData.appendValues(listOf("6", "6", "hi")),
+                                                    helper = listOf(allTables.helper.first().appendValues(listOf("6", "9"))))
                            val values = table.readAllTableData(new)
                            println(values)
                            table.resetTable(values)
@@ -158,6 +157,14 @@ class PersisterTest2
                            val v = D1(5, listOf(1, 3, 4))
                            table.insert(v)
                            table.insert(D1(4, listOf(5, 92, 4)))
+                           val x = table.read(5)
+                           assertEquals(v, x)
+                       }
+                       it("same table with same id") {
+                           val table = persister.Table(E2::class)
+                           table.persist()
+                           val v = E2(5, E1(5, ""))
+                           table.insert(v)
                            val x = table.read(5)
                            assertEquals(v, x)
                        }

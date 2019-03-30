@@ -38,11 +38,10 @@ data class ListHelper(val key: Any, val value: Any)
 data class ELH(@SameTable val listHelper: ListHelper)
 
 
-data class ListHelperProperty(override val name: String) :
-        PropertyData<ELH, Any, ListHelper> {
-    override val clazz: KClass<ListHelper> = ListHelper::class
-    override val receiverType: KClass<ELH>? = null
-    override fun getObject(r: ELH) = r.listHelper
+data class HelperProperty<R : Any, T : Any>(override val name: String, override val clazz: KClass<T>, val func: R.() -> T) :
+        PropertyData<R, T, T> {
+    override val receiverType: KClass<R>? = null
+    override fun getObject(r: R) = r.func()
 }
 
 data class KeyProperty<T : Any>(override val name: String, val func: T.() -> Any) :
@@ -66,16 +65,11 @@ internal class ReadListType<R : Any, T : Any> constructor(override val propertyD
                                                           val remoteIdField: FieldData<R, Any, Any>) : CollectionFieldData<R, List<T>, T> {
 
 
-    //    private val identity = getIdentity(propertyData.clazz, persister, propertyData.name, 1, many.tableName)
-    //    private val persisterData = ReadPersisterData<T, Any>(propertyData.clazz, persister)
     private val helperTable: Table<ELH>
-    //    private val firstColumn = "_${propertyData.receiverType.simpleName!!}"
-
     private val helperTableName = "${propertyData.receiverType.simpleName}_$name"
 
-//    val n: ReadPersisterData<ComplexObject, Any>
-
     private val remoteValueField = propertyData.clazz.toFieldData<T, Any>(KeyAnnotation(propertyData.property), "value", persister)
+
     val valueField = ForwardingField(KeyProperty<ListHelper>("") { value } as PropertyData<Any, Any, Any>,
                                      remoteValueField as FieldData<Any, Any, Any>)
     val idField = ForwardingField(KeyProperty<ListHelper>("") { key } as PropertyData<Any, Any, Any>,
@@ -87,8 +81,9 @@ internal class ReadListType<R : Any, T : Any> constructor(override val propertyD
         val listHelperPersisterData = ReadPersisterData(fields3 as List<FieldData<ListHelper, Any, Any>>) { fieldValues ->
             ListHelper(fieldValues[0].value, fieldValues[1].value)
         }
-        val c = ComplexSameTableType(ListHelperProperty("") as PropertyData<ELH, ListHelper, ListHelper>,
+        val c = ComplexSameTableType(HelperProperty<ELH, ListHelper>("", ListHelper::class) { listHelper },
                                      null,
+                                     persister,
                                      listHelperPersisterData)
         val r = ReadPersisterData(listOf(c as FieldData<ELH, Any, Any>)) { fieldValues: List<ReadFieldValue> ->
             ELH(fieldValues[0].value as ListHelper)
