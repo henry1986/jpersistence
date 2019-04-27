@@ -57,6 +57,7 @@ class PersisterTest2
                data class E1(val x: Int, val y: String)
                data class E2(val x: Int, @SameTable val y: E1)
 
+
                val database = DatabaseWrapper.create("PersisterTest2.db")
                describe("Persister") {
                    database.open()

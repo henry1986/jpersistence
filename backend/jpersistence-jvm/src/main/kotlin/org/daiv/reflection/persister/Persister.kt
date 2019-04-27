@@ -260,6 +260,12 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return tables.tableData.values.map { readPersisterData.evaluate(TableDataReadValue(tables, it)) }
         }
 
+        fun <K : Comparable<K>> read(from: K, to: K): List<R> {
+            val keyColumnName = readPersisterData.onKey { prefixedName }
+            return this@Persister.read("select * from $tableName where $keyColumnName between $from and $to;")
+                    .getList { readPersisterData.evaluate(DBReadValue(this)) }
+        }
+
         fun readTableData(tables: AllTables, id: Any): R {
             return readPersisterData.evaluate(TableDataReadValue(tables,
                                                                  tables.tableData.values.find { it.first() == id.toString() }!!))
