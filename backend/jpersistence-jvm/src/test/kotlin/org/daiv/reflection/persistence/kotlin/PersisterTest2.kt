@@ -57,6 +57,10 @@ class PersisterTest2
                data class E1(val x: Int, val y: String)
                data class E2(val x: Int, @SameTable val y: E1)
 
+               data class InnerVal(val x:Int){
+                   val y = x+1
+               }
+
 
                val database = DatabaseWrapper.create("PersisterTest2.db")
                describe("Persister") {
@@ -168,6 +172,14 @@ class PersisterTest2
                            table.insert(v)
                            val x = table.read(5)
                            assertEquals(v, x)
+                       }
+                       it("inner val test"){
+                           val table = persister.Table(InnerVal::class)
+                           table.persist()
+                           val v = InnerVal(5)
+                           table.insert(v)
+                           assertEquals(v, table.read(5))
+
                        }
                    }
                    afterGroup { database.delete() }

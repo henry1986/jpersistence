@@ -37,6 +37,7 @@ import kotlin.reflect.KFunction
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
+import kotlin.reflect.full.primaryConstructor
 
 interface CheckAnnotation {
     fun isSameTabe(): Boolean
@@ -122,23 +123,22 @@ internal interface FieldDataFactory {
         }
 
 
-        private fun <R : Any, T : Any> next(member: Collection<KProperty1<R, *>>,
-                                            i: Int,
+        private fun <R : Any, T : Any> next(i: Int,
                                             prefix: String?,
                                             clazz: KClass<R>,
                                             persister: Persister,
                                             constructor: KFunction<R>,
                                             idFieldData: FieldData<R, Any, Any>?,
                                             ret: List<FieldData<R, Any, T>>): List<FieldData<R, Any, T>> {
-            if (i < member.size) {
+            if (i < constructor.parameters.size) {
                 val parameter = constructor.parameters[i]
-                val c = create(member.find { it.name == parameter.name } as KProperty1<R, T>,
+                val c = create(clazz.declaredMemberProperties.find { it.name == parameter.name } as KProperty1<R, T>,
                                clazz,
                                persister,
                                prefix,
                                idFieldData) as FieldData<R, Any, T>
                 val idField = idFieldData ?: c.idFieldSimpleType() as FieldData<R, Any, Any>
-                return next(member, i + 1, prefix, clazz, persister, constructor, idField, ret + c)
+                return next(i + 1, prefix, clazz, persister, constructor, idField, ret + c)
             }
             return ret
         }
@@ -149,12 +149,11 @@ internal interface FieldDataFactory {
             if (clazz.java.isPrimitiveOrWrapperOrString()) {
                 return listOf(ReadSimpleType(SimpleTypeProperty(clazz, clazz.tableName()), prefix) as FieldData<R, Any, T>)
             }
-            return next(clazz.declaredMemberProperties,
-                        0,
+            return next(0,
                         prefix,
                         clazz,
                         persister,
-                        clazz.constructors.first(),
+                        clazz.primaryConstructor!!,
                         null,
                         emptyList())
 //            val primaryConstructor: KFunction<R> = clazz.constructors.first()

@@ -21,10 +21,19 @@ class BarTest
                                .toList()
                        val table  =persister.Table(Bar::class)
                        table.persist()
+                       table.insert(list)
                        it("from to") {
-                           table.insert(list)
                            val read = table.read(5, 10)
                            assertEquals(list.subList(5, 11), read)
+                       }
+                       it("first"){
+                           assertEquals(Bar(0, " - 0 - "),table.first())
+                       }
+                       it("last"){
+                           assertEquals(Bar(99, " - 99 - "),table.last())
+                       }
+                       it("size"){
+                           assertEquals(100, table.size())
                        }
                    }
                    afterGroup { database.delete() }

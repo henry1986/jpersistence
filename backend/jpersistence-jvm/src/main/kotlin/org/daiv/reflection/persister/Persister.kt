@@ -32,6 +32,7 @@ import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.read.ReadPersisterData
 import org.daiv.util.DefaultRegisterer
 import org.daiv.util.Registerer
+import org.sqlite.core.DB
 import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.reflect.KClass
@@ -48,10 +49,15 @@ class Persister(private val databaseInterface: DatabaseInterface,
         registerer.forEach(DBChangeListener::onChange)
     }
 
-    internal fun read(query: String): ResultSet {
+    internal fun <T : Any> read(query: String, func: (ResultSet) -> T): T {
         try {
             logger.debug(query)
-            return databaseInterface.statement.executeQuery(query)
+            val statement = databaseInterface.statement
+            val result = statement.executeQuery(query)
+            val ret = func(result)
+            result.close()
+            statement.close()
+            return ret
         } catch (e: SQLException) {
             throw RuntimeException("query: $query", e)
         }
@@ -60,7 +66,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
     internal fun write(query: String) {
         try {
             logger.debug(query)
-            databaseInterface.statement.execute(query)
+            val statement = databaseInterface.statement
+            statement.execute(query)
+            statement.close()
         } catch (e: SQLException) {
             throw RuntimeException("query: $query", e)
         }
@@ -130,8 +138,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         fun read(fieldName: String, id: Any): List<R> {
 //            val req = "SELECT $selectHeader FROM $tableName $join ${whereClause(fieldName, id, and)};"
             val req = "SELECT * ${fromWhere(fieldName, id, and)};"
-            return this@Persister.read(req)
-                    .getList { readPersisterData.evaluate(DBReadValue(this)) }
+            return this@Persister.read(req) { it.getList { readPersisterData.evaluate(DBReadValue(this)) } }
         }
 
 
@@ -155,7 +162,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         fun exists(fieldName: String, id: Any): Boolean {
             return this@Persister.read("SELECT EXISTS( SELECT $selectHeader ${fromWhere(fieldName,
                                                                                         id,
-                                                                                        comma)});").getInt(1) != 0
+                                                                                        comma)});") { it.getInt(1) != 0 }
         }
 
         fun exists(id: Any): Boolean {
@@ -208,14 +215,14 @@ class Persister(private val databaseInterface: DatabaseInterface,
         private fun <T : Any> readColumn(fieldName: String, cmd: (Any) -> String): List<T> {
             val clazz: KClass<T> = this.readPersisterData.classOfField(fieldName) as KClass<T>
             return if (clazz.java.isPrimitiveOrWrapperOrString()) {
-                this@Persister.read(cmd(fieldName))
-                        .getList { clazz.cast(getObject(1)) }
+                this@Persister.read(cmd(fieldName)) {
+                    it.getList { clazz.cast(getObject(1)) }
+                }
             } else {
                 val readPersisterData = ReadPersisterData<T, Any>(clazz, null, this@Persister)
                 val key = readPersisterData.createTableKeyData()
 //                val key = readPersisterData.createTableKeyData(fieldName)
-                this@Persister.read(cmd(key))
-                        .getList { readPersisterData.readKey(DBReadValue(this)) } as List<T>
+                this@Persister.read(cmd(key)) { it.getList { readPersisterData.readKey(DBReadValue(this)) } as List<T> }
             }
         }
 
@@ -234,8 +241,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
          * returns all data from the current Table [clazz]
          */
         fun readAll(): List<R> {
-            return this@Persister.read("SELECT * from $tableName;")
-                    .getList { readPersisterData.evaluate(DBReadValue(this)) }
+            return this@Persister.read("SELECT * from $tableName;") {
+                it.getList { readPersisterData.evaluate(DBReadValue(this)) }
+            }
         }
 
         /**
@@ -246,8 +254,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
 
         fun tableData(): TableData {
-            val values = this@Persister.read("SELECT * from $tableName;")
-                    .getList { readPersisterData.readToString { getObject(it) } }
+            val values = this@Persister.read("SELECT * from $tableName;") { it.getList { readPersisterData.readToString { getObject(it) } } }
             return TableData(_tableName, databaseInterface.path, readPersisterData.header(), values)
         }
 
@@ -262,8 +269,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         fun <K : Comparable<K>> read(from: K, to: K): List<R> {
             val keyColumnName = readPersisterData.onKey { prefixedName }
-            return this@Persister.read("select * from $tableName where $keyColumnName between $from and $to;")
-                    .getList { readPersisterData.evaluate(DBReadValue(this)) }
+            return this@Persister.read("select * from $tableName where $keyColumnName between $from and $to;") {
+                it.getList { readPersisterData.evaluate(DBReadValue(this)) }
+            }
         }
 
         fun readTableData(tables: AllTables, id: Any): R {
@@ -275,6 +283,27 @@ class Persister(private val databaseInterface: DatabaseInterface,
             val i = tableData.header.indexOf(fieldName)
             return tableData.values.filter { it[i] == id.toString() }
                     .map { readPersisterData.evaluate(TableDataReadValue(tables, it)) }
+        }
+
+        fun last(): R? {
+            val keyColumnName = readPersisterData.onKey { prefixedName }
+            val req = "SELECT * FROM $tableName WHERE $keyColumnName = (SELECT max($keyColumnName) from $tableName);"
+            val x = this@Persister.read(req) { it.getList { readPersisterData.evaluate(DBReadValue(this)) } }
+            return x.firstOrNull()
+        }
+
+        fun first(): R? {
+            val req = "SELECT * FROM $tableName LIMIT 1;"
+            val x = this@Persister.read(req) { it.getList { readPersisterData.evaluate(DBReadValue(this)) } }
+            return x.firstOrNull()
+        }
+
+        fun size(): Int {
+            val keyColumnName = readPersisterData.onKey { prefixedName }
+            val req = "SELECT COUNT($keyColumnName) FROM $tableName;"
+
+            val x = this@Persister.read(req) { it.getInt(1) }
+            return x
         }
 
         fun resetTable(list: List<R>) {

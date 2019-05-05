@@ -23,6 +23,7 @@
 package org.daiv.immutable.utils.persistence.annotations;
 
 import org.daiv.reflection.database.DatabaseInterface;
+import org.sqlite.SQLiteConnection;
 
 import java.io.File;
 import java.sql.Connection;
