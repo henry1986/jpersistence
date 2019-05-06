@@ -51,8 +51,9 @@ internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValu
  * [R] is the type of the receiver of the property
  * [T] is the generic type of the PropertyData
  * [S] is the type of the value returned by the getObject method
+ * [X] is the transformed value of [S] -> necessary for example with the map to list converter
  */
-internal interface FieldData<R : Any, S : Any, T : Any> {
+internal interface FieldData<R : Any, S : Any, T : Any, X:Any> {
     val propertyData: PropertyData<R, S, T>
 
     val name get() = propertyData.name
@@ -61,7 +62,7 @@ internal interface FieldData<R : Any, S : Any, T : Any> {
         get() = name(prefix)
 
     fun keyClassSimpleType(): KClass<Any>
-    fun idFieldSimpleType(): FieldData<Any, Any, Any>
+    fun idFieldSimpleType(): FieldData<Any, Any, Any, Any>
     fun keySimpleType(r: R): Any
     fun keyLowSimpleType(t: T): Any
 
@@ -130,7 +131,7 @@ internal interface FieldData<R : Any, S : Any, T : Any> {
 
     fun underscoreName(): String?
 
-    fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<S>
+    fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<X>
 
     fun getColumnValue(readValue: ReadValue): Any
     fun header(): List<String>
@@ -140,23 +141,23 @@ internal interface FieldData<R : Any, S : Any, T : Any> {
     fun keyTables(): List<TableData>
     fun storeManyToOneObject(t: T)
     fun persist()
-    fun subFields(): List<FieldData<Any, Any, Any>>
+    fun subFields(): List<FieldData<Any, Any, Any, Any>>
 
 //    fun makeString(any: R): String
 }
 
-internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T> {
+internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
     override fun createTable() {}
     override fun createTableForeign() {}
     override fun insertLists(keySimpleType: Any, r: R) {}
     override fun deleteLists(keySimpleType: Any) {}
 }
 
-internal interface CollectionFieldData<R : Any, S : Any, T : Any> : FieldData<R, S, T> {
-    override fun subFields(): List<FieldData<Any, Any, Any>>  = listOf(idFieldSimpleType())
+internal interface CollectionFieldData<R : Any, S : Any, T : Any, X:Any> : FieldData<R, S, T, X> {
+    override fun subFields(): List<FieldData<Any, Any, Any, Any>>  = listOf(idFieldSimpleType())
     override fun keyClassSimpleType() = throw RuntimeException("a collection cannot be a key")
     override fun keySimpleType(r: R) = throw RuntimeException("a collection cannot be a key")
-    override fun idFieldSimpleType(): FieldData<Any, Any, Any> = throw RuntimeException("a collection cannot be a key")
+    override fun idFieldSimpleType(): FieldData<Any, Any, Any, Any> = throw RuntimeException("a collection cannot be a key")
     override fun keyLowSimpleType(t: T) = t
     override fun key() = throw RuntimeException("a collection cannot be a key")
     override fun toTableHead() = null

@@ -46,7 +46,7 @@ interface CheckAnnotation {
 
 fun getManyToOne() = ManyToOne::class.constructors.first().call("")
 
-class KeyAnnotation<R : Any, T : Any>(private val property: KProperty1<R, T>) : CheckAnnotation {
+class KeyAnnotation(private val property: KProperty1<*, *>) : CheckAnnotation {
     override fun isSameTabe(): Boolean {
         return property.findAnnotation<SameTable>() != null
     }
@@ -57,22 +57,23 @@ class KeyAnnotation<R : Any, T : Any>(private val property: KProperty1<R, T>) : 
 
 }
 
-internal fun <T : Any> KClass<T>.isNoMapAndNoList() = this != List::class && this != Map::class
+internal fun <T : Any> KClass<T>.isNoMapAndNoListAndNoSet() = this != List::class && this != Map::class && this != Set::class
 
 internal fun <T : Any, R : Any> KClass<T>.toFieldData(checkAnnotation: CheckAnnotation,
                                                       prefix: String?,
-                                                      persister: Persister): FieldData<Any, Any, T> {
+                                                      persister: Persister): FieldData<Any, Any, T, Any> {
     return when {
         this.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(this,
-                                                                                      this.simpleName!!), prefix) as FieldData<Any, Any, T>
-        this.isEnum() -> EnumType(SimpleTypeProperty(this, this.simpleName!!), prefix) as FieldData<Any, Any, T>
+                                                                                      this.simpleName!!),
+                                                                   prefix) as FieldData<Any, Any, T, Any>
+        this.isEnum() -> EnumType(SimpleTypeProperty(this, this.simpleName!!), prefix) as FieldData<Any, Any, T, Any>
         checkAnnotation.isSameTabe() -> {
             val propertyData = SimpleTypeProperty(this, this.simpleName!!)
-            ComplexSameTableType(propertyData, prefix, persister) as FieldData<Any, Any, T>
+            ComplexSameTableType(propertyData, prefix, null, persister) as FieldData<Any, Any, T, Any>
         }
-        this.isNoMapAndNoList() -> ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
-                                                   checkAnnotation.manyToOne(),
-                                                   persister, prefix) as FieldData<Any, Any, T>
+        this.isNoMapAndNoListAndNoSet() -> ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
+                                                           checkAnnotation.manyToOne(),
+                                                           persister, prefix) as FieldData<Any, Any, T, Any>
         else -> {
             throw RuntimeException("this: $this not possible")
         }
@@ -87,37 +88,55 @@ internal interface FieldDataFactory {
                                       receiverClass: KClass<R>,
                                       persister: Persister,
                                       prefix: String?,
-                                      idField: FieldData<R, Any, Any>?): FieldData<R, *, T> {
+                                      parentTableName: String?,
+                                      idField: FieldData<R, Any, Any, Any>?): FieldData<R, *, T, *> {
             return when {
                 property.getKClass().java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property,
                                                                                                        receiverClass), prefix)
                 property.getKClass().isEnum() -> EnumType(DefProperty(property as KProperty1<R, Enum<*>>,
-                                                                      receiverClass), prefix) as FieldData<R, *, T>
+                                                                      receiverClass), prefix) as FieldData<R, *, T, *>
                 property.findAnnotation<SameTable>() != null -> {
                     val propertyData = DefProperty(property, receiverClass)
-                    ComplexSameTableType(propertyData, prefix, persister)
+                    ComplexSameTableType(propertyData, prefix, parentTableName!!, persister)
                 }
-                (property.returnType.classifier as KClass<T>).isNoMapAndNoList() -> ReadComplexType(DefProperty(property, receiverClass),
-                                                                                                    property.findAnnotation()
-                                                                                                            ?: ManyToOne::class.constructors.first().call(
-                                                                                                                    ""),
-                                                                                                    persister, prefix)
+                (property.returnType.classifier as KClass<T>).isNoMapAndNoListAndNoSet() -> ReadComplexType(DefProperty(property,
+                                                                                                                        receiverClass),
+                                                                                                            property.findAnnotation()
+                                                                                                                    ?: ManyToOne::class.constructors.first().call(
+                                                                                                                            ""),
+                                                                                                            persister, prefix)
                 idField == null -> {
                     throw RuntimeException("class: $idField -> the primary Key must not be a collection!")
                 }
                 property.returnType.classifier as KClass<T> == Map::class -> {
-                    MapType(MapProperty(property as KProperty1<R, Map<Any, T>>, receiverClass),
+                    MapType(DefaultMapProperty(property as KProperty1<R, Map<Any, T>>, receiverClass),
                             prefix,
                             persister,
-                            property.findAnnotation() ?: ManyMap::class.constructors.first().call("", ""),
+                            parentTableName!!,
+                            { it },
+                            idField)
+                }
+                property.returnType.classifier as KClass<T> == List::class -> {
+                    MapType(ListMapProperty(property as KProperty1<R, List<T>>, receiverClass),
+                            prefix,
+                            persister,
+                            parentTableName!!,
+                            {
+                                it.toList()
+                                        .sortedBy { it.first }
+                                        .map { it.second }
+                            },
+                            idField)
+                }
+                property.returnType.classifier as KClass<T> == Set::class -> {
+                    SetType(SetProperty(property as KProperty1<R, Set<T>>, receiverClass),
+                            property.findAnnotation() ?: ManyList::class.constructors.first().call(""),
+                            persister,
+                            prefix,
                             idField)
                 }
                 else -> {
-                    ReadListType(ListProperty(property as KProperty1<R, List<T>>, receiverClass),
-                                 property.findAnnotation() ?: ManyList::class.constructors.first().call(""),
-                                 persister,
-                                 prefix,
-                                 idField)
+                    throw RuntimeException("unknown type : ${property.returnType}")
                 }
             }
         }
@@ -128,33 +147,39 @@ internal interface FieldDataFactory {
                                             clazz: KClass<R>,
                                             persister: Persister,
                                             constructor: KFunction<R>,
-                                            idFieldData: FieldData<R, Any, Any>?,
-                                            ret: List<FieldData<R, Any, T>>): List<FieldData<R, Any, T>> {
+                                            idFieldData: FieldData<R, Any, Any, Any>?,
+                                            parentTableName: String?,
+                                            ret: List<FieldData<R, Any, T, Any>>): List<FieldData<R, Any, T, Any>> {
             if (i < constructor.parameters.size) {
                 val parameter = constructor.parameters[i]
                 val c = create(clazz.declaredMemberProperties.find { it.name == parameter.name } as KProperty1<R, T>,
                                clazz,
                                persister,
                                prefix,
-                               idFieldData) as FieldData<R, Any, T>
-                val idField = idFieldData ?: c.idFieldSimpleType() as FieldData<R, Any, Any>
-                return next(i + 1, prefix, clazz, persister, constructor, idField, ret + c)
+                               parentTableName,
+                               idFieldData) as FieldData<R, Any, T, Any>
+                val idField = idFieldData ?: c.idFieldSimpleType() as FieldData<R, Any, Any, Any>
+                return next(i + 1, prefix, clazz, persister, constructor, idField, parentTableName, ret + c)
             }
             return ret
         }
 
         internal fun <R : Any, T : Any> fieldsRead(clazz: KClass<R>,
                                                    prefix: String?,
-                                                   persister: Persister): List<FieldData<R, Any, T>> {
+                                                   parentTableName: String?,
+                                                   persister: Persister): List<FieldData<R, Any, T, Any>> {
             if (clazz.java.isPrimitiveOrWrapperOrString()) {
-                return listOf(ReadSimpleType(SimpleTypeProperty(clazz, clazz.tableName()), prefix) as FieldData<R, Any, T>)
+                return listOf(ReadSimpleType(SimpleTypeProperty(clazz, clazz.tableName()), prefix) as FieldData<R, Any, T, Any>)
             }
             return next(0,
                         prefix,
                         clazz,
                         persister,
-                        clazz.primaryConstructor!!,
+                        clazz.primaryConstructor ?: run {
+                            throw RuntimeException("clazz $clazz has no primary constructor")
+                        },
                         null,
+                        parentTableName,
                         emptyList())
 //            val primaryConstructor: KFunction<R> = clazz.constructors.first()
 //            val member: Collection<KProperty1<R, *>> = clazz.declaredMemberProperties

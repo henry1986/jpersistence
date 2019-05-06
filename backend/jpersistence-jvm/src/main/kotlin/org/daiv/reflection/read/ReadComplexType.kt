@@ -33,11 +33,11 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
                                                              private val persister: Persister,
                                                              override val prefix: String?,
                                                              _persisterData: ReadPersisterData<T, Any>? = null) : NoList<R, T, T> {
-    private val persisterData = _persisterData ?: ReadPersisterData(propertyData.clazz, prefixedName, persister)
+    private val persisterData = _persisterData ?: ReadPersisterData(propertyData.clazz, prefixedName, persister, manyToOne.tableName)
 
     override fun idFieldSimpleType() = persisterData.onKey { idFieldSimpleType() }
 
-    override fun subFields(): List<FieldData<Any, Any, Any>> = persisterData.fields as List<FieldData<Any, Any, Any>>
+    override fun subFields(): List<FieldData<Any, Any, Any, Any>> = persisterData.fields as List<FieldData<Any, Any, Any, Any>>
 
     override fun storeManyToOneObject(t: T) {
         persisterData.storeManyToOneObject(t, table)

@@ -32,14 +32,15 @@ import java.sql.ResultSet
 import kotlin.reflect.KClass
 
 internal class ComplexSameTableType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
-                                                                       override val prefix: String?,
-                                                                       persister: Persister,
-                                                                       val _persisterData: ReadPersisterData<T, Any>? = null) :
+                                                                  override val prefix: String?,
+                                                                  parentTableName: String?,
+                                                                  persister: Persister,
+                                                                  val _persisterData: ReadPersisterData<T, Any>? = null) :
         NoList<R, T, T> {
-    private val persisterData = _persisterData ?: ReadPersisterData(propertyData.clazz, prefixedName, persister)
-    override fun subFields() = persisterData.fields as List<FieldData<Any, Any, Any>>
+    private val persisterData = _persisterData ?: ReadPersisterData(propertyData.clazz, prefixedName, persister, parentTableName)
+    override fun subFields() = persisterData.fields as List<FieldData<Any, Any, Any, Any>>
 
-    override fun idFieldSimpleType() = this as FieldData<Any, Any, Any>
+    override fun idFieldSimpleType() = this as FieldData<Any, Any, Any, Any>
 
     override fun storeManyToOneObject(t: T) {
 

@@ -52,6 +52,7 @@ class PersisterTest :
              data class ComplexHost(val id: Int, @ManyToOne val x1: ComplexM2O, @ManyToOne val x2: ComplexM2O)
              data class ComplexHost2(val id: Int, @ManyList val x1: List<ComplexM2O>, @ManyList val x2: List<ComplexM2O>)
              data class ComplexHostList(val id: Int, @ManyList val x1: List<ComplexM2O>, @ManyList val x2: List<ComplexM2O>)
+             data class ComplexHostSet(val id: Int, @ManyList val x1: Set<ComplexM2O>, @ManyList val x2: Set<ComplexM2O>)
              data class ComplexHostMap(val id: Int, @ManyMap val x1: Map<String, ComplexM2O>, @ManyMap val x2: Map<String, ComplexM2O>)
 
              data class L1(val r: Int, val s: String)
@@ -163,7 +164,14 @@ class PersisterTest :
                      it("on list") {
                          val list = persister.Table(ComplexHostList::class)
                          list.persist()
-                         val c = ComplexHostList(5, listOf(e1, e2), listOf(e2, e3))
+                         val c = ComplexHostList(5, listOf(e1, e2, e1, e2, e2, e2, e1), listOf(e2, e3))
+                         list.insert(c)
+                         assertEquals(c, list.read(5))
+                     }
+                     it("on set") {
+                         val list = persister.Table(ComplexHostSet::class)
+                         list.persist()
+                         val c = ComplexHostSet(5, setOf(e1, e2), setOf(e2, e3))
                          list.insert(c)
                          assertEquals(c, list.read(5))
                      }

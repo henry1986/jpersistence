@@ -82,21 +82,21 @@ class PersisterTest2
                            table.readAll()
                            assertEquals(l2, table.read(4))
                        }
-                       it("printTableDatas") {
-                           val table = persister.Table(B4::class)
-                           table.persist()
-                           val l2 = listOf(B4(4, listOf(B2(5, "wow"), B2(9, "cool")), B1(6, "hi")),
-                                           B4(5, listOf(), B1(9, "now")))
-                           table.insert(l2)
-                           val allTables = table.allTables()
-                           val new = allTables.copy(tableData = allTables.tableData.appendValues(listOf("6", "6", "hi")),
-                                                    helper = listOf(allTables.helper.first().appendValues(listOf("6", "9"))))
-                           val values = table.readAllTableData(new)
-                           println(values)
-                           table.resetTable(values)
-                           val x = table.read(6)
-                           assertEquals(B4(6, listOf(B2(9, "cool")), B1(6, "hi")), x)
-                       }
+//                       it("printTableDatas") {
+//                           val table = persister.Table(B4::class)
+//                           table.persist()
+//                           val l2 = listOf(B4(4, listOf(B2(5, "wow"), B2(9, "cool")), B1(6, "hi")),
+//                                           B4(5, listOf(), B1(9, "now")))
+//                           table.insert(l2)
+//                           val allTables = table.allTables()
+//                           val new = allTables.copy(tableData = allTables.tableData.appendValues(listOf("6", "6", "hi")),
+//                                                    helper = listOf(allTables.helper.first().appendValues(listOf("6", "9"))))
+//                           val values = table.readAllTableData(new)
+//                           println(values)
+//                           table.resetTable(values)
+//                           val x = table.read(6)
+//                           assertEquals(B4(6, listOf(B2(9, "cool")), B1(6, "hi")), x)
+//                       }
                        it("enum key test") {
                            val table = persister.Table(C1::class)
                            table.persist()

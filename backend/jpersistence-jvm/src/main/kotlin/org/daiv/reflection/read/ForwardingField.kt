@@ -4,7 +4,7 @@ import org.daiv.reflection.common.FieldData
 import org.daiv.reflection.common.PropertyData
 
 internal class ForwardingField(override val propertyData: PropertyData<Any, Any, Any>,
-                               private val fieldData: FieldData<Any, Any, Any>) : FieldData<Any, Any, Any> by fieldData {
+                               private val fieldData: FieldData<Any, Any, Any, Any>) : FieldData<Any, Any, Any, Any> by fieldData {
 
     override fun insertObject(o: Any): List<InsertObject<Any>> {
 //        return listOf(object : InsertObject<Any> {

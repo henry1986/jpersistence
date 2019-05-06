@@ -36,36 +36,39 @@ data class MapHelper(val id: Any, val key: Any, val value: Any)
  */
 data class EMH(@SameTable val mapHelper: MapHelper)
 
-internal class MapType<R : Any, T : Any, M : Any>(override val propertyData: MapProperty<R, T, M>,
-                                                  override val prefix: String?,
-                                                  val persister: Persister,
-                                                  val manyMap: ManyMap,
-                                                  val remoteIdField: FieldData<R, Any, Any>) : CollectionFieldData<R, Map<M, T>, T> {
+internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val propertyData: MapProperty<R, T, M>,
+                                                           override val prefix: String?,
+                                                           val persister: Persister,
+                                                           val parentTableName: String,
+                                                           val converter: (Map<M, T>) -> X,
+                                                           val remoteIdField: FieldData<R, Any, Any, Any>) :
+        CollectionFieldData<R, Map<M, T>, T, X> {
 
     private val helperTable: Table<EMH>
 
-    private val helperTableName = "${propertyData.receiverType.simpleName}_$name"
+    private val helperTableName = "${parentTableName}_${propertyData.receiverType.simpleName}_$name"
 
     private val remoteKeyField = propertyData.keyClazz.toFieldData<M, Any>(KeyAnnotation(propertyData.property), "key", persister)
     private val remoteValueField = propertyData.clazz.toFieldData<T, Any>(KeyAnnotation(propertyData.property), "value", persister)
 
     val keyField = ForwardingField(KeyProperty<MapHelper>("") { key } as PropertyData<Any, Any, Any>,
-                                     remoteKeyField as FieldData<Any, Any, Any>)
+                                   remoteKeyField as FieldData<Any, Any, Any, Any>)
     val valueField = ForwardingField(KeyProperty<MapHelper>("") { value } as PropertyData<Any, Any, Any>,
-                                     remoteValueField as FieldData<Any, Any, Any>)
+                                     remoteValueField as FieldData<Any, Any, Any, Any>)
     val idField = ForwardingField(KeyProperty<MapHelper>("") { id } as PropertyData<Any, Any, Any>,
-                                  remoteIdField as FieldData<Any, Any, Any>)
+                                  remoteIdField as FieldData<Any, Any, Any, Any>)
 
     init {
         val fields3 = listOf(idField, keyField, valueField)
-        val listHelperPersisterData = ReadPersisterData(fields3 as List<FieldData<MapHelper, Any, Any>>) { fieldValues ->
+        val listHelperPersisterData = ReadPersisterData(fields3 as List<FieldData<MapHelper, Any, Any, Any>>) { fieldValues ->
             MapHelper(fieldValues[0].value, fieldValues[1].value, fieldValues[2].value)
         }
         val c = ComplexSameTableType(HelperProperty<EMH, MapHelper>("", MapHelper::class) { mapHelper },
                                      null,
+                                     null,
                                      persister,
                                      listHelperPersisterData)
-        val r = ReadPersisterData(listOf(c as FieldData<EMH, Any, Any>)) { fieldValues: List<ReadFieldValue> ->
+        val r = ReadPersisterData(listOf(c as FieldData<EMH, Any, Any, Any>)) { fieldValues: List<ReadFieldValue> ->
             EMH(fieldValues[0].value as MapHelper)
         }
         helperTable = persister.Table(r, helperTableName)
@@ -97,7 +100,7 @@ internal class MapType<R : Any, T : Any, M : Any>(override val propertyData: Map
         helperTable.delete(idField.name, keySimpleType)
     }
 
-    override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<Map<M, T>> {
+    override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<X> {
         if (key == null) {
             throw NullPointerException("a List cannot be a key")
         }
@@ -107,7 +110,7 @@ internal class MapType<R : Any, T : Any, M : Any>(override val propertyData: Map
                     it.mapHelper.key as M to it.mapHelper.value as T
                 }
                 .toMap()
-        return NextSize(map, number)
+        return NextSize(converter(map), number)
     }
 
     override fun helperTables(): List<TableData> {

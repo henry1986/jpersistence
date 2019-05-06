@@ -31,16 +31,22 @@ import org.daiv.reflection.persister.Persister
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 
-internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any, Any, Any>)
+internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any, Any, Any, Any>)
 
 
-internal data class ReadPersisterData<R : Any, T : Any>(val fields: List<FieldData<R, Any, T>>,
+internal data class ReadPersisterData<R : Any, T : Any>(val fields: List<FieldData<R, Any, T, Any>>,
                                                         private val className: String = "no name",
                                                         private val method: (List<ReadFieldValue>) -> R) {
 
-    constructor(clazz: KClass<R>, prefix: String?, persister: Persister) : this(FieldDataFactory.fieldsRead(clazz, prefix, persister),
-                                                                                clazz.simpleName ?: "no name",
-                                                                                readValue(clazz.constructors.first()))
+    constructor(clazz: KClass<R>,
+                prefix: String?,
+                persister: Persister,
+                parentTableName: String? = null) : this(FieldDataFactory.fieldsRead(clazz,
+                                                                                    prefix,
+                                                                                    parentTableName,
+                                                                                    persister),
+                                                        clazz.simpleName ?: "no name",
+                                                        readValue(clazz.constructors.first()))
 
     init {
         if (fields.isEmpty()) {
@@ -55,8 +61,8 @@ internal data class ReadPersisterData<R : Any, T : Any>(val fields: List<FieldDa
         return read(readValue).t
     }
 
-    fun field(fieldName: String): FieldData<Any, Any, Any> {
-        return fields.find { it.name == fieldName } as FieldData<Any, Any, Any>?
+    fun field(fieldName: String): FieldData<Any, Any, Any, Any> {
+        return fields.find { it.name == fieldName } as FieldData<Any, Any, Any, Any>?
                 ?: fields.flatMap { it.subFields() }.find { it.name == fieldName } ?: throw RuntimeException(
                         "couldn't find any fields with name: $fieldName")
     }
@@ -124,7 +130,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(val fields: List<FieldDa
                 + ");")
     }
 
-    private fun readColumn(field: FieldData<R, *, T>, readValue: ReadValue): Any {
+    private fun readColumn(field: FieldData<R, *, T, *>, readValue: ReadValue): Any {
         return field.getColumnValue(readValue)
     }
 
@@ -140,7 +146,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(val fields: List<FieldDa
         if (i < fields.size) {
             val field = fields[i]
             val (value, nextCounter) = field.getValue(readValue, counter, key)
-            val readFieldValue = ReadFieldValue(value, field as FieldData<Any, Any, Any>)
+            val readFieldValue = ReadFieldValue(value, field as FieldData<Any, Any, Any, Any>)
             return read(readValue,
                         i + 1,
                         nextCounter,
@@ -214,12 +220,12 @@ internal data class ReadPersisterData<R : Any, T : Any>(val fields: List<FieldDa
     //    fun keyClassSimpleType() = fields.first().keyClassSimpleType()
     fun keySimpleType(r: R) = fields.first().keySimpleType(r)
 
-    fun <X> onKey(f: FieldData<R, Any, T>.() -> X): X {
+    fun <X> onKey(f: FieldData<R, Any, T, Any>.() -> X): X {
         return (fields.first())
                 .f()
     }
 
-    fun <X> onFields(f: FieldData<R, Any, T>.() -> X): List<X> {
+    fun <X> onFields(f: FieldData<R, Any, T, Any>.() -> X): List<X> {
         return fields.map(f)
     }
 

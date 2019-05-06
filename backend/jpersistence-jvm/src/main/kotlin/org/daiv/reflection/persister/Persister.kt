@@ -74,14 +74,15 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
     }
 
+    private fun getTableName(tableName: String, clazz: KClass<*>) = if (tableName == "") clazz.tableName() else tableName
+
     inner class Table<R : Any> internal constructor(private val readPersisterData: ReadPersisterData<R, Any>,
                                                     val _tableName: String) :
             Registerer<DBChangeListener> by registerer {
         private val tableName = "`$_tableName`"
 
         constructor(clazz: KClass<R>, tableName: String = "")
-                : this(ReadPersisterData(clazz, null, this@Persister),
-                       if (tableName == "") clazz.tableName() else tableName)
+                : this(ReadPersisterData(clazz, null, this@Persister, getTableName(tableName, clazz)), getTableName(tableName, clazz))
 
         //        private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz, this@Persister)
         private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()
@@ -110,7 +111,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
          * returns "[fieldName] = [id]" for primitive Types, or the complex variant
          * for complex types, the [sep] is needed
          */
-        private fun fNEqualsValue(field: FieldData<R, Any, Any>, id: Any, sep: String): String {
+        private fun fNEqualsValue(field: FieldData<R, Any, Any, Any>, id: Any, sep: String): String {
             return field.fNEqualsValue(id, sep)
 //            return when {
 //                id::class.java.isPrimitiveOrWrapperOrString() -> {
@@ -126,12 +127,12 @@ class Persister(private val databaseInterface: DatabaseInterface,
 //            }
         }
 
-        private fun whereClause(field: FieldData<R, Any, Any>, id: Any, sep: String): String {
+        private fun whereClause(field: FieldData<R, Any, Any, Any>, id: Any, sep: String): String {
             return "WHERE ${fNEqualsValue(field, id, sep)}"
         }
 
         private fun fromWhere(fieldName: String, id: Any, sep: String): String {
-            return " FROM $tableName ${whereClause(readPersisterData.field(fieldName) as FieldData<R, Any, Any>, id, sep)}"
+            return " FROM $tableName ${whereClause(readPersisterData.field(fieldName) as FieldData<R, Any, Any, Any>, id, sep)}"
         }
 
 
@@ -196,8 +197,8 @@ class Persister(private val databaseInterface: DatabaseInterface,
          * e.g. UPDATE [clazz] SET [fieldName2Set] = [value] WHERE [fieldName2Find] = [id];
          */
         fun update(fieldName2Find: String, id: Any, fieldName2Set: String, value: Any) {
-            val field2Find = readPersisterData.field(fieldName2Find) as FieldData<R, Any, Any>
-            val field2Set = readPersisterData.field(fieldName2Set) as FieldData<R, Any, Any>
+            val field2Find = readPersisterData.field(fieldName2Find) as FieldData<R, Any, Any, Any>
+            val field2Set = readPersisterData.field(fieldName2Set) as FieldData<R, Any, Any, Any>
             write("UPDATE $tableName SET ${fNEqualsValue(field2Set, value, comma)} ${whereClause(field2Find, id, comma)}")
             tableEvent()
         }

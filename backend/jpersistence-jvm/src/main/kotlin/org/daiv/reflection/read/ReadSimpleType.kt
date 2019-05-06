@@ -38,9 +38,9 @@ import kotlin.reflect.full.isSubclassOf
 
 internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
         NoList<R, T, T> {
-    override fun idFieldSimpleType() = this as FieldData<Any, Any, Any>
+    override fun idFieldSimpleType() = this as FieldData<Any, Any, Any, Any>
 
-    override fun subFields(): List<FieldData<Any, Any, Any>> = emptyList()
+    override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
 
     override fun storeManyToOneObject(t: T) {}
 

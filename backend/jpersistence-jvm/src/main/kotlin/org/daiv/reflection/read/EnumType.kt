@@ -36,8 +36,8 @@ import kotlin.reflect.KClass
  */
 internal class EnumType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
         NoList<R, T, T> {
-    override fun subFields(): List<FieldData<Any, Any, Any>> = emptyList()
-    override fun idFieldSimpleType() = this as FieldData<Any, Any, Any>
+    override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
+    override fun idFieldSimpleType() = this as FieldData<Any, Any, Any, Any>
 
     override fun storeManyToOneObject(t: T) {}
 

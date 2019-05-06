@@ -54,7 +54,7 @@ class DBReadValue(private val resultSet: ResultSet) : ReadValue {
     override fun <T:Any>helperTable(table: Table<T>, fieldName: String, key: Any) = table.read(fieldName, key)
 }
 
-class TableDataReadValue(val tables: AllTables, val values: List<String>) : ReadValue {
+class TableDataReadValue constructor(val tables: AllTables, val values: List<String>) : ReadValue {
     override fun getObject(number: Int, clazz: KClass<Any>): Any {
         val x = values[number-1]
         try {

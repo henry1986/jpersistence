@@ -34,7 +34,7 @@ import kotlin.reflect.jvm.isAccessible
  */
 interface PropertyData<R : Any, S : Any, T : Any> {
     val clazz: KClass<T>
-        val receiverType: KClass<R>?
+    val receiverType: KClass<R>?
     val name: String
 
     fun getObject(r: R): S
@@ -58,21 +58,35 @@ data class DefProperty<R : Any, T : Any>(val property: KProperty1<R, T>, overrid
     override fun getObject(r: R) = property.getObject(r)
 }
 
-data class ListProperty<R : Any, T : Any>constructor(val property: KProperty1<R, List<T>>,
+data class SetProperty<R : Any, T : Any> constructor(val property: KProperty1<R, Set<T>>,
                                                      override val receiverType: KClass<R>) :
-        PropertyData<R, List<T>, T> {
+        PropertyData<R, Set<T>, T> {
     override val clazz: KClass<T> = property.returnType.arguments.first().type!!.classifier as KClass<T>
     override val name = property.name
     override fun getObject(r: R) = property.getObject(r)
 }
 
-data class MapProperty<R : Any, T : Any, M : Any>(val property: KProperty1<R, Map<M, T>>,
-                                                  override val receiverType: KClass<R>) :
-        PropertyData<R, Map<M, T>, T> {
+interface MapProperty<R : Any, T : Any, M : Any> : PropertyData<R, Map<M, T>, T> {
+    val keyClazz: KClass<M>
+    val property: KProperty1<*, *>
+    override val receiverType: KClass<R>
+}
+
+data class DefaultMapProperty<R : Any, T : Any, M : Any>(override val property: KProperty1<R, Map<M, T>>,
+                                                         override val receiverType: KClass<R>) :
+        MapProperty<R, T, M> {
     override val clazz: KClass<T> = property.returnType.arguments[1].type!!.classifier as KClass<T>
-    val keyClazz: KClass<M> = property.returnType.arguments.first().type!!.classifier as KClass<M>
+    override val keyClazz: KClass<M> = property.returnType.arguments.first().type!!.classifier as KClass<M>
     override val name = property.name
     override fun getObject(r: R) = property.getObject(r)
+}
+
+data class ListMapProperty<R : Any, T : Any>(override val property: KProperty1<R, List<T>>,
+                                             override val receiverType: KClass<R>) : MapProperty<R, T, Int> {
+    override val clazz: KClass<T> = property.returnType.arguments.first().type!!.classifier as KClass<T>
+    override val keyClazz: KClass<Int> = Int::class
+    override val name = property.name
+    override fun getObject(r: R) = property.getObject(r).mapIndexed { index, t -> index to t }.toMap()
 }
 
 //data class InsertData(val list: List<Any>)
