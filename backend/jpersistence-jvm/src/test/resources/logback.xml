@@ -1,0 +1,28 @@
+<!--
+  ~ Copyright (c) 2018. Martin Heinrich
+  ~ This source code is property of the EA GmbH.
+  -->
+
+<configuration>
+    <!-- STDOUT APPENDER -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{60} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <!-- switch the log level between error and trace -> with error, much fewer log messages will appear-->
+    <!--<logger name="com.ea.modbus.dc.EconDriver" levedl="DEBUG"/>-->
+    <!--<logger name="com.ea.modbus.dc.ModbusBridge" level="ERROR"/>-->
+
+    <logger name="org.daiv.reflection.persister.Persister" level="TRACE"/>
+    <!--<logger additivity="false" level="DEBUG">-->
+    <!--<appender-ref ref="STDOUT"/>-->
+    <!--<appender-ref ref="FILE"/>-->
+    <!--</logger>-->
+
+    <root level="TRACE">
+        <appender-ref ref="STDOUT"/>
+        <!--<appender-ref ref="FILE"/>-->
+    </root>
+
+</configuration>

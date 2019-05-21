@@ -27,6 +27,7 @@ import org.daiv.reflection.common.FieldData
 import org.daiv.reflection.common.FieldData.JoinName
 import org.daiv.reflection.common.FieldDataFactory
 import org.daiv.reflection.common.ReadValue
+import org.daiv.reflection.common.ToStoreManyToOneObjects
 import org.daiv.reflection.persister.Persister
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
@@ -231,7 +232,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(val fields: List<FieldDa
 
     fun insertLists(o: R) {
 //        val key = keySimpleType(o)
-        onFields { insertLists(o, o) }
+        onFields { insertLists(listOf(o)) }
     }
 
     fun deleteLists(o: R) {
@@ -240,11 +241,27 @@ internal data class ReadPersisterData<R : Any, T : Any>(val fields: List<FieldDa
     }
 
     fun insertLists(l: List<R>) {
-        l.forEach { o -> fields.forEach { it.insertLists(o, o) } }
+        fields.forEach { it.insertLists(l) }
+//        l.forEach { o -> fields.forEach { it.insertLists(o, o) } }
+    }
+
+    private fun toMany(list: List<ToStoreManyToOneObjects>,
+                       i: Int = 0,
+                       ret: Map<FieldData<R, *, T, *>, List<Any>> = emptyMap()): Map<FieldData<R, *, T, *>, List<Any>> {
+        if (i < list.size) {
+            val t = list[i]
+            val toInsert = ret[t.field]?.let { it + t.any } ?: listOf(t.any)
+            val nextRet = ret + (t.field as FieldData<R, *, T, *> to toInsert)
+            return toMany(list, i + 1, nextRet)
+        }
+        return ret
     }
 
     fun insert(o: R): String {
         val insertObjects = insertObject(o)
+        val x = toMany(fields.flatMap { it.toStoreObjects(it.getObject(o) as T) })
+        x.forEach { t, u -> t.storeManyToOneObject(u as List<T>) }
+
         val headString = insertHeadString(insertObjects)
         val valueString = insertValueString(insertObjects)
         return "($headString ) VALUES ($valueString);"
@@ -260,6 +277,9 @@ internal data class ReadPersisterData<R : Any, T : Any>(val fields: List<FieldDa
         if (o.isEmpty()) {
             return "() VALUES ();"
         }
+
+        val x = toMany(fields.flatMap { f -> o.flatMap { f.toStoreObjects(f.getObject(it) as T) } })
+        x.forEach { t, u -> t.storeManyToOneObject(u as List<T>) }
         val headString = insertHeadString(insertObject(o.first()))
         val valueString = o.joinToString(separator = "), (") { insertValueString(insertObject(it)) }
         return "($headString ) VALUES ($valueString);"

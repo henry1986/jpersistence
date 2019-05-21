@@ -24,11 +24,8 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.annotations.TableData
-import org.daiv.reflection.common.FieldData
+import org.daiv.reflection.common.*
 import org.daiv.reflection.common.FieldData.JoinName
-import org.daiv.reflection.common.NoList
-import org.daiv.reflection.common.PropertyData
-import org.daiv.reflection.common.ReadValue
 import org.daiv.reflection.isEnum
 import org.daiv.reflection.persister.Persister
 import java.sql.ResultSet
@@ -38,11 +35,12 @@ import kotlin.reflect.full.isSubclassOf
 
 internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
         NoList<R, T, T> {
+    override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
     override fun idFieldSimpleType() = this as FieldData<Any, Any, Any, Any>
 
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
 
-    override fun storeManyToOneObject(t: T) {}
+    override fun storeManyToOneObject(t: List<T>) {}
 
     override fun persist() {}
 

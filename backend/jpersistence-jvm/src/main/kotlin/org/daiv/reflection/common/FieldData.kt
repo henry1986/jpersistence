@@ -31,19 +31,43 @@ import org.daiv.reflection.read.NextSize
 import org.daiv.reflection.read.ReadPersisterData
 import kotlin.reflect.KClass
 
+private fun <T : Any> T.checkDBValue(objectValue: T): T {
+    if (this != objectValue) {
+        val msg = "values are not the same -> " +
+                "databaseValue: $this vs manyToOne Value: $objectValue"
+        throw RuntimeException(msg)
+    }
+    return objectValue
+}
+
 internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValue: T, table: Table<T>) {
     if (objectValue::class.isPrimitiveOrWrapperOrStringOrEnum()) {
         return
     }
     val key = getKey(objectValue)
-    table.read(key)?.let { dbValue ->
-        if (dbValue != objectValue) {
-            val msg = "values are not the same -> " +
-                    "databaseValue: $dbValue vs manyToOne Value: $objectValue"
-            throw RuntimeException(msg)
-        }
-    } ?: run {
+    table.read(key)?.let { it.checkDBValue(objectValue) } ?: run {
         table.insert(objectValue)
+    }
+}
+
+internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValues: List<T>, table: Table<T>) {
+    if(objectValues.isEmpty()){
+        return
+    }
+    if (objectValues.first()::class.isPrimitiveOrWrapperOrStringOrEnum()) {
+        return
+    }
+    val l = objectValues.map { objectValue ->
+        val x = table.read(getKey(objectValue))
+                ?.let { it.checkDBValue(objectValue) }
+        if(x == null){
+            objectValue
+        } else {
+            null
+        }
+    }.filterNotNull().distinct()
+    if(!l.isEmpty()){
+        table.insert(l)
     }
 }
 
@@ -53,7 +77,7 @@ internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValu
  * [S] is the type of the value returned by the getObject method
  * [X] is the transformed value of [S] -> necessary for example with the map to list converter
  */
-internal interface FieldData<R : Any, S : Any, T : Any, X:Any> {
+internal interface FieldData<R : Any, S : Any, T : Any, X : Any> {
     val propertyData: PropertyData<R, S, T>
 
     val name get() = propertyData.name
@@ -111,7 +135,7 @@ internal interface FieldData<R : Any, S : Any, T : Any, X:Any> {
     fun toTableHead(): String?
 
     fun createTable()
-    fun insertLists(keySimpleType: Any, r: R)
+    fun insertLists(r: List<R>)
     fun deleteLists(keySimpleType: Any)
     fun createTableForeign()
 
@@ -139,22 +163,25 @@ internal interface FieldData<R : Any, S : Any, T : Any, X:Any> {
 
     fun helperTables(): List<TableData>
     fun keyTables(): List<TableData>
-    fun storeManyToOneObject(t: T)
+    fun storeManyToOneObject(t: List<T>)
+    fun toStoreObjects(objectValue:T):List<ToStoreManyToOneObjects>
     fun persist()
     fun subFields(): List<FieldData<Any, Any, Any, Any>>
 
 //    fun makeString(any: R): String
 }
 
+internal data class ToStoreManyToOneObjects(val field:FieldData<*,*,*,*>, val any:Any)
+
 internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
     override fun createTable() {}
     override fun createTableForeign() {}
-    override fun insertLists(keySimpleType: Any, r: R) {}
+    override fun insertLists(r: List<R>) {}
     override fun deleteLists(keySimpleType: Any) {}
 }
 
-internal interface CollectionFieldData<R : Any, S : Any, T : Any, X:Any> : FieldData<R, S, T, X> {
-    override fun subFields(): List<FieldData<Any, Any, Any, Any>>  = listOf(idFieldSimpleType())
+internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : FieldData<R, S, T, X> {
+    override fun subFields(): List<FieldData<Any, Any, Any, Any>> = listOf(idFieldSimpleType())
     override fun keyClassSimpleType() = throw RuntimeException("a collection cannot be a key")
     override fun keySimpleType(r: R) = throw RuntimeException("a collection cannot be a key")
     override fun idFieldSimpleType(): FieldData<Any, Any, Any, Any> = throw RuntimeException("a collection cannot be a key")
@@ -162,6 +189,7 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X:Any> : Field
     override fun key() = throw RuntimeException("a collection cannot be a key")
     override fun toTableHead() = null
     override fun header(): List<String> = emptyList()
+    override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
 
     override fun insertObject(o: T): List<InsertObject<Any>> = listOf()
     //    override fun foreignKey() = null
@@ -172,6 +200,6 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X:Any> : Field
 
     override fun underscoreName() = null
     override fun size() = 0
-    override fun storeManyToOneObject(t: T) {}
+    override fun storeManyToOneObject(t: List<T>) {}
     override fun persist() {}
 }

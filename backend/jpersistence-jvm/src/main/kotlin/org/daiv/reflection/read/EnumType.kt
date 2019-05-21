@@ -24,10 +24,7 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.annotations.TableData
-import org.daiv.reflection.common.FieldData
-import org.daiv.reflection.common.NoList
-import org.daiv.reflection.common.PropertyData
-import org.daiv.reflection.common.ReadValue
+import org.daiv.reflection.common.*
 import java.sql.SQLException
 import kotlin.reflect.KClass
 
@@ -36,10 +33,11 @@ import kotlin.reflect.KClass
  */
 internal class EnumType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
         NoList<R, T, T> {
+    override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
     override fun idFieldSimpleType() = this as FieldData<Any, Any, Any, Any>
 
-    override fun storeManyToOneObject(t: T) {}
+    override fun storeManyToOneObject(t: List<T>) {}
 
     override fun persist() {}
 

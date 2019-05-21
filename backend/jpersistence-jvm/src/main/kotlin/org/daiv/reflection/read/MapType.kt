@@ -23,6 +23,7 @@
 
 package org.daiv.reflection.read
 
+import mu.KotlinLogging
 import org.daiv.reflection.annotations.ManyMap
 import org.daiv.reflection.annotations.SameTable
 import org.daiv.reflection.annotations.TableData
@@ -43,6 +44,10 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
                                                            val converter: (Map<M, T>) -> X,
                                                            val remoteIdField: FieldData<R, Any, Any, Any>) :
         CollectionFieldData<R, Map<M, T>, T, X> {
+
+    companion object {
+        val logger = KotlinLogging.logger { }
+    }
 
     private val helperTable: Table<EMH>
 
@@ -86,14 +91,15 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
         valueField.persist()
     }
 
-    override fun insertLists(keySimpleType: Any, r: R) {
-        val o = getObject(r)
-        o.forEach {
-            helperTable.insert(EMH(MapHelper(keySimpleType, it.key, it.value)))
+    override fun insertLists(r: List<R>) {
+        val b = r.flatMap { key ->
+            val p = getObject(key)
 
-            keyField.storeManyToOneObject(it.key)
-            valueField.storeManyToOneObject(it.value)
+            p.map { key to it }
         }
+        keyField.storeManyToOneObject(b.map { it.second.key })
+        valueField.storeManyToOneObject(b.map { it.second.value })
+        helperTable.insert(b.map { EMH(MapHelper(it.first, it.second.key, it.second.value)) })
     }
 
     override fun deleteLists(keySimpleType: Any) {

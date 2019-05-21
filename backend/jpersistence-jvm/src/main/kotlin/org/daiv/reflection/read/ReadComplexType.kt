@@ -39,7 +39,7 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
 
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = persisterData.fields as List<FieldData<Any, Any, Any, Any>>
 
-    override fun storeManyToOneObject(t: T) {
+    override fun storeManyToOneObject(t: List<T>) {
         persisterData.storeManyToOneObject(t, table)
     }
 
@@ -96,8 +96,12 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
 
     override fun insertObject(objectValue: T): List<InsertObject<Any>> {
 //        val objectValue = getObject(o)
-        persisterData.storeManyToOneObject(objectValue, table)
+//        persisterData.storeManyToOneObject(objectValue, table)
         return persisterData.onKey { this.insertObject(this.getObject(objectValue)) }
+    }
+
+    override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> {
+        return listOf(ToStoreManyToOneObjects(this, objectValue))
     }
 
     override fun keyTables() = table.keyTables() + table.tableData()

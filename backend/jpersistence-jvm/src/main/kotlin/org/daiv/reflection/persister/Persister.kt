@@ -51,7 +51,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     internal fun <T : Any> read(query: String, func: (ResultSet) -> T): T {
         try {
-            logger.debug(query)
+            logger.trace(query)
             val statement = databaseInterface.statement
             val result = statement.executeQuery(query)
             val ret = func(result)
@@ -65,7 +65,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     internal fun write(query: String) {
         try {
-            logger.debug(query)
+            logger.trace(query)
             val statement = databaseInterface.statement
             statement.execute(query)
             statement.close()
@@ -155,6 +155,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
 
         fun insert(o: List<R>) {
+            if (o.isEmpty()) {
+                return
+            }
             write("INSERT INTO $tableName ${readPersisterData.insertList(o)}")
             readPersisterData.insertLists(o)
             tableEvent()
@@ -268,11 +271,32 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return tables.tableData.values.map { readPersisterData.evaluate(TableDataReadValue(tables, it)) }
         }
 
-        fun <K : Comparable<K>> read(from: K, to: K): List<R> {
+        private fun timespread(whereClause: String): List<R> {
             val keyColumnName = readPersisterData.onKey { prefixedName }
-            return this@Persister.read("select * from $tableName where $keyColumnName between $from and $to;") {
+            return this@Persister.read("select * from $tableName where $keyColumnName $whereClause") {
                 it.getList { readPersisterData.evaluate(DBReadValue(this)) }
             }
+        }
+
+        fun <K : Comparable<K>> read(from: K, to: K): List<R> {
+            return timespread("between $from and $to;")
+        }
+
+        /**
+         * [last] are the number of values that are trying to be read. [before] is the value, until it's read
+         */
+        fun <K : Comparable<K>> readLastBefore(last: Long, before: K): List<R> {
+            val keyColumnName = readPersisterData.onKey { prefixedName }
+            return this@Persister.read("SELECT * FROM ( select * from $tableName where $keyColumnName < $before ORDER BY $keyColumnName DESC LIMIT $last ) X ORDER BY $keyColumnName ASC") {
+                it.getList { readPersisterData.evaluate(DBReadValue(this)) }
+            }
+        }
+
+        /**
+         * [maxNumber] are the number of values that are trying to be read. [after] is the value, after it's read
+         */
+        fun <K : Comparable<K>> readNextAfter(maxNumber: Long, after: K): List<R> {
+            return timespread("> $after LIMIT $maxNumber;")
         }
 
         fun readTableData(tables: AllTables, id: Any): R {

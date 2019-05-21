@@ -23,10 +23,7 @@
 
 package org.daiv.reflection.read
 
-import org.daiv.reflection.common.FieldData
-import org.daiv.reflection.common.NoList
-import org.daiv.reflection.common.PropertyData
-import org.daiv.reflection.common.ReadValue
+import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.Persister
 import java.sql.ResultSet
 import kotlin.reflect.KClass
@@ -37,14 +34,13 @@ internal class ComplexSameTableType<R : Any, T : Any> constructor(override val p
                                                                   persister: Persister,
                                                                   val _persisterData: ReadPersisterData<T, Any>? = null) :
         NoList<R, T, T> {
+    override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
     private val persisterData = _persisterData ?: ReadPersisterData(propertyData.clazz, prefixedName, persister, parentTableName)
     override fun subFields() = persisterData.fields as List<FieldData<Any, Any, Any, Any>>
 
     override fun idFieldSimpleType() = this as FieldData<Any, Any, Any, Any>
 
-    override fun storeManyToOneObject(t: T) {
-
-    }
+    override fun storeManyToOneObject(t: List<T>) {}
 
     override fun persist() {}
 

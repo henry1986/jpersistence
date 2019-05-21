@@ -94,12 +94,13 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
     /**
      * get receiver object as parameter [r] and insert its values to the helper table as well as they
      */
-    override fun insertLists(key: Any, r: R) {
-        val o = getObject(r)
-        o.forEach {
-            helperTable.insert(ELH(ListHelper(key, it)))
-            remoteValueField.storeManyToOneObject(it)
+    override fun insertLists(r: List<R>) {
+        val b = r.flatMap { key ->
+            val p = getObject(key).toList()
+            p.map { key to it }
         }
+        remoteValueField.storeManyToOneObject(b.map { it.second })
+        helperTable.insert(b.map { ELH(ListHelper(it.first, it.second)) })
     }
 
     override fun deleteLists(keySimpleType: Any) {
