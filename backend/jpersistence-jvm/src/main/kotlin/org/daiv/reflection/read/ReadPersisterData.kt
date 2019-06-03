@@ -31,6 +31,7 @@ import org.daiv.reflection.common.ToStoreManyToOneObjects
 import org.daiv.reflection.persister.Persister
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
+import kotlin.reflect.full.primaryConstructor
 
 internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any, Any, Any, Any>)
 
@@ -47,7 +48,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(val fields: List<FieldDa
                                                                                     parentTableName,
                                                                                     persister),
                                                         clazz.simpleName ?: "no name",
-                                                        readValue(clazz.constructors.first()))
+                                                        readValue(clazz))
 
     init {
         if (fields.isEmpty()) {
@@ -287,11 +288,16 @@ internal data class ReadPersisterData<R : Any, T : Any>(val fields: List<FieldDa
 
     companion object {
 
-        private fun <T : Any> readValue(primaryConstructor: KFunction<T>): (List<ReadFieldValue>) -> T {
+        private fun <T : Any> readValue(clazz: KClass<T>): (List<ReadFieldValue>) -> T {
             return { values ->
+                val primaryConstructor = clazz.primaryConstructor!!
                 primaryConstructor.callBy(
-                        primaryConstructor.parameters.map { it to values.first { v -> v.fieldData.name == it.name }.value }
-                                .toMap())
+                        try {
+                            primaryConstructor.parameters.map { it to values.first { v -> v.fieldData.name == it.name }.value }
+                                    .toMap()
+                        } catch (t: Throwable) {
+                            throw RuntimeException("error for clazz $clazz at ${primaryConstructor.parameters} and $values", t)
+                        })
             }
         }
     }
