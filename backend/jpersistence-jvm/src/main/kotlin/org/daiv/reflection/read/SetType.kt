@@ -107,6 +107,10 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
         helperTable.delete(idField.name, keySimpleType)
     }
 
+    override fun clearLists(){
+        helperTable.clear()
+    }
+
     override fun createTable() = helperTable.persist()
     override fun createTableForeign() = valueField.persist()
 

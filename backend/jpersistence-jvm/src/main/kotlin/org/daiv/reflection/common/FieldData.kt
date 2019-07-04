@@ -51,7 +51,7 @@ internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValu
 }
 
 internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValues: List<T>, table: Table<T>) {
-    if(objectValues.isEmpty()){
+    if (objectValues.isEmpty()) {
         return
     }
     if (objectValues.first()::class.isPrimitiveOrWrapperOrStringOrEnum()) {
@@ -60,13 +60,15 @@ internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValu
     val l = objectValues.map { objectValue ->
         val x = table.read(getKey(objectValue))
                 ?.let { it.checkDBValue(objectValue) }
-        if(x == null){
+        if (x == null) {
             objectValue
         } else {
             null
         }
-    }.filterNotNull().distinct()
-    if(!l.isEmpty()){
+    }
+            .filterNotNull()
+            .distinct()
+    if (!l.isEmpty()) {
         table.insert(l)
     }
 }
@@ -137,6 +139,7 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> {
     fun createTable()
     fun insertLists(r: List<R>)
     fun deleteLists(keySimpleType: Any)
+    fun clearLists()
     fun createTableForeign()
 
     fun key(): String
@@ -164,20 +167,21 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> {
     fun helperTables(): List<TableData>
     fun keyTables(): List<TableData>
     fun storeManyToOneObject(t: List<T>)
-    fun toStoreObjects(objectValue:T):List<ToStoreManyToOneObjects>
+    fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects>
     fun persist()
     fun subFields(): List<FieldData<Any, Any, Any, Any>>
 
 //    fun makeString(any: R): String
 }
 
-internal data class ToStoreManyToOneObjects(val field:FieldData<*,*,*,*>, val any:Any)
+internal data class ToStoreManyToOneObjects(val field: FieldData<*, *, *, *>, val any: Any)
 
 internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
     override fun createTable() {}
     override fun createTableForeign() {}
     override fun insertLists(r: List<R>) {}
     override fun deleteLists(keySimpleType: Any) {}
+    override fun clearLists() {}
 }
 
 internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : FieldData<R, S, T, X> {

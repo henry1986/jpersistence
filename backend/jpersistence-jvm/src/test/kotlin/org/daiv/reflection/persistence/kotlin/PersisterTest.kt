@@ -189,12 +189,16 @@ class PersisterTest :
                          complexHostTable.insert(c)
                          assertEquals(c, complexHostTable.read(5))
                      }
+                     val host2 = persister.Table(ComplexHost2::class)
+                     host2.persist()
+                     val c = ComplexHost2(5, listOf(e1, e2), listOf(e2, e3))
                      it("onManyToOne list") {
-                         val host2 = persister.Table(ComplexHost2::class)
-                         host2.persist()
-                         val c = ComplexHost2(5, listOf(e1, e2), listOf(e2, e3))
                          host2.insert(c)
                          assertEquals(c, host2.read(5))
+                     }
+                     it("list clear"){
+                         host2.clear()
+                         host2.insert(c)
                      }
                      it("read keys") {
                          val table = persister.Table(L1::class)

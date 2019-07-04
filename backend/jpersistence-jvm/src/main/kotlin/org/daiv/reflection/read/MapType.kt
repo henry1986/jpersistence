@@ -119,6 +119,10 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
         return NextSize(converter(map), number)
     }
 
+    override fun clearLists() {
+        helperTable.clear()
+    }
+
     override fun helperTables(): List<TableData> {
         return keyField.helperTables() + valueField.helperTables() + helperTable.tableData()
     }

@@ -190,6 +190,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         fun clear() {
             this@Persister.write("DELETE from $tableName;")
+            readPersisterData.clearLists()
             tableEvent()
         }
 

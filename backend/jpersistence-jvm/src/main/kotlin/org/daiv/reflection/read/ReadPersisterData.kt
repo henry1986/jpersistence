@@ -241,6 +241,10 @@ internal data class ReadPersisterData<R : Any, T : Any>(val fields: List<FieldDa
         onFields { deleteLists(key) }
     }
 
+    fun clearLists(){
+        onFields { clearLists() }
+    }
+
     fun insertLists(l: List<R>) {
         fields.forEach { it.insertLists(l) }
 //        l.forEach { o -> fields.forEach { it.insertLists(o, o) } }
