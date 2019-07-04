@@ -32,7 +32,6 @@ import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.read.ReadPersisterData
 import org.daiv.util.DefaultRegisterer
 import org.daiv.util.Registerer
-import org.sqlite.core.DB
 import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.reflect.KClass
@@ -136,12 +135,15 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
 
 
-        fun read(fieldName: String, id: Any): List<R> {
+        fun read(fieldName: String, id: Any, orderOrder: String = ""): List<R> {
 //            val req = "SELECT $selectHeader FROM $tableName $join ${whereClause(fieldName, id, and)};"
-            val req = "SELECT * ${fromWhere(fieldName, id, and)};"
+            val req = "SELECT * ${fromWhere(fieldName, id, and)} $orderOrder;"
             return this@Persister.read(req) { it.getList { readPersisterData.evaluate(DBReadValue(this)) } }
         }
 
+        fun readOrdered(fieldName: String, id: Any): List<R> {
+            return read(fieldName, id, "ORDER BY ${readPersisterData.keyName()}")
+        }
 
         fun read(id: Any): R? {
             return read(idName, id).firstOrNull()
@@ -194,6 +196,8 @@ class Persister(private val databaseInterface: DatabaseInterface,
             tableEvent()
         }
 
+        fun truncate() = clear()
+
         /**
          * [fieldName2Set] is the fieldName of the field, that has to be reset by [value].
          * All rows are replaced by [value], where [fieldName2Find] = [id].
@@ -242,14 +246,22 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return readColumn(fieldName) { it -> "SELECT $it from $tableName GROUP BY $it;" }
         }
 
-        /**
-         * returns all data from the current Table [clazz]
-         */
-        fun readAll(): List<R> {
-            return this@Persister.read("SELECT * from $tableName;") {
+        private fun internReadAll(orderOrder: String = ""): List<R> {
+            return this@Persister.read("SELECT * from $tableName $orderOrder;") {
                 it.getList { readPersisterData.evaluate(DBReadValue(this)) }
             }
         }
+
+
+        /**
+         * returns all data from the current Table [clazz], ordered by [ReadPersisterData.keyName]
+         */
+        fun readAll() = internReadAll("order by ${readPersisterData.keyName()}")
+
+        /**
+         * same as [readAll], but there is no guarantee about the order
+         */
+        fun readAllUnordered() = internReadAll()
 
         /**
          * returns all keys from the current Table [clazz]

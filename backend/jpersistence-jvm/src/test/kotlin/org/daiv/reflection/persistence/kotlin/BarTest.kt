@@ -15,10 +15,11 @@ class BarTest
                data class Tick(val time: Long, val value: Double, val offerSide: OfferSide)
                data class Candle(val time: Long, val startTick: Tick, val tickList: List<Tick>)
                data class Bar(val x: Int, val s: String)
-               data class WavePoint(val tick: Tick, override val isLong: Boolean, override val period: Period): Point, Timeable{
+               data class WavePoint(val tick: Tick, override val isLong: Boolean, override val period: Period) : Point, Timeable {
                    override val time = tick.time
                    override val value = tick.value
                }
+
                data class RawWave(val id: Int, val wavePoints: List<WavePoint>) {
                    constructor(wavePoints: List<WavePoint>) : this(wavePoints.hashCode(), wavePoints)
                }
@@ -34,6 +35,7 @@ class BarTest
                val logger = KotlinLogging.logger { }
                val database = DatabaseWrapper.create("BarTest.db")
                describe("BarTest") {
+                   val period = Period(60000, "m1")
                    database.open()
                    val persister = Persister(database)
                    on("from to") {
@@ -69,13 +71,37 @@ class BarTest
                            table.persist()
                            val wave = WaveSet(listOf(DrawnWave(RawWave(listOf(WavePoint(Tick(1000L, 500.0, OfferSide.BID),
                                                                                         true,
-                                                                                        Period(6000, "m1")),
+                                                                                        period),
                                                                               WavePoint(Tick(1002L, 503.0, OfferSide.BID),
                                                                                         false,
-                                                                                        Period(6000, "m1")))), "white")))
+                                                                                        period))), "white")))
                            table.insert(wave)
                            val read = table.readAll()
                            assertEquals(wave, read.first())
+                       }
+                       it("changeOrderTest") {
+                           table.insert(Bar(500, "500"))
+                           table.insert(Bar(600, "500"))
+                           table.insert(Bar(550, "500"))
+                           val last = table.readAll()
+                                   .last()
+                           assertEquals(600, last.x)
+                           val list = table.read(500, 550)
+                                   .map { it.x }
+                           assertEquals(listOf(500, 550), list)
+                       }
+
+                   }
+                   on("complexReadOrdered"){
+                       val table = persister.Table(WavePoint::class)
+                       it("readOrdered"){
+                           val w1 = WavePoint(Tick(5000, 5.0, OfferSide.BID), true, period)
+                           val w2 = WavePoint(Tick(6000, 5.0, OfferSide.BID), true, period)
+                           val w3 = WavePoint(Tick(7000, 5.0, OfferSide.BID), true, period)
+                           table.truncate()
+                           table.insert(listOf(w1,w3,w2))
+                           val read = table.readOrdered("isLong", true)
+                           assertEquals(listOf(w1,w2,w3), read)
                        }
                    }
                    on("timetest") {
