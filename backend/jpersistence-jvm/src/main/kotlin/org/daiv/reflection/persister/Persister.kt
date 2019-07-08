@@ -285,14 +285,17 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
 
         private fun timespread(whereClause: String): List<R> {
-            val keyColumnName = readPersisterData.onKey { prefixedName }
-            return this@Persister.read("select * from $tableName where $keyColumnName $whereClause") {
+            return this@Persister.read("select * from $tableName where ${readPersisterData.keyName()} $whereClause") {
                 it.getList { readPersisterData.evaluate(DBReadValue(this)) }
             }
         }
 
         fun <K : Comparable<K>> read(from: K, to: K): List<R> {
             return timespread("between $from and $to;")
+        }
+
+        fun <K : Comparable<K>> read(from: K, to: K, max: Int): List<R> {
+            return timespread("between $from and $to LIMIT $max;")
         }
 
         /**

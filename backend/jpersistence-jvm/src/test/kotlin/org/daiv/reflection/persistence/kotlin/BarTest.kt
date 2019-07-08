@@ -92,16 +92,29 @@ class BarTest
                        }
 
                    }
-                   on("complexReadOrdered"){
+                   on("complexReadOrdered") {
                        val table = persister.Table(WavePoint::class)
-                       it("readOrdered"){
+                       it("readOrdered") {
                            val w1 = WavePoint(Tick(5000, 5.0, OfferSide.BID), true, period)
                            val w2 = WavePoint(Tick(6000, 5.0, OfferSide.BID), true, period)
                            val w3 = WavePoint(Tick(7000, 5.0, OfferSide.BID), true, period)
                            table.truncate()
-                           table.insert(listOf(w1,w3,w2))
+                           table.insert(listOf(w1, w3, w2))
                            val read = table.readOrdered("isLong", true)
-                           assertEquals(listOf(w1,w2,w3), read)
+                           assertEquals(listOf(w1, w2, w3), read)
+                       }
+                       it("readMaxOrdered") {
+                           table.clear()
+                           val w1 = WavePoint(Tick(6000, 5.0, OfferSide.BID), true, period)
+                           val w2 = WavePoint(Tick(7000, 5.0, OfferSide.BID), true, period)
+                           val w3 = WavePoint(Tick(7500, 5.0, OfferSide.BID), true, period)
+                           val w4 = WavePoint(Tick(8000, 5.0, OfferSide.BID), true, period)
+                           val w5 = WavePoint(Tick(9000, 5.0, OfferSide.BID), true, period)
+                           val w6 = WavePoint(Tick(9500, 5.0, OfferSide.BID), true, period)
+                           table.truncate()
+                           table.insert(listOf(w4, w1, w5, w6, w3, w2))
+                           val read = table.read(7500, 10000, 3)
+                           assertEquals(listOf(w3, w4, w5), read)
                        }
                    }
                    on("timetest") {
