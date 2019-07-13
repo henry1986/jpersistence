@@ -29,6 +29,9 @@ import org.daiv.reflection.annotations.TableData
 import org.daiv.reflection.common.*
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
+import org.daiv.reflection.read.InsertObject
+import org.daiv.reflection.read.InternalRPD
+import org.daiv.reflection.read.ReadFieldValue
 import org.daiv.reflection.read.ReadPersisterData
 import org.daiv.util.DefaultRegisterer
 import org.daiv.util.Registerer
@@ -75,10 +78,59 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     private fun getTableName(tableName: String, clazz: KClass<*>) = if (tableName == "") clazz.tableName() else tableName
 
-    inner class Table<R : Any> internal constructor(private val readPersisterData: ReadPersisterData<R, Any>,
+    internal interface InternalTable<R : Any> {
+        val readPersisterData: InternalRPD<out Any, Any>
+        val tableName: String
+        val persister: Persister
+
+        fun persist() {
+            persister.write("$createTable $tableName ${readPersisterData.createTable()}")
+            readPersisterData.createTableForeign()
+            persister.event()
+        }
+
+        /**
+         * returns "[fieldName] = [id]" for primitive Types, or the complex variant
+         * for complex types, the [sep] is needed
+         */
+        fun fNEqualsValue(field: FieldData<R, Any, Any, Any>, id: Any, sep: String): String {
+            return field.fNEqualsValue(id, sep)
+        }
+
+        fun whereClause(field: FieldData<R, Any, Any, Any>, id: Any, sep: String): String {
+            return "WHERE ${fNEqualsValue(field, id, sep)}"
+        }
+
+        fun fromWhere(fieldName: String, id: Any, sep: String): String {
+            return " FROM $tableName ${whereClause(readPersisterData.field(fieldName) as FieldData<R, Any, Any, Any>, id, sep)}"
+        }
+
+        fun readIntern(fieldName: String, id: Any, orderOrder: String = ""): List<List<ReadFieldValue>> {
+//            val req = "SELECT $selectHeader FROM $tableName $join ${whereClause(fieldName, id, and)};"
+            val req = "SELECT * ${fromWhere(fieldName, id, and)} $orderOrder;"
+            return persister.read(req) { it.getList { readPersisterData.readWOObject(DBReadValue(this)) } }
+        }
+
+        fun insertBy(insertObjects: List<InsertObject>) {
+            val createTable = "INSERT INTO $tableName ${readPersisterData.insert(insertObjects)}"
+            persister.write(createTable)
+            persister.event()
+        }
+    }
+
+    internal inner class HelperTable(fields: List<FieldData<Any, Any, Any, Any>>, tableName: String) : InternalTable<Any> {
+        override val readPersisterData: InternalRPD<out Any, Any> = object : InternalRPD<Any, Any> {
+            override val fields: List<FieldData<Any, Any, Any, Any>> = fields
+        }
+        override val tableName: String = tableName
+        override val persister: Persister = this@Persister
+    }
+
+    inner class Table<R : Any> internal constructor(override val readPersisterData: ReadPersisterData<R, Any>,
                                                     val _tableName: String) :
-            Registerer<DBChangeListener> by registerer {
-        private val tableName = "`$_tableName`"
+            InternalTable<R>, Registerer<DBChangeListener> by registerer {
+        override val tableName = "`$_tableName`"
+        override val persister = this@Persister
 
         constructor(clazz: KClass<R>, tableName: String = "")
                 : this(ReadPersisterData(clazz, null, this@Persister, getTableName(tableName, clazz)), getTableName(tableName, clazz))
@@ -99,41 +151,6 @@ class Persister(private val databaseInterface: DatabaseInterface,
             registerer.forEach(DBChangeListener::onChange)
             event()
         }
-
-        fun persist() {
-            write("$createTable $tableName ${readPersisterData.createTable()}")
-            readPersisterData.createTableForeign()
-            event()
-        }
-
-        /**
-         * returns "[fieldName] = [id]" for primitive Types, or the complex variant
-         * for complex types, the [sep] is needed
-         */
-        private fun fNEqualsValue(field: FieldData<R, Any, Any, Any>, id: Any, sep: String): String {
-            return field.fNEqualsValue(id, sep)
-//            return when {
-//                id::class.java.isPrimitiveOrWrapperOrString() -> {
-//                    "$fieldName = ${ReadSimpleType.makeString(id)}"
-//                }
-//                id::class.isSubclassOf(Enum::class) -> {
-//                    "$fieldName = ${EnumType.makeString(id)}"
-//                }
-//                else -> {
-//                    val persisterData = ReadPersisterData.create<Any, Any>(id::class as KClass<Any>, this@Persister)
-//                    "${persisterData.fNEqualsValue(id, fieldName, sep)}"
-//                }
-//            }
-        }
-
-        private fun whereClause(field: FieldData<R, Any, Any, Any>, id: Any, sep: String): String {
-            return "WHERE ${fNEqualsValue(field, id, sep)}"
-        }
-
-        private fun fromWhere(fieldName: String, id: Any, sep: String): String {
-            return " FROM $tableName ${whereClause(readPersisterData.field(fieldName) as FieldData<R, Any, Any, Any>, id, sep)}"
-        }
-
 
         fun read(fieldName: String, id: Any, orderOrder: String = ""): List<R> {
 //            val req = "SELECT $selectHeader FROM $tableName $join ${whereClause(fieldName, id, and)};"

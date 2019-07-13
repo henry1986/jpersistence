@@ -67,7 +67,7 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
     private val helperTable: Table<ELH>
     private val helperTableName = "${propertyData.receiverType.simpleName}_$name"
 
-    private val remoteValueField = propertyData.clazz.toFieldData<T, Any>(KeyAnnotation(propertyData.property), "value", persister)
+    private val remoteValueField = propertyData.clazz.toFieldData(KeyAnnotation(propertyData.property), "value", persister)
 
     val valueField = ForwardingField(KeyProperty<ListHelper>("") { value } as PropertyData<Any, Any, Any>,
                                      remoteValueField as FieldData<Any, Any, Any, Any>)

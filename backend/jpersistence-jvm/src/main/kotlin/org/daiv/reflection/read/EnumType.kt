@@ -71,8 +71,8 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
         }
     }
 
-    override fun insertObject(t: T): List<InsertObject<Any>> {
-        return listOf(object : InsertObject<Any> {
+    override fun insertObject(t: T): List<InsertObject> {
+        return listOf(object : InsertObject {
             override fun insertValue(): String {
                 return makeString(t)
             }

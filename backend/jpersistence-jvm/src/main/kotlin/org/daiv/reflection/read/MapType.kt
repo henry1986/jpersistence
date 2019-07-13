@@ -24,7 +24,6 @@
 package org.daiv.reflection.read
 
 import mu.KotlinLogging
-import org.daiv.reflection.annotations.ManyMap
 import org.daiv.reflection.annotations.SameTable
 import org.daiv.reflection.annotations.TableData
 import org.daiv.reflection.common.*
@@ -53,8 +52,8 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
 
     private val helperTableName = "${parentTableName}_${propertyData.receiverType.simpleName}_$name"
 
-    private val remoteKeyField = propertyData.keyClazz.toFieldData<M, Any>(KeyAnnotation(propertyData.property), "key", persister)
-    private val remoteValueField = propertyData.clazz.toFieldData<T, Any>(KeyAnnotation(propertyData.property), "value", persister)
+    private val remoteKeyField = propertyData.keyClazz.toFieldData(KeyAnnotation(propertyData.property), "key", persister)
+    private val remoteValueField = propertyData.clazz.toFieldData<T>(KeyAnnotation(propertyData.property), "value", persister)
 
     val keyField = ForwardingField(KeyProperty<MapHelper>("") { key } as PropertyData<Any, Any, Any>,
                                    remoteKeyField as FieldData<Any, Any, Any, Any>)
@@ -74,6 +73,9 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
                                      persister,
                                      listHelperPersisterData)
         val r = ReadPersisterData(listOf(c as FieldData<EMH, Any, Any, Any>)) { fieldValues: List<ReadFieldValue> ->
+            fieldValues.forEachIndexed { i,it->
+                logger.trace { "$i: fieldValue: $it" }
+            }
             EMH(fieldValues[0].value as MapHelper)
         }
         helperTable = persister.Table(r, helperTableName)

@@ -122,7 +122,7 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> {
      */
     fun getObject(o: R) = propertyData.getObject(o)
 
-    fun insertObject(o: T): List<InsertObject<Any>>
+    fun insertObject(o: T): List<InsertObject>
 
     fun fNEqualsValue(o: S, sep: String): String
 
@@ -195,7 +195,7 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Fie
     override fun header(): List<String> = emptyList()
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
 
-    override fun insertObject(o: T): List<InsertObject<Any>> = listOf()
+    override fun insertObject(o: T): List<InsertObject> = listOf()
     //    override fun foreignKey() = null
 //    override fun joinNames(clazzSimpleName: String, keyName: String): List<FieldData.JoinName> =
 //            emptyList()

@@ -29,7 +29,7 @@ internal data class NextSize<T>(val t: T, val i: Int) {
     }
 }
 
-internal interface InsertObject<R : Any> {
+internal interface InsertObject {
     /**
      * this method creates the string for the sql command "INSERT INTO ", but
      * only the values until "VALUES". For the values afterwards, see
@@ -52,3 +52,12 @@ internal interface InsertObject<R : Any> {
      */
     fun insertValue(): String
 }
+
+internal fun List<InsertObject>.insertHeadString(): String {
+    return asSequence().joinToString(", ") { it.insertHead() }
+}
+
+internal fun List<InsertObject>.insertValueString(): String {
+    return asSequence().joinToString(", ") { it.insertValue() }
+}
+

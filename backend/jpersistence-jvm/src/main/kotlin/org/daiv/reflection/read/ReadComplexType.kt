@@ -94,7 +94,7 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         return persisterData.onKey { fNEqualsValue(getObject(objectValue), sep) }
     }
 
-    override fun insertObject(objectValue: T): List<InsertObject<Any>> {
+    override fun insertObject(objectValue: T): List<InsertObject> {
 //        val objectValue = getObject(o)
 //        persisterData.storeManyToOneObject(objectValue, table)
         return persisterData.onKey { this.insertObject(this.getObject(objectValue)) }

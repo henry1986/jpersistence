@@ -51,7 +51,7 @@ internal class ComplexSameTableType<R : Any, T : Any> constructor(override val p
     override fun keySimpleType(r: R) = r
     override fun keyLowSimpleType(t: T) = t
 
-    override fun insertObject(o: T): List<InsertObject<Any>> {
+    override fun insertObject(o: T): List<InsertObject> {
         return persisterData.onFields { this.insertObject(this.getObject(o)) }
                 .flatten()
     }

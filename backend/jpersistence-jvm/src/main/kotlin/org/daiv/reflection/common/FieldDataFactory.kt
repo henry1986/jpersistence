@@ -59,7 +59,7 @@ class KeyAnnotation(private val property: KProperty1<*, *>) : CheckAnnotation {
 
 internal fun <T : Any> KClass<T>.isNoMapAndNoListAndNoSet() = this != List::class && this != Map::class && this != Set::class
 
-internal fun <T : Any, R : Any> KClass<T>.toFieldData(checkAnnotation: CheckAnnotation,
+internal fun <T : Any> KClass<T>.toFieldData(checkAnnotation: CheckAnnotation,
                                                       prefix: String?,
                                                       persister: Persister): FieldData<Any, Any, T, Any> {
     return when {

@@ -25,13 +25,8 @@ package org.daiv.reflection.read
 
 import org.daiv.reflection.annotations.TableData
 import org.daiv.reflection.common.*
-import org.daiv.reflection.common.FieldData.JoinName
-import org.daiv.reflection.isEnum
-import org.daiv.reflection.persister.Persister
-import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.reflect.KClass
-import kotlin.reflect.full.isSubclassOf
 
 internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
         NoList<R, T, T> {
@@ -79,8 +74,8 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
         }
     }
 
-    override fun insertObject(t: T): List<InsertObject<Any>> {
-        return listOf(object : InsertObject<Any> {
+    override fun insertObject(t: T): List<InsertObject> {
+        return listOf(object : InsertObject {
             override fun insertValue(): String {
                 return makeString(t)
             }
@@ -92,7 +87,7 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
     }
 
     override fun fNEqualsValue(o: T, sep: String): String {
-        return "${prefixedName} = ${makeString(o)}"
+        return "$prefixedName = ${makeString(o)}"
 //        return static_fNEqualsValue(getObject(o), prefixedName, sep)
     }
 
