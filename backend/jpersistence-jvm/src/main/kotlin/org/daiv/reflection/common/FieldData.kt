@@ -73,13 +73,40 @@ internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValu
     }
 }
 
+internal interface FieldCollection<R : Any, S : Any, T : Any, X : Any> {
+    /**
+     * returns "[fieldName] = [id]" for primitive Types, or the complex variant
+     * for complex types, the [sep] is needed
+     */
+    fun fNEqualsValue(o: S, sep: String): String
+
+    fun whereClause(id: S, sep: String): String {
+        return "WHERE ${fNEqualsValue(id, sep)}"
+    }
+
+    /**
+     * this method creates the string for the sql command "CREATE TABLE".
+     *
+     * @param prefix
+     * a possible prefix for the variables name. Null, if no prefix
+     * is wanted.
+     * @return the string for the "CREATE TABLE" command or null, if not needed
+     */
+    fun toTableHead(): String?
+
+    fun getColumnValue(readValue: ReadValue): Any
+    fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<X>
+    fun insertObject(o: T): List<InsertObject>
+    fun underscoreName(): String?
+}
+
 /**
  * [R] is the type of the receiver of the property
  * [T] is the generic type of the PropertyData
  * [S] is the type of the value returned by the getObject method
  * [X] is the transformed value of [S] -> necessary for example with the map to list converter
  */
-internal interface FieldData<R : Any, S : Any, T : Any, X : Any> {
+internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollection<R, S, T, X> {
     val propertyData: PropertyData<R, S, T>
 
     val name get() = propertyData.name
@@ -87,7 +114,6 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> {
     val prefixedName
         get() = name(prefix)
 
-    fun keyClassSimpleType(): KClass<Any>
     fun idFieldSimpleType(): FieldData<Any, Any, Any, Any>
     fun keySimpleType(r: R): Any
     fun keyLowSimpleType(t: T): Any
@@ -120,21 +146,16 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> {
     /**
      * gets the [property] value of [o]
      */
-    fun getObject(o: R) = propertyData.getObject(o)
+    fun getObject(o: R): S {
+        try{
+            val x = propertyData.getObject(o)
+            return x
+        } catch (t:Throwable){
+            throw RuntimeException("could not read property $propertyData  of $o", t)
+        }
 
-    fun insertObject(o: T): List<InsertObject>
+    }
 
-    fun fNEqualsValue(o: S, sep: String): String
-
-    /**
-     * this method creates the string for the sql command "CREATE TABLE".
-     *
-     * @param prefix
-     * a possible prefix for the variables name. Null, if no prefix
-     * is wanted.
-     * @return the string for the "CREATE TABLE" command or null, if not needed
-     */
-    fun toTableHead(): String?
 
     fun createTable()
     fun insertLists(r: List<R>)
@@ -156,16 +177,8 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> {
 
 //    fun joinNames(clazzSimpleName: String, keyName: String): List<JoinName>
 
-    fun underscoreName(): String?
-
-    fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<X>
-
-    fun getColumnValue(readValue: ReadValue): Any
-    fun header(): List<String>
     fun size() = 1
 
-    fun helperTables(): List<TableData>
-    fun keyTables(): List<TableData>
     fun storeManyToOneObject(t: List<T>)
     fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects>
     fun persist()
@@ -184,15 +197,21 @@ internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
     override fun clearLists() {}
 }
 
+internal interface KeyNoList<R : Any, S : Any, T : Any, X:Any> : FieldData<R, S, T, X> {
+    override fun createTable() {}
+    override fun createTableForeign() {}
+    override fun insertLists(r: List<R>) {}
+    override fun deleteLists(keySimpleType: Any) {}
+    override fun clearLists() {}
+}
+
 internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : FieldData<R, S, T, X> {
-    override fun subFields(): List<FieldData<Any, Any, Any, Any>> = listOf(idFieldSimpleType())
-    override fun keyClassSimpleType() = throw RuntimeException("a collection cannot be a key")
+    override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
     override fun keySimpleType(r: R) = throw RuntimeException("a collection cannot be a key")
     override fun idFieldSimpleType(): FieldData<Any, Any, Any, Any> = throw RuntimeException("a collection cannot be a key")
     override fun keyLowSimpleType(t: T) = t
     override fun key() = throw RuntimeException("a collection cannot be a key")
     override fun toTableHead() = null
-    override fun header(): List<String> = emptyList()
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
 
     override fun insertObject(o: T): List<InsertObject> = listOf()

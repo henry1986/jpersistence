@@ -42,6 +42,7 @@ annotation class ManyMap(val tableNameKey: String = "", val tableNameValue: Stri
 @Retention(AnnotationRetention.RUNTIME)
 annotation class SameTable
 
+annotation class MoreKeys(val amount:Int)
 @Serializable
 data class TableData(val tableName: String, val db: String, val header: List<String>, val values: List<List<String>>) {
 

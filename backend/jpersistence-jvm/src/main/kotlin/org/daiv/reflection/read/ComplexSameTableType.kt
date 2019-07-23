@@ -35,7 +35,12 @@ internal class ComplexSameTableType<R : Any, T : Any> constructor(override val p
                                                                   val _persisterData: ReadPersisterData<T, Any>? = null) :
         NoList<R, T, T> {
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
-    private val persisterData = _persisterData ?: ReadPersisterData(propertyData.clazz, prefixedName, persister, parentTableName)
+    private val fields = FieldDataFactory.fieldsRead<T, Any>(propertyData.clazz, prefixedName, parentTableName, persister)
+    private val persisterData: ReadPersisterData<T, Any> = _persisterData
+            ?: ReadPersisterData<T, Any>(KeyType(fields as List<FieldData<Any, Any, Any, Any>>),
+                                         fields,
+                                         method = ReadPersisterData.readValue(propertyData.clazz))
+
     override fun subFields() = persisterData.fields as List<FieldData<Any, Any, Any, Any>>
 
     override fun idFieldSimpleType() = this as FieldData<Any, Any, Any, Any>
@@ -45,8 +50,6 @@ internal class ComplexSameTableType<R : Any, T : Any> constructor(override val p
     override fun persist() {}
 
     override fun getColumnValue(resultSet: ReadValue) = persisterData.readKey(resultSet)
-
-    override fun keyClassSimpleType() = propertyData.clazz as KClass<Any>
 
     override fun keySimpleType(r: R) = r
     override fun keyLowSimpleType(t: T) = t
@@ -91,11 +94,11 @@ internal class ComplexSameTableType<R : Any, T : Any> constructor(override val p
         return persisterData.read(readValue, number)
     }
 
-    override fun header() = persisterData.onFields { header() }.flatten()
+//    override fun header() = persisterData.onFields { header() }.flatten()
 
     override fun size() = persisterData.onFields { size() }.sum()
 
-    override fun keyTables() = persisterData.keyTables()
-
-    override fun helperTables() = persisterData.helperTables()
+//    override fun keyTables() = persisterData.keyTables()
+//
+//    override fun helperTables() = persisterData.helperTables()
 }

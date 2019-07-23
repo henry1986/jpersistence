@@ -24,17 +24,11 @@
 package org.daiv.reflection.read
 
 import mu.KotlinLogging
-import org.daiv.reflection.annotations.SameTable
 import org.daiv.reflection.annotations.TableData
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.Persister
-import org.daiv.reflection.persister.Persister.Table
+import org.daiv.reflection.persister.Persister.HelperTable
 
-data class MapHelper(val id: Any, val key: Any, val value: Any)
-/**
- * EMH = EmbeddedMapHelper
- */
-data class EMH(@SameTable val mapHelper: MapHelper)
 
 internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val propertyData: MapProperty<R, T, M>,
                                                            override val prefix: String?,
@@ -48,37 +42,23 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
         val logger = KotlinLogging.logger { }
     }
 
-    private val helperTable: Table<EMH>
+    private val helperTable: HelperTable
 
     private val helperTableName = "${parentTableName}_${propertyData.receiverType.simpleName}_$name"
 
     private val remoteKeyField = propertyData.keyClazz.toFieldData(KeyAnnotation(propertyData.property), "key", persister)
-    private val remoteValueField = propertyData.clazz.toFieldData<T>(KeyAnnotation(propertyData.property), "value", persister)
+    private val remoteValueField = propertyData.clazz.toFieldData(KeyAnnotation(propertyData.property), "value", persister)
 
-    val keyField = ForwardingField(KeyProperty<MapHelper>("") { key } as PropertyData<Any, Any, Any>,
+    val keyField = ForwardingField(KeyProperty("") as PropertyData<Any, Any, Any>,
                                    remoteKeyField as FieldData<Any, Any, Any, Any>)
-    val valueField = ForwardingField(KeyProperty<MapHelper>("") { value } as PropertyData<Any, Any, Any>,
+    val valueField = ForwardingField(KeyProperty("") as PropertyData<Any, Any, Any>,
                                      remoteValueField as FieldData<Any, Any, Any, Any>)
-    val idField = ForwardingField(KeyProperty<MapHelper>("") { id } as PropertyData<Any, Any, Any>,
+    val idField = ForwardingField(KeyProperty("") as PropertyData<Any, Any, Any>,
                                   remoteIdField as FieldData<Any, Any, Any, Any>)
 
     init {
         val fields3 = listOf(idField, keyField, valueField)
-        val listHelperPersisterData = ReadPersisterData(fields3 as List<FieldData<MapHelper, Any, Any, Any>>) { fieldValues ->
-            MapHelper(fieldValues[0].value, fieldValues[1].value, fieldValues[2].value)
-        }
-        val c = ComplexSameTableType(HelperProperty<EMH, MapHelper>("", MapHelper::class) { mapHelper },
-                                     null,
-                                     null,
-                                     persister,
-                                     listHelperPersisterData)
-        val r = ReadPersisterData(listOf(c as FieldData<EMH, Any, Any, Any>)) { fieldValues: List<ReadFieldValue> ->
-            fieldValues.forEachIndexed { i,it->
-                logger.trace { "$i: fieldValue: $it" }
-            }
-            EMH(fieldValues[0].value as MapHelper)
-        }
-        helperTable = persister.Table(r, helperTableName)
+        helperTable = persister.HelperTable(fields3, helperTableName, 2)
     }
 
     override fun fNEqualsValue(o: Map<M, T>, sep: String): String {
@@ -101,11 +81,18 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
         }
         keyField.storeManyToOneObject(b.map { it.second.key })
         valueField.storeManyToOneObject(b.map { it.second.value })
-        helperTable.insert(b.map { EMH(MapHelper(it.first, it.second.key, it.second.value)) })
+        helperTable.insertListBy(b.map {
+            val x = idField.insertObject(it.first)
+                    .first()
+            val y = keyField.insertObject(it.second.key)
+                    .first()
+            val z = valueField.insertObject(it.second.value)
+            listOf(x, y) + z
+        })
     }
 
     override fun deleteLists(keySimpleType: Any) {
-        helperTable.delete(idField.name, keySimpleType)
+        helperTable.deleteBy(idField.name, keySimpleType)
     }
 
     override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<X> {
@@ -113,23 +100,14 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
             throw NullPointerException("a List cannot be a key")
         }
 
-        val map = readValue.helperTable(helperTable, idField.name, key)
-                .map {
-                    it.mapHelper.key as M to it.mapHelper.value as T
-                }
+        val read = readValue.helperTable(helperTable, idField.name, key)
+        val map = read.map { it[1].value as M to it[2].value as T }
                 .toMap()
+
         return NextSize(converter(map), number)
     }
 
     override fun clearLists() {
         helperTable.clear()
-    }
-
-    override fun helperTables(): List<TableData> {
-        return keyField.helperTables() + valueField.helperTables() + helperTable.tableData()
-    }
-
-    override fun keyTables(): List<TableData> {
-        return keyField.keyTables() + valueField.keyTables()
     }
 }

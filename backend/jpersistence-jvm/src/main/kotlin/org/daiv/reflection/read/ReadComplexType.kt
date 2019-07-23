@@ -24,16 +24,22 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.annotations.ManyToOne
+import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
 import org.daiv.reflection.common.FieldData.JoinName
 import org.daiv.reflection.persister.Persister
 
 internal class ReadComplexType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
                                                              manyToOne: ManyToOne,
+                                                             moreKeys: MoreKeys,
                                                              private val persister: Persister,
                                                              override val prefix: String?,
                                                              _persisterData: ReadPersisterData<T, Any>? = null) : NoList<R, T, T> {
-    private val persisterData = _persisterData ?: ReadPersisterData(propertyData.clazz, prefixedName, persister, manyToOne.tableName)
+    private val persisterData = _persisterData ?: ReadPersisterData(propertyData.clazz,
+                                                                    prefixedName,
+                                                                    persister,
+                                                                    moreKeys.amount,
+                                                                    manyToOne.tableName)
 
     override fun idFieldSimpleType() = persisterData.onKey { idFieldSimpleType() }
 
@@ -58,7 +64,6 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
 //                .flatMap { it }
 //    }
 
-    override fun keyClassSimpleType() = persisterData.onKey { keyClassSimpleType() }
     override fun keySimpleType(r: R) = persisterData.keySimpleType(propertyData.getObject(r))
     override fun keyLowSimpleType(t: T) = persisterData.keySimpleType(t)
 
@@ -67,44 +72,35 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
 //    }
 
     override fun underscoreName(): String {
-        return persisterData.onKey { underscoreName() }!!
-//            .joinToString(", ")
+        return persisterData.key.underscoreName()!!
     }
 
     override fun key(): String {
-        return persisterData.onKey { key() }//persisterData.createTableKeyData(prefixedName)
+        return persisterData.key.keyString()//persisterData.createTableKeyData(prefixedName)
     }
 
     override fun toTableHead(): String? {
-        val name = prefixedName
-        return persisterData.onKey { toTableHead() }
+        return persisterData.key.toTableHead()
     }
 
-    override fun header() = persisterData.onKey { header() }
-
     override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
-        val nextSize = persisterData.onKey { getValue(readValue, number, key) }
-        val value = readValue.read(table, nextSize.t)
+        val nextSize = persisterData.key.getValue(readValue, number, key)
+        val read = table.readMultiple(nextSize.t)!!
+//        val value = readValue.read(table, nextSize.t)
 //        val value = table.read(nextSize.t)!!
-        return NextSize(value, nextSize.i)
+        return NextSize(read, nextSize.i)
     }
 
     override fun fNEqualsValue(objectValue: T, sep: String): String {
-//        val objectValue = getObject(o)
-        return persisterData.onKey { fNEqualsValue(getObject(objectValue), sep) }
+        return persisterData.key.fNEqualsValue(persisterData.key.getObject(objectValue), sep)
     }
 
     override fun insertObject(objectValue: T): List<InsertObject> {
-//        val objectValue = getObject(o)
-//        persisterData.storeManyToOneObject(objectValue, table)
-        return persisterData.onKey { this.insertObject(this.getObject(objectValue)) }
+        return persisterData.key.insertObject(objectValue)
     }
 
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> {
         return listOf(ToStoreManyToOneObjects(this, objectValue))
     }
 
-    override fun keyTables() = table.keyTables() + table.tableData()
-
-    override fun helperTables() = table.helperTables()
 }

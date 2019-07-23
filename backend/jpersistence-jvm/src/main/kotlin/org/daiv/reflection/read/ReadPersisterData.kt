@@ -23,11 +23,8 @@
 
 package org.daiv.reflection.read
 
-import org.daiv.reflection.common.FieldData
+import org.daiv.reflection.common.*
 import org.daiv.reflection.common.FieldData.JoinName
-import org.daiv.reflection.common.FieldDataFactory
-import org.daiv.reflection.common.ReadValue
-import org.daiv.reflection.common.ToStoreManyToOneObjects
 import org.daiv.reflection.persister.Persister
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
@@ -35,12 +32,25 @@ import kotlin.reflect.full.primaryConstructor
 
 internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any, Any, Any, Any>)
 
-internal interface InternalRPD<R:Any, T : Any> {
+internal interface InternalRPD<R : Any, T : Any> {
+    val key: KeyType
     val fields: List<FieldData<R, Any, T, Any>>
-    fun field(fieldName: String): FieldData<Any, Any, Any, Any> {
+    val numberOfKeyFields: Int
+    fun field(fieldName: String): FieldCollection<Any, Any, Any, Any> {
         return fields.find { it.name == fieldName } as FieldData<Any, Any, Any, Any>?
                 ?: fields.flatMap { it.subFields() }.find { it.name == fieldName } ?: throw RuntimeException(
                         "couldn't find any fields with name: $fieldName")
+    }
+
+    fun fromWhere(fieldName: String, id: Any, sep: String): String {
+        return if (key.fieldName == fieldName) {
+            if(id is List<*>)
+                key.whereClause(id as List<Any>, sep)
+            else
+                key.whereClause(listOf(id), sep)
+        } else {
+            field(fieldName).whereClause(id, sep)
+        }
     }
 
     fun createTableForeign() {
@@ -71,15 +81,12 @@ internal interface InternalRPD<R:Any, T : Any> {
 //        return createTableInnerData(prefix, 0)
 //    }
 
-    fun getIdName(): String {
-        return fields.first()
-                .name(null)
-    }
+    fun getIdName() = key.fieldName
 
 //    internal fun foreignKey() = fields.map { it.foreignKey() }.filterNotNull().map { it.sqlMethod() }.joinToString(", ")
 
     fun createTable(): String {
-        val createTableInnerData = createTableInnerData(1)
+        val createTableInnerData = createTableInnerData(key.fields.size)
 //        val foreignKeys = fields.asSequence()
 //            .mapNotNull { it.foreignKey() }
 //            .map { it.sqlMethod() }
@@ -87,18 +94,14 @@ internal interface InternalRPD<R:Any, T : Any> {
 
         fields.forEach { it.createTable() }
         val s = if (createTableInnerData == "") "" else "$createTableInnerData, "
-        return ("(${fields.first().toTableHead()}, $s"
-                + "PRIMARY KEY(${fields.first().key()})"
+        return ("(${key.toTableHead()}, $s"
+                + "PRIMARY KEY(${fields.take(numberOfKeyFields).joinToString(", ") { it.key() }})"
 //                + "${if (foreignKeys == "") "" else ", $foreignKeys"}"
                 + ");")
     }
 
-    private fun readColumn(field: FieldData<R, *, T, *>, readValue: ReadValue): Any {
-        return field.getColumnValue(readValue)
-    }
-
     fun readKey(readValue: ReadValue): Any {
-        return readColumn(fields.first(), readValue)
+        return key.getColumnValue(readValue)
     }
 
     tailrec fun read(readValue: ReadValue,
@@ -137,8 +140,8 @@ internal interface InternalRPD<R:Any, T : Any> {
         return readToString(readValue, 0)
     }
 
-    fun helperTables() = onFields { helperTables() }.flatten()
-    fun keyTables() = onFields { keyTables() }.flatten()
+//    fun helperTables() = onFields { helperTables() }.flatten()
+//    fun keyTables() = onFields { keyTables() }.flatten()
 
     /**
      * method reads the [ReadValue] only to a list of [ReadFieldValue], not to [R]
@@ -147,23 +150,15 @@ internal interface InternalRPD<R:Any, T : Any> {
         return read(readValue, 0, 1).t
     }
 
-//    fun fNEqualsValue(o: R, sep: String): String {
-//        val field = fields.first() as FieldData<Any, Any, Any>
-//        return field.fNEqualsValue(field.getObject(o), sep)
-//        //joinToString(separator = sep, transform = { it.fNEqualsValue(o, prefix, sep) })
-//    }
-
     fun keyName(): String {
-        return fields.first()
-                .key()
+        return key.name()
     }
 
-    //    fun keyClassSimpleType() = fields.first().keyClassSimpleType()
-
-    fun <X> onKey(f: FieldData<R, Any, T, Any>.() -> X): X {
-        return (fields.first())
-                .f()
+    fun <X> onKey(f: FieldData<Any, Any, Any, Any>.() -> X): X {
+        return key.onKey(f)
     }
+
+    fun keyColumnName() = key.columnName()
 
     fun <X> onFields(f: FieldData<R, Any, T, Any>.() -> X): List<X> {
         return fields.map(f)
@@ -173,39 +168,55 @@ internal interface InternalRPD<R:Any, T : Any> {
         onFields { clearLists() }
     }
 
-    fun insert(insertObjects: List<InsertObject>): String {
+    fun insertBy(insertObjects: List<InsertObject>): String {
         val headString = insertObjects.insertHeadString()
         val valueString = insertObjects.insertValueString()
         return "($headString ) VALUES ($valueString);"
     }
 
+    fun insertListBy(insertObjects: List<List<InsertObject>>): String {
+        val headString = insertObjects.first()
+                .insertHeadString()
+        val valueString = insertObjects.joinToString(separator = "), (") { it.insertValueString() }
+
+        return "($headString ) VALUES ($valueString);"
+    }
 
     fun classOfField(fieldName: String): KClass<T> {
         return fields.find { it.name == fieldName }!!.propertyData.clazz
     }
-
-    fun header() = fields.map { it.header() }.flatten()
 }
 
-internal data class ReadPersisterData<R : Any, T : Any>(override val fields: List<FieldData<R, Any, T, Any>>,
+internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyType,
+                                                        override val fields: List<FieldData<R, Any, T, Any>>,
                                                         private val className: String = "no name",
                                                         private val method: (List<ReadFieldValue>) -> R) : InternalRPD<R, T> {
+
+    private constructor(fields: List<FieldData<R, Any, T, Any>>,
+                        keyAmount: Int,
+                        className: String = "no name",
+                        method: (List<ReadFieldValue>) -> R) : this(KeyType(fields.take(keyAmount) as List<FieldData<Any, Any, Any, Any>>),
+                                                                    fields,
+                                                                    className,
+                                                                    method)
 
     constructor(clazz: KClass<R>,
                 prefix: String?,
                 persister: Persister,
-                parentTableName: String? = null) : this(FieldDataFactory.fieldsRead(clazz,
-                                                                                    prefix,
-                                                                                    parentTableName,
-                                                                                    persister),
-                                                        clazz.simpleName ?: "no name",
-                                                        readValue(clazz))
+                keyAmount: Int,
+                parentTableName: String? = null) :
+            this(FieldDataFactory.fieldsRead(clazz, prefix, parentTableName, persister),
+                 keyAmount,
+                 clazz.simpleName ?: "no name",
+                 readValue(clazz))
 
     init {
         if (fields.isEmpty()) {
             throw RuntimeException("this class has no fields: $className")
         }
     }
+
+    override val numberOfKeyFields = 1
 //    override fun evaluateToList(func:(Int) -> Any): List<R> {
 //        return func.getList(::evaluate)
 //    }
@@ -224,12 +235,11 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val fields: Lis
     }
 
     fun getKey(o: R): Any {
-        return fields.first()
-                .getObject(o)
+        return key.getObject(o)
     }
 
 
-    fun keySimpleType(r: R) = fields.first().keySimpleType(r)
+    fun keySimpleType(r: R) = key.simpleType(r)
 
     fun toMany(list: List<ToStoreManyToOneObjects>,
                i: Int = 0,
@@ -243,33 +253,36 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val fields: Lis
         return ret
     }
 
-
-    fun insert(o: R): String {
+    private fun toManyStore(o: List<R>) {
         /**
          * only for fields, that have to store data in other tables. It ensures that this data
          * is written in one time, so that it is faster. Other fields may have an empty implementation
          * of this method
          */
-        val x = toMany(fields.flatMap { it.toStoreObjects(it.getObject(o) as T) })
+        val z = o.flatMap { fields.flatMap { f -> f.toStoreObjects(f.getObject(it) as T) } }
+        val x = toMany(z)
         x.forEach { t, u -> t.storeManyToOneObject(u as List<T>) }
+    }
+
+
+    fun insert(o: R): String {
+        toManyStore(listOf(o))
 
         val insertObjects = insertObject(o)
-        return insert(insertObjects)
+        return insertBy(insertObjects)
     }
 
     fun insertList(o: List<R>): String {
         if (o.isEmpty()) {
             return "() VALUES ();"
         }
+        toManyStore(o)
 
-        val x = toMany(fields.flatMap { f -> o.flatMap { f.toStoreObjects(f.getObject(it) as T) } })
-        x.forEach { t, u -> t.storeManyToOneObject(u as List<T>) }
-        val headString = insertObject(o.first()).insertHeadString()
-        val valueString = o.joinToString(separator = "), (") { insertObject(it).insertValueString() }
-        return "($headString ) VALUES ($valueString);"
+        val insertObjects = o.map { insertObject(it) }
+        return insertListBy(insertObjects)
     }
 
-    fun insertLists(o: R) {
+    fun insertInnerFieldCollections(o: R) {
 //        val key = keySimpleType(o)
         onFields { insertLists(listOf(o)) }
     }
@@ -292,7 +305,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val fields: Lis
 
     companion object {
 
-        private fun <T : Any> readValue(clazz: KClass<T>): (List<ReadFieldValue>) -> T {
+        fun <T : Any> readValue(clazz: KClass<T>): (List<ReadFieldValue>) -> T {
             return { values ->
                 val primaryConstructor = clazz.primaryConstructor!!
                 primaryConstructor.callBy(

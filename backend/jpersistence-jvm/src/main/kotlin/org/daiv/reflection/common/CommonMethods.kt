@@ -24,7 +24,9 @@
 package org.daiv.reflection.common
 
 import org.daiv.reflection.annotations.AllTables
+import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.Table
+import org.daiv.reflection.read.ReadFieldValue
 import java.lang.RuntimeException
 import java.sql.ResultSet
 import kotlin.reflect.KClass
@@ -40,45 +42,51 @@ fun <R : Any> ResultSet.getList(method: ResultSet.() -> R): List<R> {
 fun <T : Any> KClass<T>.tableName() = "${this.java.simpleName}"
 
 
-interface ReadValue {
-    fun getObject(number: Int, clazz: KClass<Any>): Any
-    fun <T : Any> read(table: Table<T>, t: Any): T
-    fun <T:Any>helperTable(table: Table<T>, fieldName: String, key: Any): List<T>
+
+internal class ReadValue(private val resultSet: ResultSet)  {
+    fun getObject(number: Int, clazz: KClass<Any>) = resultSet.getObject(number)!!
+
+    fun <T : Any> read(table: Table<T>, t: Any) = table.read(t)!!
+
+    fun helperTable(table: Persister.HelperTable, fieldName: String, key: Any) = table.readIntern(fieldName, key)
 }
 
-class DBReadValue(private val resultSet: ResultSet) : ReadValue {
-    override fun getObject(number: Int, clazz: KClass<Any>) = resultSet.getObject(number)!!
-
-    override fun <T : Any> read(table: Table<T>, t: Any) = table.read(t)!!
-
-    override fun <T:Any>helperTable(table: Table<T>, fieldName: String, key: Any) = table.read(fieldName, key)
+fun Boolean.hashCodeX() = if (this) 1231 else 1237
+fun Long.hashCodeX() = (this xor (this shr 32)).toInt()
+fun Double.hashCodeX() = toRawBits().hashCodeX()
+fun String.hashCodeX(): Int {
+    var hash = 1
+    for (i in (0 until length)) {
+        hash += get(i).toInt() * 31
+    }
+    return hash
 }
 
-class TableDataReadValue constructor(val tables: AllTables, val values: List<String>) : ReadValue {
-    override fun getObject(number: Int, clazz: KClass<Any>): Any {
-        val x = values[number-1]
-        try {
-            return when (clazz) {
-                Boolean::class -> x.toBoolean()
-                String::class -> x
-                Int::class -> x.toInt()
-                Double::class -> x.toDouble()
-                else -> throw RuntimeException("unknow type: $clazz")
-            }
-        } catch (e: NumberFormatException) {
-            throw e
-        }
-    }
-
-    override fun <T : Any> read(table: Table<T>, t: Any): T {
-        return table.readTableData(tables.copy(tableData = tables.keyTables.find { it.tableName == table._tableName }!!),
-                                   t)
-    }
-
-    override fun <T:Any>helperTable(table: Table<T>, fieldName: String, key: Any): List<T> {
-        val tableData = tables.helper.find { it.tableName == table._tableName }!!
-        return table.readTableData(tables, tableData, fieldName, key)
-
-    }
-
-}
+//class TableDataReadValue constructor(val tables: AllTables, val values: List<String>) : ReadValue {
+//    override fun getObject(number: Int, clazz: KClass<Any>): Any {
+//        val x = values[number-1]
+//        try {
+//            return when (clazz) {
+//                Boolean::class -> x.toBoolean()
+//                String::class -> x
+//                Int::class -> x.toInt()
+//                Double::class -> x.toDouble()
+//                else -> throw RuntimeException("unknow type: $clazz")
+//            }
+//        } catch (e: NumberFormatException) {
+//            throw e
+//        }
+//    }
+//
+//    override fun <T : Any> read(table: Table<T>, t: Any): T {
+//        return table.readTableData(tables.copy(tableData = tables.keyTables.find { it.tableName == table._tableName }!!),
+//                                   t)
+//    }
+//
+//    override fun <T:Any>helperTable(table: Table<T>, fieldName: String, key: Any): List<T> {
+//        val tableData = tables.helper.find { it.tableName == table._tableName }!!
+//        return table.readTableData(tables, tableData, fieldName, key)
+//
+//    }
+//
+//}

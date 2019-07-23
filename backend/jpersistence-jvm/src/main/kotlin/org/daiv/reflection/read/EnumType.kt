@@ -43,23 +43,16 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
 
     override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1, propertyData.clazz as KClass<Any>)!!
 
-    override fun keyClassSimpleType() = propertyData.clazz as KClass<Any>
     override fun keySimpleType(r: R) = propertyData.getObject(r)
     override fun keyLowSimpleType(t: T) = t
 
     override fun toTableHead() = "${prefixedName} Text NOT NULL"
 
     override fun key() = prefixedName
-    override fun header() = listOf(prefixedName)
 
-//    override fun joinNames(clazzSimpleName: String, keyName: String): List<FieldData.JoinName> =
-//            listOfNotNull(this.prefix).map { FieldData.JoinName(it, clazzSimpleName, keyName) }
 
-//    override fun foreignKey() = null
+    override fun underscoreName() = name(prefix)
 
-    override fun underscoreName() = this.prefix?.let { "${it}_$name" } ?: name
-
-//    override fun joins(): List<String> = emptyList()
 
 
     override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
@@ -89,8 +82,6 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
 //        return ReadSimpleType.static_fNEqualsValue(getObject(o), name(prefix), sep)
     }
 
-    override fun keyTables(): List<TableData> = emptyList()
-    override fun helperTables(): List<TableData> = emptyList()
     private fun makeString(any: T): String {
         return "\"${(any as Enum<*>).name}\""
     }

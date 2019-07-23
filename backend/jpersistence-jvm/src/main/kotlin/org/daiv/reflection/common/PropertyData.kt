@@ -58,6 +58,16 @@ data class DefProperty<R : Any, T : Any>(val property: KProperty1<R, T>, overrid
     override fun getObject(r: R) = property.getObject(r)
 }
 
+internal class KeyTypeProperty(val fields: List<FieldData<Any, Any, Any, Any>>) : PropertyData<Any, List<Any>, Any> {
+    override val clazz = Any::class
+    override val receiverType: KClass<Any>? = Any::class
+    override val name: String = fields.joinToString("_") { it.name }
+    override fun getObject(r: Any): List<Any> {
+        return fields.map { it.getObject(r) }
+    }
+
+}
+
 data class SetProperty<R : Any, T : Any> constructor(val property: KProperty1<R, Set<T>>,
                                                      override val receiverType: KClass<R>) :
         PropertyData<R, Set<T>, T> {

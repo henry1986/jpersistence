@@ -41,21 +41,19 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
 
     override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1, propertyData.clazz as KClass<Any>)!!
 
-    override fun keyClassSimpleType() = propertyData.clazz as KClass<Any>
     override fun keySimpleType(r: R) = propertyData.getObject(r)
     override fun keyLowSimpleType(t: T) = t
 
     override fun toTableHead() = toTableHead(propertyData.clazz, prefixedName)
 
     override fun key() = prefixedName
-    override fun header() = listOf(prefixedName)
 
 //    override fun joinNames(clazzSimpleName: String, keyName: String): List<JoinName> =
 //            listOfNotNull(prefix).map { JoinName(it, clazzSimpleName, keyName) }
 
 //    override fun foreignKey() = null
 
-    override fun underscoreName() = prefix?.let { "${it}_$name" } ?: name
+    override fun underscoreName() = name(prefix)
 
 //    override fun joins(): List<String> = emptyList()
 
@@ -90,9 +88,6 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
         return "$prefixedName = ${makeString(o)}"
 //        return static_fNEqualsValue(getObject(o), prefixedName, sep)
     }
-
-    override fun keyTables(): List<TableData> = emptyList()
-    override fun helperTables(): List<TableData> = emptyList()
 
     private fun makeString(any: T): String {
         val s = any.toString()

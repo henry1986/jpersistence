@@ -23,10 +23,7 @@
 
 package org.daiv.reflection.common
 
-import org.daiv.reflection.annotations.ManyList
-import org.daiv.reflection.annotations.ManyMap
-import org.daiv.reflection.annotations.ManyToOne
-import org.daiv.reflection.annotations.SameTable
+import org.daiv.reflection.annotations.*
 import org.daiv.reflection.getKClass
 import org.daiv.reflection.isEnum
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
@@ -42,6 +39,7 @@ import kotlin.reflect.full.primaryConstructor
 interface CheckAnnotation {
     fun isSameTabe(): Boolean
     fun manyToOne(): ManyToOne
+    fun isMoreKeys(): MoreKeys
 }
 
 fun getManyToOne() = ManyToOne::class.constructors.first().call("")
@@ -55,13 +53,16 @@ class KeyAnnotation(private val property: KProperty1<*, *>) : CheckAnnotation {
         return property.findAnnotation() ?: getManyToOne()
     }
 
+    override fun isMoreKeys(): MoreKeys {
+        return property.findAnnotation() ?: MoreKeys::class.constructors.first().call(1)
+    }
 }
 
 internal fun <T : Any> KClass<T>.isNoMapAndNoListAndNoSet() = this != List::class && this != Map::class && this != Set::class
 
 internal fun <T : Any> KClass<T>.toFieldData(checkAnnotation: CheckAnnotation,
-                                                      prefix: String?,
-                                                      persister: Persister): FieldData<Any, Any, T, Any> {
+                                             prefix: String?,
+                                             persister: Persister): FieldData<Any, Any, T, Any> {
     return when {
         this.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(this,
                                                                                       this.simpleName!!),
@@ -73,6 +74,7 @@ internal fun <T : Any> KClass<T>.toFieldData(checkAnnotation: CheckAnnotation,
         }
         this.isNoMapAndNoListAndNoSet() -> ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
                                                            checkAnnotation.manyToOne(),
+                                                           checkAnnotation.isMoreKeys(),
                                                            persister, prefix) as FieldData<Any, Any, T, Any>
         else -> {
             throw RuntimeException("this: $this not possible")
@@ -99,12 +101,14 @@ internal interface FieldDataFactory {
                     val propertyData = DefProperty(property, receiverClass)
                     ComplexSameTableType(propertyData, prefix, parentTableName!!, persister)
                 }
-                (property.returnType.classifier as KClass<T>).isNoMapAndNoListAndNoSet() -> ReadComplexType(DefProperty(property,
-                                                                                                                        receiverClass),
-                                                                                                            property.findAnnotation()
-                                                                                                                    ?: ManyToOne::class.constructors.first().call(
-                                                                                                                            ""),
-                                                                                                            persister, prefix)
+                (property.returnType.classifier as KClass<T>).isNoMapAndNoListAndNoSet() ->
+                    ReadComplexType(DefProperty(property,
+                                                receiverClass),
+                                    property.findAnnotation()
+                                            ?: ManyToOne::class.constructors.first().call(""),
+                                    property.findAnnotation()
+                                            ?: MoreKeys::class.constructors.first().call(1),
+                                    persister, prefix)
                 idField == null -> {
                     throw RuntimeException("class: $idField -> the primary Key must not be a collection!")
                 }

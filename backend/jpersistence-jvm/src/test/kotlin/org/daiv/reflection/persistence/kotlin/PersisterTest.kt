@@ -232,7 +232,7 @@ class PersisterTest :
 //                         data class L2b(val l1Id:L1, val l1Value:L1)
 //                         data class L3(val id:Int, val l2Value:L2)
 //                         data class L4(val idL2b:L2b, val l3Value:L3)
-                     val r = ReadPersisterData<L3, Any>(L3::class, null, persister)
+                     val r = ReadPersisterData<L3, Any>(L3::class, null, persister, 1)
                      val n = r.underscoreName()
 
                      // JOIN L2 as l2Value ON L3.l2Value = l2Value.id

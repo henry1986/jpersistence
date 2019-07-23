@@ -27,36 +27,16 @@ import org.daiv.reflection.annotations.ManyList
 import org.daiv.reflection.annotations.SameTable
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.persister.Persister.HelperTable
 import org.daiv.reflection.persister.Persister.Table
 import kotlin.reflect.KClass
 
-
-data class ListHelper(val key: Any, val value: Any)
-/**
- * ELH = EmbeddedListHelper
- */
-data class ELH(@SameTable val listHelper: ListHelper)
-
-
-data class HelperProperty<R : Any, T : Any>(override val name: String, override val clazz: KClass<T>, val func: R.() -> T) :
-        PropertyData<R, T, T> {
-    override val receiverType: KClass<R>? = null
-    override fun getObject(r: R) = r.func()
-}
-
-data class KeyProperty<T : Any>(override val name: String, val func: T.() -> Any) :
-        PropertyData<T, Any, Any> {
+data class KeyProperty(override val name: String) :
+        PropertyData<Any, Any, Any> {
     override val clazz: KClass<Any> = Any::class
-    override val receiverType: KClass<T>? = null
-    override fun getObject(r: T) = r.func()
+    override val receiverType: KClass<Any>? = null
+    override fun getObject(r: Any) = throw RuntimeException("should not have been called")
 }
-
-//data class ValueProperty(override val name: String) :
-//        PropertyData<ListHelper, Any, Any> {
-//    override val clazz: KClass<Any> = Any::class
-//    override val receiverType: KClass<ListHelper>? = null
-//    override fun getObject(r: ListHelper) = r.value
-//}
 
 internal class SetType<R : Any, T : Any> constructor(override val propertyData: SetProperty<R, T>,
                                                      private val many: ManyList,
@@ -64,32 +44,17 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
                                                      override val prefix: String?,
                                                      val remoteIdField: FieldData<R, Any, Any, Any>) :
         CollectionFieldData<R, Set<T>, T, Set<T>> {
-    private val helperTable: Table<ELH>
     private val helperTableName = "${propertyData.receiverType.simpleName}_$name"
 
     private val remoteValueField = propertyData.clazz.toFieldData(KeyAnnotation(propertyData.property), "value", persister)
 
-    val valueField = ForwardingField(KeyProperty<ListHelper>("") { value } as PropertyData<Any, Any, Any>,
+    val valueField = ForwardingField(KeyProperty("") as PropertyData<Any, Any, Any>,
                                      remoteValueField as FieldData<Any, Any, Any, Any>)
-    val idField = ForwardingField(KeyProperty<ListHelper>("") { key } as PropertyData<Any, Any, Any>,
+    val idField = ForwardingField(KeyProperty("") as PropertyData<Any, Any, Any>,
                                   remoteIdField as FieldData<Any, Any, Any, Any>)
+    private val helperTable = persister.HelperTable(listOf(idField, valueField), helperTableName, 2)
 
 
-    init {
-        val fields3 = listOf(idField, valueField)
-        val listHelperPersisterData = ReadPersisterData(fields3 as List<FieldData<ListHelper, Any, Any, Any>>) { fieldValues ->
-            ListHelper(fieldValues[0].value, fieldValues[1].value)
-        }
-        val c = ComplexSameTableType(HelperProperty<ELH, ListHelper>("", ListHelper::class) { listHelper },
-                                     null,
-                                     null,
-                                     persister,
-                                     listHelperPersisterData)
-        val r = ReadPersisterData(listOf(c as FieldData<ELH, Any, Any, Any>)) { fieldValues: List<ReadFieldValue> ->
-            ELH(fieldValues[0].value as ListHelper)
-        }
-        helperTable = persister.Table(r, helperTableName)
-    }
 
     /**
      * get receiver object as parameter [r] and insert its values to the helper table as well as they
@@ -100,14 +65,21 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
             p.map { key to it }
         }
         remoteValueField.storeManyToOneObject(b.map { it.second })
-        helperTable.insert(b.map { ELH(ListHelper(it.first, it.second)) })
+        helperTable.insertListBy(b.map {
+            val x = idField.insertObject(it.first)
+                    .first()
+            val y = remoteValueField.insertObject(it.second)
+                    .first()
+            listOf(x, y)
+        })
+//        helperTable.insert(b.map { ELH(ListHelper(it.first, it.second)) })
     }
 
     override fun deleteLists(keySimpleType: Any) {
-        helperTable.delete(idField.name, keySimpleType)
+        helperTable.deleteBy(idField.name, keySimpleType)
     }
 
-    override fun clearLists(){
+    override fun clearLists() {
         helperTable.clear()
     }
 
@@ -127,13 +99,11 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
         if (key == null) {
             throw NullPointerException("a List cannot be a key")
         }
-        val x = readValue.helperTable(helperTable, remoteIdField.name, key)
-                .map { it.listHelper.value as T }
+        val ret = readValue.helperTable(helperTable, idField.name, key)
+                .map {
+                    it[1].value as T
+                }
                 .toSet()
-        return NextSize(x, number)
+        return NextSize(ret, number)
     }
-
-    override fun helperTables() = valueField.helperTables() + helperTable.tableData()
-
-    override fun keyTables() = valueField.keyTables()
 }
