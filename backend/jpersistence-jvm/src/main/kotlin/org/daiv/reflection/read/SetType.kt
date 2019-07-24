@@ -42,7 +42,7 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
                                                      private val many: ManyList,
                                                      val persister: Persister,
                                                      override val prefix: String?,
-                                                     val remoteIdField: FieldData<R, Any, Any, Any>) :
+                                                     val remoteIdField: FieldData<R, *, *, *>) :
         CollectionFieldData<R, Set<T>, T, Set<T>> {
     private val helperTableName = "${propertyData.receiverType.simpleName}_$name"
 
@@ -53,7 +53,6 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
     val idField = ForwardingField(KeyProperty("") as PropertyData<Any, Any, Any>,
                                   remoteIdField as FieldData<Any, Any, Any, Any>)
     private val helperTable = persister.HelperTable(listOf(idField, valueField), helperTableName, 2)
-
 
 
     /**
@@ -99,7 +98,7 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
         if (key == null) {
             throw NullPointerException("a List cannot be a key")
         }
-        val ret = readValue.helperTable(helperTable, idField.name, key)
+        val ret = readValue.helperTable(helperTable, idField.name, listOf(key))
                 .map {
                     it[1].value as T
                 }

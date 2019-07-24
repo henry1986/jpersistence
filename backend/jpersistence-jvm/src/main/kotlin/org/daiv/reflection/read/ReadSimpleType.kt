@@ -23,7 +23,6 @@
 
 package org.daiv.reflection.read
 
-import org.daiv.reflection.annotations.TableData
 import org.daiv.reflection.common.*
 import java.sql.SQLException
 import kotlin.reflect.KClass
@@ -31,7 +30,6 @@ import kotlin.reflect.KClass
 internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
         NoList<R, T, T> {
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
-    override fun idFieldSimpleType() = this as FieldData<Any, Any, Any, Any>
 
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
 
@@ -60,11 +58,10 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
     override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
         try {
             val any = readValue.getObject(number, propertyData.clazz as KClass<Any>)
-            val x = if (propertyData.clazz == Boolean::class) {
+            val x = if (propertyData.clazz == Boolean::class)
                 any == 1
-            } else {
+            else
                 any
-            }
             @Suppress("UNCHECKED_CAST")
             return NextSize(x as T, number + 1)
         } catch (e: SQLException) {
@@ -122,3 +119,81 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
 //        }
     }
 }
+
+
+object SimpleHashCodeable : HashCodeable<Any> {
+    override fun hashCodeX(o: Any): Int {
+        return when (o::class) {
+            Int::class -> {
+                o as Int
+            }
+            Double::class -> {
+                o as Double
+                o.hashCodeX()
+            }
+            Long::class -> {
+                o as Long
+                o.hashCodeX()
+            }
+            Boolean::class -> {
+                o as Boolean
+                o.hashCodeX()
+            }
+            String::class -> {
+                o as String
+                o.hashCodeX()
+            }
+            else -> throw RuntimeException("cannot determine type: $o")
+        }
+    }
+
+    override fun getObject(o: Any) = o
+}
+
+object EnumHashCodeable : HashCodeable<Any> {
+    override fun hashCodeX(t: Any): Int {
+        return t.toString()
+                .hashCodeX()
+    }
+
+    override fun getObject(o: Any) = o
+}
+
+internal class MapHashCodeable<M : Any, T : Any>(val keyHashCodeable: KeyHashCodeable,
+                                                 val valueHashCodeable: KeyHashCodeable,
+                                                 val readable: FieldReadable<Any, *>) : HashCodeable<Map<M, T>> {
+    override fun hashCodeX(t: Any) = getObject(t).iterator()
+            .hashCodeX { keyHashCodeable.hashCodeX(this.key) xor valueHashCodeable.hashCodeX(this.value) }
+
+    override fun getObject(o: Any): Map<M, T> {
+        return readable.getObject(o) as Map<M, T>
+    }
+}
+
+internal class SetHashCodeable(val valueHashCodeable: KeyHashCodeable, setReadable: PropertyReader<Any, Set<Any>>) :
+        HashCodeable<Set<Any>>, FieldReadable<Any, Set<Any>> by setReadable {
+    override fun hashCodeX(t: Any) = getObject(t).iterator().hashCodeX { valueHashCodeable.hashCodeX(this) }
+}
+
+internal class ComplexHashCodeable(val key: KeyHashCodeable, complexReadable: FieldReadable<Any, Any>) : HashCodeable<Any>,
+                                                                                                         FieldReadable<Any, Any> by complexReadable {
+    override fun hashCodeX(t: Any): Int {
+        return key.hashCodeX(key.getObject(t))
+    }
+}
+
+internal class ComplexSameTableHashCodeable(val list: List<HashCodeable<out Any>>, complexReadable: FieldReadable<Any, Any>) :
+        HashCodeable<Any>,
+        FieldReadable<Any, Any> by complexReadable {
+    override fun hashCodeX(t: Any) = list.hashCodeX { this.hashCodeX(this.getObject(t)) }
+}
+
+internal class KeyHashCodeable(val list: List<HashCodeable<out Any>>) : HashCodeable<List<Any>> {
+    override fun getObject(o: Any): List<Any> {
+        return list.map { it.getObject(o) }
+    }
+
+    override fun hashCodeX(t: Any) = getObject(t).hashCodeX { list[it].hashCodeX(this) }
+}
+
+

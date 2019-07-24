@@ -23,11 +23,13 @@
 
 package org.daiv.reflection.read
 
+import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
 import org.daiv.reflection.common.FieldData.JoinName
 import org.daiv.reflection.persister.Persister
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
+import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.primaryConstructor
 
 internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any, Any, Any, Any>)
@@ -35,7 +37,6 @@ internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any,
 internal interface InternalRPD<R : Any, T : Any> {
     val key: KeyType
     val fields: List<FieldData<R, Any, T, Any>>
-    val numberOfKeyFields: Int
     fun field(fieldName: String): FieldCollection<Any, Any, Any, Any> {
         return fields.find { it.name == fieldName } as FieldData<Any, Any, Any, Any>?
                 ?: fields.flatMap { it.subFields() }.find { it.name == fieldName } ?: throw RuntimeException(
@@ -44,10 +45,10 @@ internal interface InternalRPD<R : Any, T : Any> {
 
     fun fromWhere(fieldName: String, id: Any, sep: String): String {
         return if (key.fieldName == fieldName) {
-            if(id is List<*>)
-                key.whereClause(id as List<Any>, sep)
-            else
-                key.whereClause(listOf(id), sep)
+//            if (id is List<*>)
+            key.whereClause(id as List<Any>, sep)
+//            else
+//                key.whereClause(listOf(id), sep)
         } else {
             field(fieldName).whereClause(id, sep)
         }
@@ -95,7 +96,7 @@ internal interface InternalRPD<R : Any, T : Any> {
         fields.forEach { it.createTable() }
         val s = if (createTableInnerData == "") "" else "$createTableInnerData, "
         return ("(${key.toTableHead()}, $s"
-                + "PRIMARY KEY(${fields.take(numberOfKeyFields).joinToString(", ") { it.key() }})"
+                + "PRIMARY KEY(${key.toPrimaryKey()})"
 //                + "${if (foreignKeys == "") "" else ", $foreignKeys"}"
                 + ");")
     }
@@ -104,11 +105,11 @@ internal interface InternalRPD<R : Any, T : Any> {
         return key.getColumnValue(readValue)
     }
 
-    tailrec fun read(readValue: ReadValue,
-                     i: Int,
-                     counter: Int = 1,
-                     key: Any? = null,
-                     list: List<ReadFieldValue> = emptyList()): NextSize<List<ReadFieldValue>> {
+    fun read(readValue: ReadValue,
+             i: Int,
+             counter: Int = 1,
+             key: Any? = null,
+             list: List<ReadFieldValue> = emptyList()): NextSize<List<ReadFieldValue>> {
         if (i < fields.size) {
             val field = fields[i]
             val (value, nextCounter) = field.getValue(readValue, counter, key)
@@ -193,9 +194,9 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
                                                         private val method: (List<ReadFieldValue>) -> R) : InternalRPD<R, T> {
 
     private constructor(fields: List<FieldData<R, Any, T, Any>>,
-                        keyAmount: Int,
+                        moreKeys: MoreKeys,
                         className: String = "no name",
-                        method: (List<ReadFieldValue>) -> R) : this(KeyType(fields.take(keyAmount) as List<FieldData<Any, Any, Any, Any>>),
+                        method: (List<ReadFieldValue>) -> R) : this(KeyType(fields.take(moreKeys.amount) as List<FieldData<Any, Any, Any, Any>>),
                                                                     fields,
                                                                     className,
                                                                     method)
@@ -203,10 +204,9 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
     constructor(clazz: KClass<R>,
                 prefix: String?,
                 persister: Persister,
-                keyAmount: Int,
                 parentTableName: String? = null) :
-            this(FieldDataFactory.fieldsRead(clazz, prefix, parentTableName, persister),
-                 keyAmount,
+            this(FieldDataFactory(clazz, prefix, parentTableName, persister).fieldsRead() as List<FieldData<R, Any, T, Any>>,
+                 clazz.findAnnotation<MoreKeys>().default(1),
                  clazz.simpleName ?: "no name",
                  readValue(clazz))
 
@@ -216,7 +216,6 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
         }
     }
 
-    override val numberOfKeyFields = 1
 //    override fun evaluateToList(func:(Int) -> Any): List<R> {
 //        return func.getList(::evaluate)
 //    }

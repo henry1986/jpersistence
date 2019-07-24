@@ -31,17 +31,13 @@ import org.daiv.reflection.persister.Persister
 
 internal class ReadComplexType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
                                                              manyToOne: ManyToOne,
-                                                             moreKeys: MoreKeys,
                                                              private val persister: Persister,
                                                              override val prefix: String?,
                                                              _persisterData: ReadPersisterData<T, Any>? = null) : NoList<R, T, T> {
     private val persisterData = _persisterData ?: ReadPersisterData(propertyData.clazz,
                                                                     prefixedName,
                                                                     persister,
-                                                                    moreKeys.amount,
                                                                     manyToOne.tableName)
-
-    override fun idFieldSimpleType() = persisterData.onKey { idFieldSimpleType() }
 
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = persisterData.fields as List<FieldData<Any, Any, Any, Any>>
 

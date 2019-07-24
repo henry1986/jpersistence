@@ -35,7 +35,6 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
         NoList<R, T, T> {
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
-    override fun idFieldSimpleType() = this as FieldData<Any, Any, Any, Any>
 
     override fun storeManyToOneObject(t: List<T>) {}
 
@@ -52,7 +51,6 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
 
 
     override fun underscoreName() = name(prefix)
-
 
 
     override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {

@@ -24,18 +24,17 @@
 package org.daiv.reflection.read
 
 import mu.KotlinLogging
-import org.daiv.reflection.annotations.TableData
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.HelperTable
 
 
-internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val propertyData: MapProperty<R, T, M>,
+internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val propertyData: MapProperty<R, X, T, M>,
                                                            override val prefix: String?,
                                                            val persister: Persister,
                                                            val parentTableName: String,
                                                            val converter: (Map<M, T>) -> X,
-                                                           val remoteIdField: FieldData<R, Any, Any, Any>) :
+                                                           val remoteIdField: FieldData<R, *, *, *>) :
         CollectionFieldData<R, Map<M, T>, T, X> {
 
     companion object {
@@ -99,8 +98,7 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
         if (key == null) {
             throw NullPointerException("a List cannot be a key")
         }
-
-        val read = readValue.helperTable(helperTable, idField.name, key)
+        val read = readValue.helperTable(helperTable, idField.name, listOf(key))
         val map = read.map { it[1].value as M to it[2].value as T }
                 .toMap()
 

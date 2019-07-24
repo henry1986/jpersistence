@@ -84,3 +84,6 @@ internal fun<R:Any> KType.getKClass(): KClass<R> {
 internal fun<R:Any, T:Any> KProperty1<R, T>.getKClass(): KClass<T>{
     return returnType.getKClass()
 }
+internal fun KProperty1<*, *>.toKClass(): KClass<Any>{
+    return returnType.getKClass()
+}

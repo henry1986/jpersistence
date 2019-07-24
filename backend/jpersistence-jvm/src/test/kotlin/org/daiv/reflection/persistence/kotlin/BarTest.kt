@@ -20,6 +20,9 @@ class BarTest
                    override val value = tick.value
                }
 
+               @MoreKeys(1, true)
+               data class Wave(val wavePoints:List<WavePoint>)
+
                val m1 = Period(60000, "m1")
 
                @MoreKeys(2)
@@ -134,14 +137,29 @@ class BarTest
                        logger.info { "finished inserting" }
                    }
                    on("more than one Key test") {
-                       val table = persister.Table(Descriptor::class)
-                       table.persist()
                        it("test 2") {
+                           val table = persister.Table(Descriptor::class)
+                           table.persist()
                            val wp1 = WavePoint(Tick(500000L, 0.5, OfferSide.BID), true, m1)
                            val wp2 = WavePoint(Tick(650000L, 0.9, OfferSide.BID), false, m1)
+                           val wp3 = WavePoint(Tick(620000L, 1.9, OfferSide.BID), true, m1)
                            val descriptor = Descriptor(wp1, wp2, true)
+                           val descriptor2 = Descriptor(wp3, wp2, true)
                            table.insert(descriptor)
-//                       table.readMultiple(wp1, wp2)
+                           table.insert(descriptor2)
+                           val read = table.readMultiple(listOf(wp1, wp2))
+                           assertEquals(descriptor, read)
+                       }
+                       it("test autoId") {
+                           val table = persister.Table(Wave::class)
+                           table.persist()
+                           val wp1 = WavePoint(Tick(500000L, 0.5, OfferSide.BID), true, m1)
+                           val wp2 = WavePoint(Tick(650000L, 0.9, OfferSide.BID), false, m1)
+                           val wp3 = WavePoint(Tick(620000L, 1.9, OfferSide.BID), true, m1)
+                           val wave1 = Wave(listOf(wp1, wp2, wp3))
+                           table.insert(wave1)
+//                           val read = table.read(wave1)
+//                           assertEquals(wave1, read)
                        }
                    }
                    afterGroup { database.delete() }

@@ -2,15 +2,11 @@ package org.daiv.reflection.read
 
 import org.daiv.reflection.common.*
 
-internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any>>) : KeyNoList<Any, List<Any>, Any, List<Any>> {
+internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any>>) : NoList<Any, List<Any>, Any> {
     override val propertyData: PropertyData<Any, List<Any>, Any> = KeyTypeProperty(fields)
 
     override val prefix: String?
         get() = fields.first().prefix
-
-    override fun idFieldSimpleType(): FieldData<Any, Any, Any, Any> {
-        return this as FieldData<Any, Any, Any, Any>
-    }
 
     override fun getColumnValue(readValue: ReadValue): Any {
         return fields.first()
@@ -52,7 +48,7 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
     private fun read(i: Int, readValue: ReadValue, number: Int, key: Any?, ret: NextSize<List<Any>>): NextSize<List<Any>> {
         if (i < fields.size) {
             val read = fields[i].getValue(readValue, number, key)
-            return read(i + 1, readValue, number + read.i, key, NextSize(ret.t + read.t, number + read.i))
+            return read(i + 1, readValue, read.i, key, NextSize(ret.t + read.t, read.i))
         }
         return ret
     }
@@ -111,7 +107,7 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
                 .f()
     }
 
-    fun keyString() = fields.first().key()
+    fun keyString() = fields.first().key()//fields.map { it.name(null) }.joinToString(", ")//fields.first().key()
 
     fun toPrimaryKey() = fields.joinToString(", ") { it.key() }
 }

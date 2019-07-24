@@ -42,8 +42,7 @@ fun <R : Any> ResultSet.getList(method: ResultSet.() -> R): List<R> {
 fun <T : Any> KClass<T>.tableName() = "${this.java.simpleName}"
 
 
-
-internal class ReadValue(private val resultSet: ResultSet)  {
+internal class ReadValue(private val resultSet: ResultSet) {
     fun getObject(number: Int, clazz: KClass<Any>) = resultSet.getObject(number)!!
 
     fun <T : Any> read(table: Table<T>, t: Any) = table.read(t)!!
@@ -61,6 +60,27 @@ fun String.hashCodeX(): Int {
     }
     return hash
 }
+
+fun <T : Any> Iterator<T>.hashCodeX(hashCodeX: T.() -> Int): Int {
+    var hashCode = 1
+    var prime = 31
+    while (hasNext()) {
+        hashCode = hashCode * prime + next().hashCodeX()
+    }
+    return hashCode
+}
+
+fun <T : Any> List<T>.hashCodeX(hashCodeX: T.(Int) -> Int): Int {
+    var hashCode = 1
+    var prime = 31
+    var i = 0
+    while (i < size) {
+        hashCode = hashCode * prime + get(i).hashCodeX(i)
+        i++
+    }
+    return hashCode
+}
+
 
 //class TableDataReadValue constructor(val tables: AllTables, val values: List<String>) : ReadValue {
 //    override fun getObject(number: Int, clazz: KClass<Any>): Any {

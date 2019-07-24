@@ -25,8 +25,11 @@ package org.daiv.reflection.common
 
 import org.daiv.reflection.annotations.TableData
 import org.daiv.reflection.isPrimitiveOrWrapperOrStringOrEnum
+import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.persister.Persister.HelperTable
 import org.daiv.reflection.persister.Persister.Table
 import org.daiv.reflection.read.InsertObject
+import org.daiv.reflection.read.KeyType
 import org.daiv.reflection.read.NextSize
 import org.daiv.reflection.read.ReadPersisterData
 import kotlin.reflect.KClass
@@ -81,7 +84,7 @@ internal interface FieldCollection<R : Any, S : Any, T : Any, X : Any> {
     fun fNEqualsValue(o: S, sep: String): String
 
     fun whereClause(id: S, sep: String): String {
-        return "WHERE ${fNEqualsValue(id, sep)}"
+            return "WHERE ${fNEqualsValue(id, sep)}"
     }
 
     /**
@@ -100,13 +103,21 @@ internal interface FieldCollection<R : Any, S : Any, T : Any, X : Any> {
     fun underscoreName(): String?
 }
 
+internal interface FieldReadable<R : Any, S : Any> {
+    fun getObject(o: R): S
+}
+
+internal interface HashCodeable<S : Any> : FieldReadable<Any, S> {
+    fun hashCodeX(t: Any): Int
+}
+
 /**
  * [R] is the type of the receiver of the property
  * [T] is the generic type of the PropertyData
  * [S] is the type of the value returned by the getObject method
  * [X] is the transformed value of [S] -> necessary for example with the map to list converter
  */
-internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollection<R, S, T, X> {
+internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollection<R, S, T, X>, FieldReadable<R, S> {
     val propertyData: PropertyData<R, S, T>
 
     val name get() = propertyData.name
@@ -114,7 +125,7 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
     val prefixedName
         get() = name(prefix)
 
-    fun idFieldSimpleType(): FieldData<Any, Any, Any, Any>
+
     fun keySimpleType(r: R): Any
     fun keyLowSimpleType(t: T): Any
 
@@ -146,11 +157,11 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
     /**
      * gets the [property] value of [o]
      */
-    fun getObject(o: R): S {
-        try{
+    override fun getObject(o: R): S {
+        try {
             val x = propertyData.getObject(o)
             return x
-        } catch (t:Throwable){
+        } catch (t: Throwable) {
             throw RuntimeException("could not read property $propertyData  of $o", t)
         }
 
@@ -197,18 +208,9 @@ internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
     override fun clearLists() {}
 }
 
-internal interface KeyNoList<R : Any, S : Any, T : Any, X:Any> : FieldData<R, S, T, X> {
-    override fun createTable() {}
-    override fun createTableForeign() {}
-    override fun insertLists(r: List<R>) {}
-    override fun deleteLists(keySimpleType: Any) {}
-    override fun clearLists() {}
-}
-
 internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : FieldData<R, S, T, X> {
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
     override fun keySimpleType(r: R) = throw RuntimeException("a collection cannot be a key")
-    override fun idFieldSimpleType(): FieldData<Any, Any, Any, Any> = throw RuntimeException("a collection cannot be a key")
     override fun keyLowSimpleType(t: T) = t
     override fun key() = throw RuntimeException("a collection cannot be a key")
     override fun toTableHead() = null

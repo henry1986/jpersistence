@@ -24,6 +24,7 @@
 package org.daiv.reflection.persister
 
 import mu.KotlinLogging
+import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
@@ -34,6 +35,7 @@ import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.reflect.KClass
 import kotlin.reflect.full.cast
+import kotlin.reflect.full.findAnnotation
 
 /**
  * @author Martin Heinrich
@@ -88,7 +90,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
             try {
                 val x = " FROM $tableName ${readPersisterData.fromWhere(fieldName, id, sep)}"
                 return x
-            } catch (t:Throwable){
+            } catch (t: Throwable) {
                 throw t
             }
         }
@@ -131,12 +133,11 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     }
 
-    internal inner class HelperTable(fields: List<FieldData<Any, Any, Any, Any>>, tableName: String, numberOfKeyFields: Int = 1) :
+    internal inner class HelperTable(val fields: List<FieldData<Any, Any, Any, Any>>, tableName: String, numberOfKeyFields: Int = 1) :
             InternalTable<Any> {
         override val readPersisterData: InternalRPD<out Any, Any> = object : InternalRPD<Any, Any> {
+            override val fields: List<FieldData<Any, Any, Any, Any>> = this@HelperTable.fields
             override val key: KeyType = KeyType(fields.take(numberOfKeyFields))
-            override val numberOfKeyFields = numberOfKeyFields
-            override val fields: List<FieldData<Any, Any, Any, Any>> = fields
         }
         override val tableName: String = tableName
         override val persister: Persister = this@Persister
@@ -149,7 +150,12 @@ class Persister(private val databaseInterface: DatabaseInterface,
         override val persister = this@Persister
 
         constructor(clazz: KClass<R>, tableName: String = "")
-                : this(ReadPersisterData(clazz, null, this@Persister, 1, getTableName(tableName, clazz)), getTableName(tableName, clazz))
+
+                : this(ReadPersisterData(clazz,
+                                         null,
+                                         this@Persister,
+                                         getTableName(tableName, clazz)),
+                       getTableName(tableName, clazz))
 
         //        private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz, this@Persister)
         private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()
@@ -184,8 +190,16 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return read(fieldName, id, "ORDER BY ${readPersisterData.keyName()}")
         }
 
+        private fun Any.toList():List<*>{
+            val req = if(this is List<*>){
+                this
+            } else
+                listOf(this)
+            return req
+        }
+
         fun read(id: Any): R? {
-            return read(idName, id).firstOrNull()
+            return read(idName, id.toList()).firstOrNull()
         }
 
         fun readMultiple(id: List<Any>): R? {
@@ -223,7 +237,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
 
         fun exists(id: Any): Boolean {
-            return exists(idName, id)
+            return exists(idName, id.toList())
         }
 
         fun delete(fieldName: String, id: Any) {
@@ -238,7 +252,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
 
         fun delete(id: Any) {
-            delete(idName, id)
+            delete(idName, id.toList())
         }
 
         fun truncate() = clear()
@@ -273,7 +287,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
                     it.getList { clazz.cast(getObject(1)) }
                 }
             } else {
-                val readPersisterData = ReadPersisterData<T, Any>(clazz, null, this@Persister, 1)
+                val readPersisterData = ReadPersisterData<T, Any>(clazz, null, this@Persister)
                 val key = readPersisterData.createTableKeyData()
 //                val key = readPersisterData.createTableKeyData(fieldName)
                 this@Persister.read(cmd(key)) { it.getList { readPersisterData.readKey(ReadValue(this)) } as List<T> }

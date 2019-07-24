@@ -24,6 +24,7 @@
 package org.daiv.reflection.persistence.kotlin
 
 import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
+import org.daiv.reflection.common.moreKeys
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.read.ReadPersisterData
@@ -46,7 +47,7 @@ class ObjectToTest<T : Any>(private val o: T,
     private val d: DatabaseInterface = DatabaseWrapper.create("PersisterTest$testName.db")
     private val p by lazy { Persister(d) }
     private val table by lazy { p.Table(o::class as KClass<T>) }
-    private val r by lazy { ReadPersisterData<T, Any>(o::class as KClass<T>,null, p, 1) }
+    private val r by lazy { ReadPersisterData<T, Any>(o::class as KClass<T>,null, p) }
 
     fun open() {
         d.open()
