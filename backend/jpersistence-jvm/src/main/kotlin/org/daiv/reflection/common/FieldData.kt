@@ -84,7 +84,7 @@ internal interface FieldCollection<R : Any, S : Any, T : Any, X : Any> {
     fun fNEqualsValue(o: S, sep: String): String
 
     fun whereClause(id: S, sep: String): String {
-            return "WHERE ${fNEqualsValue(id, sep)}"
+        return "WHERE ${fNEqualsValue(id, sep)}"
     }
 
     /**
@@ -162,9 +162,9 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
             val x = propertyData.getObject(o)
             return x
         } catch (t: Throwable) {
-            throw RuntimeException("could not read property $propertyData  of $o", t)
+            throw RuntimeException("could not read property $propertyData ${propertyData.clazz} and receiverType: ${propertyData.receiverType} of $o",
+                                   t)
         }
-
     }
 
 
@@ -227,4 +227,44 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Fie
     override fun size() = 0
     override fun storeManyToOneObject(t: List<T>) {}
     override fun persist() {}
+}
+
+internal interface SimpleTypes<R : Any, T : Any> : NoList<R, T, T> {
+    override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
+
+    override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
+
+    override fun storeManyToOneObject(t: List<T>) {}
+
+    override fun persist() {}
+    override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1, propertyData.clazz as KClass<Any>)!!
+
+    override fun keySimpleType(r: R) = propertyData.getObject(r)
+    override fun keyLowSimpleType(t: T) = t
+    override fun key() = prefixedName
+
+
+    override fun underscoreName() = name(prefix)
+
+    override fun insertObject(t: T): List<InsertObject> {
+        return listOf(object : InsertObject {
+            override fun insertValue(): String {
+                return makeString(t)
+            }
+
+            override fun insertHead(): String {
+                return prefixedName
+            }
+        })
+    }
+
+    fun makeString(t: T): String
+    fun makeStringOnEqualsValue(t: T): String = makeString(t)
+
+    override fun fNEqualsValue(o: T, sep: String): String {
+        return "$prefixedName = ${makeStringOnEqualsValue(o)}"
+//        return "$prefixedName = ${makeString(o)}"
+    }
+
+
 }

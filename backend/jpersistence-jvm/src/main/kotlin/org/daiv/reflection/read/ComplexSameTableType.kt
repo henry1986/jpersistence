@@ -35,14 +35,14 @@ internal class ComplexSameTableType<R : Any, T : Any> constructor(override val p
                                                                   val _persisterData: ReadPersisterData<T, Any>? = null) :
         NoList<R, T, T> {
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
-    private val fields = FieldDataFactory(propertyData.clazz,
+    private val builder = FieldDataFactory(propertyData.clazz,
                                           prefixedName,
                                           parentTableName,
-                                          persister).fieldsRead() as List<FieldData<T, Any, Any, Any>>
+                                          persister).fieldsRead()
     private val persisterData: ReadPersisterData<T, Any> = _persisterData
-            ?: ReadPersisterData<T, Any>(KeyType(fields as List<FieldData<Any, Any, Any, Any>>),
-                                         fields,
-                                         method = ReadPersisterData.readValue(propertyData.clazz))
+            ?: ReadPersisterData(builder.idField!!,
+                                 builder.fields as List<FieldData<T, Any, Any, Any>>,
+                                 method = ReadPersisterData.readValue(propertyData.clazz))
 
     override fun subFields() = persisterData.fields as List<FieldData<Any, Any, Any, Any>>
 

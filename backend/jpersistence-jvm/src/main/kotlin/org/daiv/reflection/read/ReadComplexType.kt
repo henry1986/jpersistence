@@ -92,7 +92,7 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
     }
 
     override fun insertObject(objectValue: T): List<InsertObject> {
-        return persisterData.key.insertObject(objectValue)
+        return persisterData.key.insertObject(persisterData.key.getObject(objectValue))
     }
 
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> {

@@ -28,32 +28,9 @@ import java.sql.SQLException
 import kotlin.reflect.KClass
 
 internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
-        NoList<R, T, T> {
-    override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
-
-    override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
-
-    override fun storeManyToOneObject(t: List<T>) {}
-
-    override fun persist() {}
-
-    override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1, propertyData.clazz as KClass<Any>)!!
-
-    override fun keySimpleType(r: R) = propertyData.getObject(r)
-    override fun keyLowSimpleType(t: T) = t
+        SimpleTypes<R,T> {
 
     override fun toTableHead() = toTableHead(propertyData.clazz, prefixedName)
-
-    override fun key() = prefixedName
-
-//    override fun joinNames(clazzSimpleName: String, keyName: String): List<JoinName> =
-//            listOfNotNull(prefix).map { JoinName(it, clazzSimpleName, keyName) }
-
-//    override fun foreignKey() = null
-
-    override fun underscoreName() = name(prefix)
-
-//    override fun joins(): List<String> = emptyList()
 
     override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
         try {
@@ -69,24 +46,7 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
         }
     }
 
-    override fun insertObject(t: T): List<InsertObject> {
-        return listOf(object : InsertObject {
-            override fun insertValue(): String {
-                return makeString(t)
-            }
-
-            override fun insertHead(): String {
-                return prefixedName
-            }
-        })
-    }
-
-    override fun fNEqualsValue(o: T, sep: String): String {
-        return "$prefixedName = ${makeString(o)}"
-//        return static_fNEqualsValue(getObject(o), prefixedName, sep)
-    }
-
-    private fun makeString(any: T): String {
+    override fun makeString(any: T): String {
         val s = any.toString()
         return when {
             any::class == String::class -> "\"" + s + "\""
@@ -98,25 +58,12 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
 
     companion object {
         private val valueMappingJavaSQL = mapOf("long" to "bigInt", "String" to "Text")
-//        internal fun makeString(any: Any): String {
-//            val s = any.toString()
-//            return when {
-//                any::class == String::class -> "\"" + s + "\""
-//                any::class == Boolean::class -> if (s.toBoolean()) "1" else "0"
-//                any::class.isEnum() -> "\"${(any as Enum<*>).name}\""
-//                else -> s
-//            }
-//        }
 
         internal fun <T : Any> toTableHead(clazz: KClass<T>, name: String): String {
             val simpleName = clazz.simpleName
             val typeName = valueMappingJavaSQL[simpleName] ?: simpleName
             return "$name $typeName${" NOT NULL"}"
         }
-//
-//        internal fun <R : Any> static_fNEqualsValue(o: R, prefixed: String?, sep: String): String {
-//            return "${(prefixed)} = ${makeString(o)}"
-//        }
     }
 }
 
@@ -159,15 +106,18 @@ object EnumHashCodeable : HashCodeable<Any> {
     override fun getObject(o: Any) = o
 }
 
-internal class MapHashCodeable<M : Any, T : Any>(val keyHashCodeable: KeyHashCodeable,
-                                                 val valueHashCodeable: KeyHashCodeable,
-                                                 val readable: FieldReadable<Any, *>) : HashCodeable<Map<M, T>> {
+internal class MapHashCodeable<M : Any, T : Any> constructor(val keyHashCodeable: KeyHashCodeable,
+                                                             val valueHashCodeable: KeyHashCodeable,
+                                                             val readable: MapReadable<Any, M, T>) : HashCodeable<Map<M, T>>,
+                                                                                                     FieldReadable<Any, Map<M, T>> by readable {
     override fun hashCodeX(t: Any) = getObject(t).iterator()
             .hashCodeX { keyHashCodeable.hashCodeX(this.key) xor valueHashCodeable.hashCodeX(this.value) }
+}
 
-    override fun getObject(o: Any): Map<M, T> {
-        return readable.getObject(o) as Map<M, T>
-    }
+internal class ListHashCodeable<T : Any> constructor(val valueHashCodeable: KeyHashCodeable, listReadable: ListReadable<T>) :
+        HashCodeable<List<T>>, FieldReadable<Any, List<T>> by listReadable {
+    override fun hashCodeX(t: Any) = getObject(t).iterator()
+            .hashCodeX { valueHashCodeable.hashCodeX(this) }
 }
 
 internal class SetHashCodeable(val valueHashCodeable: KeyHashCodeable, setReadable: PropertyReader<Any, Set<Any>>) :
@@ -193,7 +143,7 @@ internal class KeyHashCodeable(val list: List<HashCodeable<out Any>>) : HashCode
         return list.map { it.getObject(o) }
     }
 
-    override fun hashCodeX(t: Any) = getObject(t).hashCodeX { list[it].hashCodeX(this) }
+    override fun hashCodeX(t: Any) = list.map { it.hashCodeX(t) }.hashCodeX()
 }
 
 

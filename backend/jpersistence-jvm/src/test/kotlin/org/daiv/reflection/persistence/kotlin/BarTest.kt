@@ -23,6 +23,9 @@ class BarTest
                @MoreKeys(1, true)
                data class Wave(val wavePoints:List<WavePoint>)
 
+               @MoreKeys(1, true)
+               data class TickList(val ticks:List<Tick>)
+
                val m1 = Period(60000, "m1")
 
                @MoreKeys(2)
@@ -150,6 +153,17 @@ class BarTest
                            val read = table.readMultiple(listOf(wp1, wp2))
                            assertEquals(descriptor, read)
                        }
+                       it("test auto id ticks") {
+                           val table = persister.Table(TickList::class)
+                           table.persist()
+                           val wp1 = Tick(500000L, 0.5, OfferSide.BID)
+                           val wp2 = Tick(650000L, 0.9, OfferSide.BID)
+                           val wp3 = Tick(620000L, 1.9, OfferSide.BID)
+                           val wave1 = TickList(listOf(wp1, wp2, wp3))
+                           table.insert(wave1)
+                           val read = table.read(wave1)
+                           assertEquals(wave1, read)
+                       }
                        it("test autoId") {
                            val table = persister.Table(Wave::class)
                            table.persist()
@@ -158,8 +172,8 @@ class BarTest
                            val wp3 = WavePoint(Tick(620000L, 1.9, OfferSide.BID), true, m1)
                            val wave1 = Wave(listOf(wp1, wp2, wp3))
                            table.insert(wave1)
-//                           val read = table.read(wave1)
-//                           assertEquals(wave1, read)
+                           val read = table.read(wave1)
+                           assertEquals(wave1, read)
                        }
                    }
                    afterGroup { database.delete() }

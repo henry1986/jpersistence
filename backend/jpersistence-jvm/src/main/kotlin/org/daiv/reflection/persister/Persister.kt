@@ -95,9 +95,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
             }
         }
 
-        fun readIntern(fieldName: String, id: Any, orderOrder: String = ""): List<List<ReadFieldValue>> {
+        fun readIntern(fnEqualsValue:String, orderOrder: String = ""): List<List<ReadFieldValue>> {
 //            val req = "SELECT $selectHeader FROM $tableName $join ${whereClause(fieldName, id, and)};"
-            val req = "SELECT * ${fromWhere(fieldName, id, and)} $orderOrder;"
+            val req = "SELECT * FROM $tableName WHERE $fnEqualsValue $orderOrder;"
             return persister.read(req) { it.getList { readPersisterData.readWOObject(ReadValue(this)) } }
         }
 
@@ -190,8 +190,8 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return read(fieldName, id, "ORDER BY ${readPersisterData.keyName()}")
         }
 
-        private fun Any.toList():List<*>{
-            val req = if(this is List<*>){
+        private fun Any.toList(): List<*> {
+            val req = if (this is List<*>) {
                 this
             } else
                 listOf(this)

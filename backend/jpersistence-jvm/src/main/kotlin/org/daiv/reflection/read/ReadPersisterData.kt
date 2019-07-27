@@ -95,10 +95,14 @@ internal interface InternalRPD<R : Any, T : Any> {
 
         fields.forEach { it.createTable() }
         val s = if (createTableInnerData == "") "" else "$createTableInnerData, "
-        return ("(${key.toTableHead()}, $s"
-                + "PRIMARY KEY(${key.toPrimaryKey()})"
+        try {
+            return ("(${key.toTableHead()}, $s"
+                    + "PRIMARY KEY(${key.toPrimaryKey()})"
 //                + "${if (foreignKeys == "") "" else ", $foreignKeys"}"
-                + ");")
+                    + ");")
+        } catch (t:Throwable){
+            throw t
+        }
     }
 
     fun readKey(readValue: ReadValue): Any {
@@ -193,11 +197,10 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
                                                         private val className: String = "no name",
                                                         private val method: (List<ReadFieldValue>) -> R) : InternalRPD<R, T> {
 
-    private constructor(fields: List<FieldData<R, Any, T, Any>>,
-                        moreKeys: MoreKeys,
+    private constructor(builder:FieldDataFactory<R>.Builder,
                         className: String = "no name",
-                        method: (List<ReadFieldValue>) -> R) : this(KeyType(fields.take(moreKeys.amount) as List<FieldData<Any, Any, Any, Any>>),
-                                                                    fields,
+                        method: (List<ReadFieldValue>) -> R) : this(builder.idField!!,
+                                                                    builder.fields as List<FieldData<R, Any, T, Any>>,
                                                                     className,
                                                                     method)
 
@@ -205,8 +208,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
                 prefix: String?,
                 persister: Persister,
                 parentTableName: String? = null) :
-            this(FieldDataFactory(clazz, prefix, parentTableName, persister).fieldsRead() as List<FieldData<R, Any, T, Any>>,
-                 clazz.findAnnotation<MoreKeys>().default(1),
+            this(FieldDataFactory(clazz, prefix, parentTableName, persister).fieldsRead(),
                  clazz.simpleName ?: "no name",
                  readValue(clazz))
 

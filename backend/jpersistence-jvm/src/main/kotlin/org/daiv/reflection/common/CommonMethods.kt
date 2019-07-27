@@ -44,10 +44,6 @@ fun <T : Any> KClass<T>.tableName() = "${this.java.simpleName}"
 
 internal class ReadValue(private val resultSet: ResultSet) {
     fun getObject(number: Int, clazz: KClass<Any>) = resultSet.getObject(number)!!
-
-    fun <T : Any> read(table: Table<T>, t: Any) = table.read(t)!!
-
-    fun helperTable(table: Persister.HelperTable, fieldName: String, key: Any) = table.readIntern(fieldName, key)
 }
 
 fun Boolean.hashCodeX() = if (this) 1231 else 1237
@@ -76,6 +72,17 @@ fun <T : Any> List<T>.hashCodeX(hashCodeX: T.(Int) -> Int): Int {
     var i = 0
     while (i < size) {
         hashCode = hashCode * prime + get(i).hashCodeX(i)
+        i++
+    }
+    return hashCode
+}
+
+fun List<Int>.hashCodeX(): Int {
+    var hashCode = 1
+    var prime = 31
+    var i = 0
+    while (i < size) {
+        hashCode = hashCode * prime + get(i)
         i++
     }
     return hashCode

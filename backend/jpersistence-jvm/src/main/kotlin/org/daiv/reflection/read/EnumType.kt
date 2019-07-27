@@ -23,8 +23,10 @@
 
 package org.daiv.reflection.read
 
-import org.daiv.reflection.annotations.TableData
-import org.daiv.reflection.common.*
+import org.daiv.reflection.common.AutoKeyProperty
+import org.daiv.reflection.common.PropertyData
+import org.daiv.reflection.common.ReadValue
+import org.daiv.reflection.common.SimpleTypes
 import java.sql.SQLException
 import kotlin.reflect.KClass
 
@@ -32,25 +34,10 @@ import kotlin.reflect.KClass
  * [T] is the enum Value
  */
 internal class EnumType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
-        NoList<R, T, T> {
-    override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
-    override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
+        SimpleTypes<R, T> {
 
-    override fun storeManyToOneObject(t: List<T>) {}
-
-    override fun persist() {}
-
-    override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1, propertyData.clazz as KClass<Any>)!!
-
-    override fun keySimpleType(r: R) = propertyData.getObject(r)
-    override fun keyLowSimpleType(t: T) = t
 
     override fun toTableHead() = "${prefixedName} Text NOT NULL"
-
-    override fun key() = prefixedName
-
-
-    override fun underscoreName() = name(prefix)
 
 
     override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
@@ -62,25 +49,7 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
         }
     }
 
-    override fun insertObject(t: T): List<InsertObject> {
-        return listOf(object : InsertObject {
-            override fun insertValue(): String {
-                return makeString(t)
-            }
-
-            override fun insertHead(): String {
-                return prefixedName
-            }
-        })
-    }
-
-    override fun fNEqualsValue(o: T, sep: String): String {
-        return "${prefixedName} = ${makeString(o)}"
-//        return makeString(o)
-//        return ReadSimpleType.static_fNEqualsValue(getObject(o), name(prefix), sep)
-    }
-
-    private fun makeString(any: T): String {
+    override fun makeString(any: T): String {
         return "\"${(any as Enum<*>).name}\""
     }
 
@@ -88,6 +57,29 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
         internal fun <T : Any> getEnumValue(clazzName: String, s: String): T {
             return Class.forName(clazzName).enumConstants.filterIsInstance(Enum::class.java).first { it.name == s } as T
         }
+    }
+}
+
+internal class AutoKeyType(override val propertyData: AutoKeyProperty, override val prefix: String?) : SimpleTypes<Any, Any> {
+    override fun toTableHead() = "$prefixedName Int NOT NULL"
+
+    override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<Any> {
+        val any = readValue.getObject(number, propertyData.clazz)
+        return NextSize(any as Int, number + 1)
+    }
+
+    override fun makeString(t: Any): String {
+        return t.toString()
+    }
+
+    override fun makeStringOnEqualsValue(t: Any): String {
+        return propertyData.getObject(t).toString()
 
     }
+
+    fun autoIdFNEqualsValue(o: Any): String {
+        return "$prefixedName = ${makeString(o)}"
+//        return "$prefixedName = ${makeString(o)}"
+    }
+
 }

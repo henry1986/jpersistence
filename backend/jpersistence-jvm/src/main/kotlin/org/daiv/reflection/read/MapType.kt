@@ -34,7 +34,7 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
                                                            val persister: Persister,
                                                            val parentTableName: String,
                                                            val converter: (Map<M, T>) -> X,
-                                                           val remoteIdField: FieldData<R, *, *, *>) :
+                                                           val idField: KeyType) :
         CollectionFieldData<R, Map<M, T>, T, X> {
 
     companion object {
@@ -45,18 +45,14 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
 
     private val helperTableName = "${parentTableName}_${propertyData.receiverType.simpleName}_$name"
 
-    private val remoteKeyField = propertyData.keyClazz.toFieldData(KeyAnnotation(propertyData.property), "key", persister)
-    private val remoteValueField = propertyData.clazz.toFieldData(KeyAnnotation(propertyData.property), "value", persister)
+    private val keyField = propertyData.keyClazz.toFieldData(KeyAnnotation(propertyData.property),
+                                                             "key",
+                                                             persister) as FieldData<Any, Any, Any, Any>
+    private val valueField = propertyData.clazz.toFieldData(KeyAnnotation(propertyData.property), "value", persister)
 
-    val keyField = ForwardingField(KeyProperty("") as PropertyData<Any, Any, Any>,
-                                   remoteKeyField as FieldData<Any, Any, Any, Any>)
-    val valueField = ForwardingField(KeyProperty("") as PropertyData<Any, Any, Any>,
-                                     remoteValueField as FieldData<Any, Any, Any, Any>)
-    val idField = ForwardingField(KeyProperty("") as PropertyData<Any, Any, Any>,
-                                  remoteIdField as FieldData<Any, Any, Any, Any>)
 
     init {
-        val fields3 = listOf(idField, keyField, valueField)
+        val fields3 = listOf(idField, keyField, valueField) as List<FieldData<Any, Any, Any, Any>>
         helperTable = persister.HelperTable(fields3, helperTableName, 2)
     }
 
@@ -81,9 +77,9 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
         keyField.storeManyToOneObject(b.map { it.second.key })
         valueField.storeManyToOneObject(b.map { it.second.value })
         helperTable.insertListBy(b.map {
-            val x = idField.insertObject(it.first)
+            val x = idField.insertObject(idField.getObject(it.first))
                     .first()
-            val y = keyField.insertObject(it.second.key)
+            val y = keyField.insertObject(keyField.getObject(it.second.key))
                     .first()
             val z = valueField.insertObject(it.second.value)
             listOf(x, y) + z
@@ -98,7 +94,8 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
         if (key == null) {
             throw NullPointerException("a List cannot be a key")
         }
-        val read = readValue.helperTable(helperTable, idField.name, listOf(key))
+        val fn = idField.autoIdFNEqualsValue(key, "AND")
+        val read = helperTable.readIntern(fn)
         val map = read.map { it[1].value as M to it[2].value as T }
                 .toMap()
 

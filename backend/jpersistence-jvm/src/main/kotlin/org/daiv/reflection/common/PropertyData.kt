@@ -42,7 +42,11 @@ internal interface PropertyData<R : Any, S : Any, T : Any> : FieldReadable<R, S>
 
 private fun <R : Any, T : Any> KProperty1<R, T>.getObject(r: R): T {
     isAccessible = true
-    return get(r)
+    try {
+        return get(r)
+    } catch (t: Throwable) {
+        throw RuntimeException("$r does not fit to ${this.returnType}")
+    }
 }
 
 data class SimpleTypeProperty<R : Any> constructor(override val clazz: KClass<R>, override val name: String) :
@@ -68,7 +72,7 @@ internal class AutoKeyProperty(val key: KeyHashCodeable) : PropertyData<Any, Any
     override val clazz: KClass<Any> = Any::class
     override val receiverType: KClass<Any>? = Any::class
     override val name: String = "autoID"
-    override fun getObject(r: Any) = key.hashCodeX(key.getObject(r))
+    override fun getObject(r: Any) = key.hashCodeX(r)
 }
 
 internal class KeyTypeProperty(val fields: List<FieldData<Any, Any, Any, Any>>) : PropertyData<Any, List<Any>, Any> {
@@ -77,6 +81,10 @@ internal class KeyTypeProperty(val fields: List<FieldData<Any, Any, Any, Any>>) 
     override val name: String = fields.joinToString("_") { it.name }
     override fun getObject(r: Any): List<Any> {
         return fields.map { it.getObject(r) }
+    }
+
+    override fun toString(): String {
+        return "KeyTypeProperty: $fields"
     }
 }
 
@@ -106,11 +114,9 @@ data class DefaultMapProperty<R : Any, T : Any, M : Any>(override val property: 
     override val name = property.name
 }
 
-class ListReadable(val property: KProperty1<Any, List<Any>>) : FieldReadable<Any, Map<Any, Any>> {
-    override fun getObject(o: Any): Map<Any, Any> {
-        val x = property.getObject(o)
-        return x.mapIndexed { i, e -> i to e }
-                .toMap()
+class ListReadable<T : Any>(val property: KProperty1<Any, List<T>>) : FieldReadable<Any, List<T>> {
+    override fun getObject(o: Any): List<T> {
+        return property.getObject(o)
     }
 }
 

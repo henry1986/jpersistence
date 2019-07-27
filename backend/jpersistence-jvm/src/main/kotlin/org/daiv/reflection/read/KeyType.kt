@@ -65,7 +65,18 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
             e.fNEqualsValue(obj, sep)
         }
                 .joinToString(sep)
-//        return fields.joinToString(sep) { it.fNEqualsValue(o, sep) }
+    }
+
+    fun autoIdFNEqualsValue(o: Any, sep: String): String {
+        return fields.mapIndexed { i, e ->
+            if (e is AutoKeyType) {
+                o as List<Any>
+                e.autoIdFNEqualsValue(o.first())
+            } else {
+                e.fNEqualsValue(o, sep)
+            }
+        }
+                .joinToString(sep)
     }
 
 
@@ -80,9 +91,13 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
     }
 
     override fun insertObject(o: Any): List<InsertObject> {
-        val x = this.getObject(o)
-        return fields.mapIndexed { i, e -> e.insertObject(x[i]) }
-                .flatten()
+        try {
+            val x = o as List<Any>
+            return fields.mapIndexed { i, e -> e.insertObject(x[i]) }
+                    .flatten()
+        } catch (t: Throwable) {
+            throw t
+        }
     }
 
     override fun underscoreName(): String? {
@@ -107,7 +122,7 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
                 .f()
     }
 
-    fun keyString() = fields.first().key()//fields.map { it.name(null) }.joinToString(", ")//fields.first().key()
+    fun keyString() = fields.map { it.key() }.joinToString(", ")//fields.first().key()
 
     fun toPrimaryKey() = fields.joinToString(", ") { it.key() }
 }
