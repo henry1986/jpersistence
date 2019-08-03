@@ -61,7 +61,6 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
 //    }
 
     override fun keySimpleType(r: R) = persisterData.keySimpleType(propertyData.getObject(r))
-    override fun keyLowSimpleType(t: T) = persisterData.keySimpleType(t)
 
 //    override fun foreignKey(): ForeignKey {
 //        return ForeignKey(name, "${clazz.simpleName}(${persisterData.keyName()})")
@@ -79,7 +78,7 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         return persisterData.key.toTableHead()
     }
 
-    override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
+    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
         val nextSize = persisterData.key.getValue(readValue, number, key)
         val read = table.readMultiple(nextSize.t)!!
 //        val value = readValue.read(table, nextSize.t)

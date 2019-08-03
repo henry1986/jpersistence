@@ -98,7 +98,7 @@ internal interface FieldCollection<R : Any, S : Any, T : Any, X : Any> {
     fun toTableHead(): String?
 
     fun getColumnValue(readValue: ReadValue): Any
-    fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<X>
+    fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<X>
     fun insertObject(o: T): List<InsertObject>
     fun underscoreName(): String?
 }
@@ -127,7 +127,6 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
 
 
     fun keySimpleType(r: R): Any
-    fun keyLowSimpleType(t: T): Any
 
     fun collectionElementName(prefix: String?, i: Int): String {
         val indexedName = "${name}_$i"
@@ -211,7 +210,6 @@ internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
 internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : FieldData<R, S, T, X> {
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
     override fun keySimpleType(r: R) = throw RuntimeException("a collection cannot be a key")
-    override fun keyLowSimpleType(t: T) = t
     override fun key() = throw RuntimeException("a collection cannot be a key")
     override fun toTableHead() = null
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
@@ -240,7 +238,6 @@ internal interface SimpleTypes<R : Any, T : Any> : NoList<R, T, T> {
     override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1, propertyData.clazz as KClass<Any>)!!
 
     override fun keySimpleType(r: R) = propertyData.getObject(r)
-    override fun keyLowSimpleType(t: T) = t
     override fun key() = prefixedName
 
 

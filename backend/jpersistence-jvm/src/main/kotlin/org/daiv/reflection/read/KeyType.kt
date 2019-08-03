@@ -18,10 +18,6 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
                 .keySimpleType(r)
     }
 
-    override fun keyLowSimpleType(t: Any): Any {
-        return fields.first()
-                .keyLowSimpleType(t)
-    }
 
     override fun key(): String {
         return fields.map { it.key() }
@@ -45,16 +41,16 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
         return fields.flatMap { it.subFields() }
     }
 
-    private fun read(i: Int, readValue: ReadValue, number: Int, key: Any?, ret: NextSize<List<Any>>): NextSize<List<Any>> {
+    private fun read(i: Int, readValue: ReadValue, number: Int, ret: NextSize<List<Any>>): NextSize<List<Any>> {
         if (i < fields.size) {
-            val read = fields[i].getValue(readValue, number, key)
-            return read(i + 1, readValue, read.i, key, NextSize(ret.t + read.t, read.i))
+            val read = fields[i].getValue(readValue, number, emptyList())
+            return read(i + 1, readValue, read.i, NextSize(ret.t + read.t, read.i))
         }
         return ret
     }
 
-    override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<List<Any>> {
-        return read(0, readValue, number, key, NextSize(emptyList(), number))
+    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<List<Any>> {
+        return read(0, readValue, number, NextSize(emptyList(), number))
 //        return fields.first()
 //                .getValue(readValue, number, key)
     }
@@ -67,13 +63,12 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
                 .joinToString(sep)
     }
 
-    fun autoIdFNEqualsValue(o: Any, sep: String): String {
+    fun autoIdFNEqualsValue(o: List<Any>, sep: String): String {
         return fields.mapIndexed { i, e ->
             if (e is AutoKeyType) {
-                o as List<Any>
-                e.autoIdFNEqualsValue(o.first())
+                e.autoIdFNEqualsValue(o[i])
             } else {
-                e.fNEqualsValue(o, sep)
+                e.fNEqualsValue(o[i], sep)
             }
         }
                 .joinToString(sep)

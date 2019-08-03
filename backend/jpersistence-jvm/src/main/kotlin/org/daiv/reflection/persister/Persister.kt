@@ -395,15 +395,15 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return x
         }
 
-        fun resetTable(list: List<R>) {
-            list.forEach {
-                val id = readPersisterData.keySimpleType(it)
-                if (exists(id)) {
-                    delete(id)
-                }
-                insert(it)
-            }
-        }
+//        fun resetTable(list: List<R>) {
+//            list.forEach {
+//                val id = readPersisterData.keySimpleType(it)
+//                if (exists(id)) {
+//                    delete(id)
+//                }
+//                insert(it)
+//            }
+//        }
 
         fun dropTable() {
             this@Persister.write("DROP TABLE $tableName;")

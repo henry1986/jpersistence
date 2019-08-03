@@ -13,7 +13,9 @@ import kotlin.test.assertEquals
 class BarTest
     : Spek({
                data class Tick(val time: Long, val value: Double, val offerSide: OfferSide)
-               data class Candle(val time: Long, val startTick: Tick, val tickList: List<Tick>)
+               @MoreKeys(2)
+               data class Candle(val time: Long, val period: Period, val startTick: Tick, val tickList: List<Tick>)
+
                data class Bar(val x: Int, val s: String)
                data class WavePoint(val tick: Tick, override val isLong: Boolean, override val period: Period) : Point, Timeable {
                    override val time = tick.time
@@ -21,10 +23,13 @@ class BarTest
                }
 
                @MoreKeys(1, true)
-               data class Wave(val wavePoints:List<WavePoint>)
+               data class Wave(val wavePoints: List<WavePoint>)
 
                @MoreKeys(1, true)
-               data class TickList(val ticks:List<Tick>)
+               data class TickList(val ticks: List<Tick>)
+
+               @MoreKeys(2, true)
+               data class ManyListsTickList(val ticks: List<Tick>, val ticks2: List<Tick>)
 
                val m1 = Period(60000, "m1")
 
@@ -130,14 +135,18 @@ class BarTest
                    on("timetest") {
                        val table = persister.Table(Candle::class)
                        table.persist()
-                       val candles = (0 until 50).map {
-                           Candle(it * 60L,
-                                  Tick(it * 60L + 1, 500.0, OfferSide.BID),
-                                  (0..6).map { t -> Tick(it * 60L + 2 + t, 498.0, OfferSide.BID) })
+                       it("insert candles") {
+                           val candles = (0 until 50).map {
+                               Candle(it * 60L, m1,
+                                      Tick(it * 60L + 1, 500.0, OfferSide.BID),
+                                      (0..6).map { t -> Tick(it * 60L + 2 + t, 498.0, OfferSide.BID) })
+                           }
+                           logger.info { "starting inserting" }
+                           table.insert(candles)
+                           logger.info { "finished inserting" }
+                           val read = table.readAll()
+                           assertEquals(candles, read)
                        }
-                       logger.info { "starting inserting" }
-                       table.insert(candles)
-                       logger.info { "finished inserting" }
                    }
                    on("more than one Key test") {
                        it("test 2") {
@@ -171,6 +180,17 @@ class BarTest
                            val wp2 = WavePoint(Tick(650000L, 0.9, OfferSide.BID), false, m1)
                            val wp3 = WavePoint(Tick(620000L, 1.9, OfferSide.BID), true, m1)
                            val wave1 = Wave(listOf(wp1, wp2, wp3))
+                           table.insert(wave1)
+                           val read = table.read(wave1)
+                           assertEquals(wave1, read)
+                       }
+                       it("test auto id many lists ticks") {
+                           val table = persister.Table(ManyListsTickList::class)
+                           table.persist()
+                           val wp1 = Tick(500000L, 0.5, OfferSide.BID)
+                           val wp2 = Tick(650000L, 0.9, OfferSide.BID)
+                           val wp3 = Tick(620000L, 1.9, OfferSide.BID)
+                           val wave1 = ManyListsTickList(listOf(wp1, wp2, wp3), listOf(wp2, wp3))
                            table.insert(wave1)
                            val read = table.read(wave1)
                            assertEquals(wave1, read)

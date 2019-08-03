@@ -33,6 +33,18 @@ import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.primaryConstructor
 
 internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any, Any, Any, Any>)
+private class Reader<R : Any, T : Any>(val fields: List<FieldData<R, Any, T, Any>>, val key: List<Any>, val readValue: ReadValue) {
+    fun read(counter: Int, i: Int = 0, list: List<ReadFieldValue> = emptyList()): NextSize<List<ReadFieldValue>> {
+        if (i < fields.size) {
+            val field = fields[i]
+            val (value, nextCounter) = field.getValue(readValue, counter, key)
+            val readFieldValue = ReadFieldValue(value, field as FieldData<Any, Any, Any, Any>)
+            return read(nextCounter, i + 1, list + readFieldValue)
+        }
+        return NextSize(list, counter)
+    }
+}
+
 
 internal interface InternalRPD<R : Any, T : Any> {
     val key: KeyType
@@ -100,7 +112,7 @@ internal interface InternalRPD<R : Any, T : Any> {
                     + "PRIMARY KEY(${key.toPrimaryKey()})"
 //                + "${if (foreignKeys == "") "" else ", $foreignKeys"}"
                     + ");")
-        } catch (t:Throwable){
+        } catch (t: Throwable) {
             throw t
         }
     }
@@ -109,50 +121,20 @@ internal interface InternalRPD<R : Any, T : Any> {
         return key.getColumnValue(readValue)
     }
 
-    fun read(readValue: ReadValue,
-             i: Int,
-             counter: Int = 1,
-             key: Any? = null,
-             list: List<ReadFieldValue> = emptyList()): NextSize<List<ReadFieldValue>> {
-        if (i < fields.size) {
-            val field = fields[i]
-            val (value, nextCounter) = field.getValue(readValue, counter, key)
-            val readFieldValue = ReadFieldValue(value, field as FieldData<Any, Any, Any, Any>)
-            return read(readValue,
-                        i + 1,
-                        nextCounter,
-                        if (i == 0) field.keyLowSimpleType(value) else key,
-                        list + readFieldValue)
-        }
-        return NextSize(list, counter)
-    }
-
-    tailrec fun readToString(readValue: (Int) -> Any,
-                             i: Int,
-                             key: Any? = null,
-                             list: List<String> = emptyList()): List<String> {
-        if (i < fields.map { it.size() }.sum()) {
-            val value = readValue(i + 1)
-            return readToString(readValue,
-                                i + 1,
-                                if (i == 0) value else key,
-                                list + value.toString())
-        }
-        return list
-    }
-
-    fun readToString(readValue: (Int) -> Any): List<String> {
-        return readToString(readValue, 0)
-    }
-
 //    fun helperTables() = onFields { helperTables() }.flatten()
 //    fun keyTables() = onFields { keyTables() }.flatten()
+
+    fun innerRead(readValue: ReadValue, counter: Int = 1): NextSize<List<ReadFieldValue>> {
+        val x = key.getValue(readValue, counter, emptyList())
+        return Reader(fields.drop(key.fields.size), x.t, readValue).read(x.i,
+                                                                         list = x.t.mapIndexed { i, e -> ReadFieldValue(e, key.fields[i]) })
+    }
 
     /**
      * method reads the [ReadValue] only to a list of [ReadFieldValue], not to [R]
      */
     fun readWOObject(readValue: ReadValue): List<ReadFieldValue> {
-        return read(readValue, 0, 1).t
+        return innerRead(readValue).t
     }
 
     fun keyName(): String {
@@ -197,7 +179,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
                                                         private val className: String = "no name",
                                                         private val method: (List<ReadFieldValue>) -> R) : InternalRPD<R, T> {
 
-    private constructor(builder:FieldDataFactory<R>.Builder,
+    private constructor(builder: FieldDataFactory<R>.Builder,
                         className: String = "no name",
                         method: (List<ReadFieldValue>) -> R) : this(builder.idField!!,
                                                                     builder.fields as List<FieldData<R, Any, T, Any>>,
@@ -228,7 +210,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
 
 
     internal fun read(readValue: ReadValue, counter: Int): NextSize<R> {
-        return read(readValue, 0, counter).transform(method)
+        return innerRead(readValue, counter).transform(method)
     }
 
     internal fun read(readValue: ReadValue): NextSize<R> {

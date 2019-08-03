@@ -78,11 +78,9 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
         valueField.storeManyToOneObject(b.map { it.second.value })
         helperTable.insertListBy(b.map {
             val x = idField.insertObject(idField.getObject(it.first))
-                    .first()
             val y = keyField.insertObject(keyField.getObject(it.second.key))
-                    .first()
             val z = valueField.insertObject(it.second.value)
-            listOf(x, y) + z
+            x + y + z
         })
     }
 
@@ -90,11 +88,11 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
         helperTable.deleteBy(idField.name, keySimpleType)
     }
 
-    override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<X> {
-        if (key == null) {
+    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<X> {
+        if (key.isEmpty()) {
             throw NullPointerException("a List cannot be a key")
         }
-        val fn = idField.autoIdFNEqualsValue(key, "AND")
+        val fn = idField.autoIdFNEqualsValue(key, " AND ")
         val read = helperTable.readIntern(fn)
         val map = read.map { it[1].value as M to it[2].value as T }
                 .toMap()

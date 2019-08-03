@@ -32,7 +32,7 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
 
     override fun toTableHead() = toTableHead(propertyData.clazz, prefixedName)
 
-    override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
+    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
         try {
             val any = readValue.getObject(number, propertyData.clazz as KClass<Any>)
             val x = if (propertyData.clazz == Boolean::class)

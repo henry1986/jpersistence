@@ -40,7 +40,7 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
     override fun toTableHead() = "${prefixedName} Text NOT NULL"
 
 
-    override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<T> {
+    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
         try {
             val any = readValue.getObject(number, propertyData.clazz as KClass<Any>) as String
             return NextSize(getEnumValue(propertyData.clazz.qualifiedName!!, any), number + 1)
@@ -63,7 +63,7 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
 internal class AutoKeyType(override val propertyData: AutoKeyProperty, override val prefix: String?) : SimpleTypes<Any, Any> {
     override fun toTableHead() = "$prefixedName Int NOT NULL"
 
-    override fun getValue(readValue: ReadValue, number: Int, key: Any?): NextSize<Any> {
+    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<Any> {
         val any = readValue.getObject(number, propertyData.clazz)
         return NextSize(any as Int, number + 1)
     }
