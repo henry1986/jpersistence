@@ -78,7 +78,34 @@ class Persister(private val databaseInterface: DatabaseInterface,
     internal interface InternalTable<R : Any> {
         val readPersisterData: InternalRPD<out Any, Any>
         val tableName: String
+        val _tableName: String
         val persister: Persister
+
+        fun dropTable() {
+            persister.write("DROP TABLE $tableName;")
+        }
+
+        fun <T : InternalTable<R>> rename(newTableName: String, creator: () -> T): T {
+            persister.write("ALTER TABLE $tableName RENAME TO `$newTableName`")
+            return creator()
+        }
+
+        fun namesToMap() = readPersisterData.names()
+
+        fun copyData(newVariables: Map<String, String>, tableName: String) {
+            val next = this
+            val command = next.readPersisterData.copyTable(next.namesToMap() + newVariables)
+            persister.write("INSERT INTO ${next.tableName} $command from $tableName;")
+        }
+
+        fun <T : Any, S : InternalTable<T>> change(next: InternalTable<T>,
+                                                   newVariables: Map<String, String> = mapOf(),
+                                                   creator: (String) -> S): S {
+            next.persist()
+            next.copyData(newVariables, tableName)
+            dropTable()
+            return next.rename(_tableName) { creator(_tableName) }
+        }
 
         fun persist() {
             persister.write("$createTable $tableName ${readPersisterData.createTable()}")
@@ -95,16 +122,10 @@ class Persister(private val databaseInterface: DatabaseInterface,
             }
         }
 
-        fun readIntern(fnEqualsValue:String, orderOrder: String = ""): List<List<ReadFieldValue>> {
+        fun readIntern(fnEqualsValue: String, orderOrder: String = ""): List<List<ReadFieldValue>> {
 //            val req = "SELECT $selectHeader FROM $tableName $join ${whereClause(fieldName, id, and)};"
             val req = "SELECT * FROM $tableName WHERE $fnEqualsValue $orderOrder;"
             return persister.read(req) { it.getList { readPersisterData.readWOObject(ReadValue(this)) } }
-        }
-
-        fun insertBy(insertObjects: List<InsertObject>) {
-            val createTable = "INSERT INTO $tableName ${readPersisterData.insertBy(insertObjects)}"
-            persister.write(createTable)
-            persister.event()
         }
 
         fun insertListBy(insertObjects: List<List<InsertObject>>) {
@@ -140,11 +161,13 @@ class Persister(private val databaseInterface: DatabaseInterface,
             override val key: KeyType = KeyType(fields.take(numberOfKeyFields))
         }
         override val tableName: String = tableName
+        override val _tableName: String = tableName
         override val persister: Persister = this@Persister
+
     }
 
     inner class Table<R : Any> internal constructor(override val readPersisterData: ReadPersisterData<R, Any>,
-                                                    val _tableName: String) :
+                                                    override val _tableName: String) :
             InternalTable<R>, Registerer<DBChangeListener> by registerer {
         override val tableName = "`$_tableName`"
         override val persister = this@Persister
@@ -172,6 +195,21 @@ class Persister(private val databaseInterface: DatabaseInterface,
         private fun tableEvent() {
             registerer.forEach(DBChangeListener::onChange)
             event()
+        }
+
+        fun rename(newTableName: String): Table<R> {
+            return this.rename(newTableName) { Table(readPersisterData, newTableName) }
+        }
+
+        fun <T : Any> change(clazz: KClass<T>, newVariables: Map<String, String> = mapOf()): Table<T> {
+            val tName = "${_tableName}_temp"
+            val next = persister.Table(clazz, tName)
+            return change(next, newVariables) { Table(next.readPersisterData, it) }
+        }
+
+        fun copyHelperTable(map: Map<String, Map<String, String>>): Table<R> {
+            readPersisterData.copyHelperTable(map)
+            return this
         }
 
         fun read(fieldName: String, id: Any, orderOrder: String = ""): List<R> {
@@ -404,10 +442,6 @@ class Persister(private val databaseInterface: DatabaseInterface,
 //                insert(it)
 //            }
 //        }
-
-        fun dropTable() {
-            this@Persister.write("DROP TABLE $tableName;")
-        }
     }
 
     companion object {

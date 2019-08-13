@@ -23,11 +23,6 @@
 
 package org.daiv.reflection.common
 
-import org.daiv.reflection.annotations.AllTables
-import org.daiv.reflection.persister.Persister
-import org.daiv.reflection.persister.Persister.Table
-import org.daiv.reflection.read.ReadFieldValue
-import java.lang.RuntimeException
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 

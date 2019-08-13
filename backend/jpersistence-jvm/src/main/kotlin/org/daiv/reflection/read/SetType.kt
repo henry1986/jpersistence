@@ -42,7 +42,7 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
 
     private val valueField = propertyData.clazz.toFieldData(KeyAnnotation(propertyData.property), "value", persister)
 
-    private val helperTable = persister.HelperTable(listOf(idField, valueField) as List<FieldData<Any, Any, Any, Any>>, helperTableName, 2)
+    override val helperTable = persister.HelperTable(listOf(idField, valueField) as List<FieldData<Any, Any, Any, Any>>, helperTableName, 2)
 
 
     /**

@@ -151,6 +151,19 @@ internal interface InternalRPD<R : Any, T : Any> {
         return fields.map(f)
     }
 
+    fun names() = fields.map { it.copyTableName() }.flatMap { it.entries }.map { it.key to it.value }.toMap()
+
+    fun namesToList() = names().map { it.value }
+
+    fun copyTable(otherNames: Map<String, String>): String {
+        val names = namesToList()
+        return "(${names.joinToString(", ")}) select ${names.map { otherNames[it] }.joinToString(", ")}"
+    }
+
+    fun copyHelperTable(map: Map<String, Map<String, String>>) {
+        fields.forEach { f -> map[f.prefixedName]?.let { f.copyData(it) } }
+    }
+
     fun clearLists() {
         onFields { clearLists() }
     }

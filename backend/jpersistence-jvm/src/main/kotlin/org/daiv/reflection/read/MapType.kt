@@ -41,7 +41,7 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
         val logger = KotlinLogging.logger { }
     }
 
-    private val helperTable: HelperTable
+    override val helperTable: HelperTable
 
     private val helperTableName = "${parentTableName}_${propertyData.receiverType.simpleName}_$name"
 

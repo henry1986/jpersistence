@@ -78,6 +78,10 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         return persisterData.key.toTableHead()
     }
 
+    override fun copyTableName(): Map<String, String> {
+        return persisterData.key.copyTableName()
+    }
+
     override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
         val nextSize = persisterData.key.getValue(readValue, number, key)
         val read = table.readMultiple(nextSize.t)!!

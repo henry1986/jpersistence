@@ -111,6 +111,8 @@ internal interface HashCodeable<S : Any> : FieldReadable<Any, S> {
     fun hashCodeX(t: Any): Int
 }
 
+fun toPrefixedName(prefix: String?, name: String) = prefix?.let { "${it}_$name" } ?: name
+
 /**
  * [R] is the type of the receiver of the property
  * [T] is the generic type of the PropertyData
@@ -125,6 +127,7 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
     val prefixedName
         get() = name(prefix)
 
+    fun forwardedName() = prefixedName
 
     fun keySimpleType(r: R): Any
 
@@ -146,7 +149,7 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
      * it is to be given here. null otherwise.
      * @return the name of the field in the database
      */
-    fun name(prefix: String?, name: String = this.name) = prefix?.let { "${it}_$name" } ?: name
+    fun name(prefix: String?, name: String = this.name) = toPrefixedName(prefix, name)
 
 //    fun <R : Any> onMany2One(onManyToOne: (ManyToOne) -> R, noManyToOne: () -> R): R {
 //        return property.findAnnotation<ManyToOne>()?.let(onManyToOne) ?: run(noManyToOne)
@@ -189,6 +192,9 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
 
     fun size() = 1
 
+    fun copyTableName(): Map<String, String>
+    fun copyData(map: Map<String, String>)
+
     fun storeManyToOneObject(t: List<T>)
     fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects>
     fun persist()
@@ -205,9 +211,12 @@ internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
     override fun insertLists(r: List<R>) {}
     override fun deleteLists(keySimpleType: Any) {}
     override fun clearLists() {}
+    override fun copyTableName() = mapOf(prefixedName to prefixedName)
+    override fun copyData(map: Map<String, String>) {}
 }
 
 internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : FieldData<R, S, T, X> {
+    val helperTable: HelperTable
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
     override fun keySimpleType(r: R) = throw RuntimeException("a collection cannot be a key")
     override fun key() = throw RuntimeException("a collection cannot be a key")
@@ -225,6 +234,11 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Fie
     override fun size() = 0
     override fun storeManyToOneObject(t: List<T>) {}
     override fun persist() {}
+    override fun copyTableName() = emptyMap<String, String>()
+
+    override fun copyData(map: Map<String, String>) {
+        helperTable.copyData(map, map["&helperTable"]!!)
+    }
 }
 
 internal interface SimpleTypes<R : Any, T : Any> : NoList<R, T, T> {

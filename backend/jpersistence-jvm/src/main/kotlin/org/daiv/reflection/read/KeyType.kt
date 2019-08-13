@@ -18,15 +18,12 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
                 .keySimpleType(r)
     }
 
-
     override fun key(): String {
         return fields.map { it.key() }
                 .joinToString(", ")
     }
 
     override fun storeManyToOneObject(t: List<Any>) {
-//        fields.first()
-//                .storeManyToOneObject(t)
     }
 
     override fun toStoreObjects(objectValue: Any): List<ToStoreManyToOneObjects> {
@@ -83,6 +80,15 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
     override fun toTableHead(): String? {
         return fields.map { it.toTableHead() }
                 .joinToString(", ")
+    }
+
+    override fun copyTableName(): Map<String, String> {
+        return fields.flatMap {
+            it.copyTableName()
+                    .entries
+        }
+                .map { it.key to it.value }
+                .toMap()
     }
 
     override fun insertObject(o: Any): List<InsertObject> {
