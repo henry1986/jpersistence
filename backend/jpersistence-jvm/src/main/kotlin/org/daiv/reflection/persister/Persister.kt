@@ -281,7 +281,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         fun delete(fieldName: String, id: Any) {
             try {
                 val list = read(fieldName, id)
-                this@Persister.write("DELETE ${fromWhere(fieldName, id, comma)};")
+                this@Persister.write("DELETE ${fromWhere(fieldName, id, and)};")
                 list.forEach { readPersisterData.deleteLists(it) }
                 tableEvent()
             } catch (e: Throwable) {
