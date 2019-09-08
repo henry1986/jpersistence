@@ -82,9 +82,10 @@ class AlterTableTest :
                              val assert = BeforeList(1, listOf(Before(1, "hello"), Before(2, "wow")))
                              table.insert(assert)
                              persister.Table(Before::class)
-                                     .change(After2::class, mapOf("z" to "0.0")).rename("After2")
+                                     .change(After2::class, mapOf("z" to "0.0"))
+                                     .rename("After2")
                              val changed = table.change(AfterList::class, mapOf("z" to "0"))
-                                     .copyHelperTable(mapOf("y" to mapOf("&helperTable" to "AfterList_BeforeList_y",
+                                     .copyHelperTable(mapOf("y" to mapOf("&oldTableName" to "AfterList_BeforeList_y",
                                                                          "z" to "0",
                                                                          "value_After2_x" to "value_Before_x",
                                                                          "value_After2_z" to "0.0")))

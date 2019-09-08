@@ -237,7 +237,19 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Fie
     override fun copyTableName() = emptyMap<String, String>()
 
     override fun copyData(map: Map<String, String>) {
-        helperTable.copyData(map, map["&helperTable"]!!)
+        val nextName = map["&newTableName"] ?: helperTable.tableName
+        val currentName = map["&oldTableName"] ?: helperTable.tableName
+        if (nextName == currentName) {
+            val tmpName = "tmp_$currentName"
+            helperTable.persistWithName(tmpName)
+            helperTable.copyData(map, currentName, tmpName)
+            helperTable.dropTable(currentName)
+            helperTable.rename(tmpName, currentName) { helperTable }
+
+        } else {
+            helperTable.copyData(map, currentName, nextName)
+            helperTable.dropTable(currentName)
+        }
     }
 }
 

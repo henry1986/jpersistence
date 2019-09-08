@@ -48,6 +48,10 @@ class Persister(private val databaseInterface: DatabaseInterface,
         registerer.forEach(DBChangeListener::onChange)
     }
 
+    internal fun justPersist(tableName: String, readPersisterData: InternalRPD<*, *>) {
+        write("$createTable $tableName ${readPersisterData.createTable()}")
+    }
+
     internal fun <T : Any> read(query: String, func: (ResultSet) -> T): T {
         try {
             logger.trace(query)
@@ -81,34 +85,37 @@ class Persister(private val databaseInterface: DatabaseInterface,
         val _tableName: String
         val persister: Persister
 
-        fun dropTable() {
+        fun dropTable(tableName: String = this.tableName) {
             persister.write("DROP TABLE $tableName;")
         }
 
-        fun <T : InternalTable<R>> rename(newTableName: String, creator: () -> T): T {
-            persister.write("ALTER TABLE $tableName RENAME TO `$newTableName`")
+        fun <T : InternalTable<R>> rename(oldTableName: String, newTableName: String, creator: () -> T): T {
+            persister.write("ALTER TABLE $oldTableName RENAME TO `$newTableName`")
             return creator()
         }
 
         fun namesToMap() = readPersisterData.names()
 
-        fun copyData(newVariables: Map<String, String>, tableName: String) {
-            val next = this
-            val command = next.readPersisterData.copyTable(next.namesToMap() + newVariables)
-            persister.write("INSERT INTO ${next.tableName} $command from $tableName;")
+        fun copyData(newVariables: Map<String, String>, oldTableName: String, newTableName: String) {
+            val command = this.readPersisterData.copyTable(this.namesToMap() + newVariables)
+            persister.write("INSERT INTO $newTableName $command from $oldTableName;")
         }
 
         fun <T : Any, S : InternalTable<T>> change(next: InternalTable<T>,
                                                    newVariables: Map<String, String> = mapOf(),
                                                    creator: (String) -> S): S {
             next.persist()
-            next.copyData(newVariables, tableName)
+            next.copyData(newVariables, tableName, next.tableName)
             dropTable()
-            return next.rename(_tableName) { creator(_tableName) }
+            return next.rename(next.tableName, _tableName) { creator(_tableName) }
         }
 
         fun persist() {
-            persister.write("$createTable $tableName ${readPersisterData.createTable()}")
+            persistWithName(tableName)
+        }
+
+        fun persistWithName(tableName: String = this.tableName) {
+            persister.justPersist(tableName, readPersisterData)
             readPersisterData.createTableForeign()
             persister.event()
         }
@@ -198,7 +205,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
 
         fun rename(newTableName: String): Table<R> {
-            return this.rename(newTableName) { Table(readPersisterData, newTableName) }
+            return this.rename(this.tableName, newTableName) { Table(readPersisterData, newTableName) }
         }
 
         fun <T : Any> change(clazz: KClass<T>, newVariables: Map<String, String> = mapOf()): Table<T> {
