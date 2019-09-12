@@ -180,7 +180,6 @@ class Persister(private val databaseInterface: DatabaseInterface,
         override val persister = this@Persister
 
         constructor(clazz: KClass<R>, tableName: String = "")
-
                 : this(ReadPersisterData(clazz,
                                          null,
                                          this@Persister,

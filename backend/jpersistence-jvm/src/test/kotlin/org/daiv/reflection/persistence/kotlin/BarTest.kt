@@ -12,15 +12,10 @@ import kotlin.test.assertEquals
 
 class BarTest
     : Spek({
-               data class Tick(val time: Long, val value: Double, val offerSide: OfferSide)
                @MoreKeys(2)
                data class Candle(val time: Long, val period: Period, val startTick: Tick, val tickList: List<Tick>)
 
                data class Bar(val x: Int, val s: String)
-               data class WavePoint(val tick: Tick, override val isLong: Boolean, override val period: Period) : Point, Timeable {
-                   override val time = tick.time
-                   override val value = tick.value
-               }
 
                @MoreKeys(1, true)
                data class Wave(val wavePoints: List<WavePoint>)
@@ -35,6 +30,7 @@ class BarTest
 
                @MoreKeys(2)
                data class Descriptor(val start: WavePoint, val end: WavePoint, val isValid: Boolean)
+
 
                data class RawWave(val id: Int, val wavePoints: List<WavePoint>) {
                    constructor(wavePoints: List<WavePoint>) : this(wavePoints.hashCode(), wavePoints)
@@ -161,6 +157,8 @@ class BarTest
                            table.insert(descriptor2)
                            val read = table.readMultiple(listOf(wp1, wp2))
                            assertEquals(descriptor, read)
+                           val first = table.first()
+                           assertEquals(descriptor, first!!)
                        }
                        it("test auto id ticks") {
                            val table = persister.Table(TickList::class)
@@ -195,6 +193,26 @@ class BarTest
                            val read = table.read(wave1)
                            assertEquals(wave1, read)
                        }
+//                       it("test double reference") {
+//                           val table = persister.Table(WPDescriptor::class)
+//                           table.persist()
+//                           val wp1 = WavePoint(Tick(500000L, 0.5, OfferSide.BID), true, m1)
+//                           val wp2 = WavePoint(Tick(600000L, 0.9, OfferSide.BID), false, m1)
+//                           val wp3 = WavePoint(Tick(620000L, 1.9, OfferSide.BID), true, m1)
+//                           val wp4 = WavePoint(Tick(650000L, 1.8, OfferSide.BID), true, m1)
+//                           val des1 = WPDescriptor(wp1, wp2, emptyList())
+//                           val des2 = WPDescriptor(wp2, wp3, emptyList())
+//                           val des3 = WPDescriptor(wp3, wp4, emptyList())
+//                           val wave1 = WPWave(listOf(des1, des2))
+//                           val wave2 = WPWave(listOf(des2, des3))
+//                           val des4 = WPDescriptor(wp1, wp3, listOf(wave1))
+//                           val des5 = WPDescriptor(wp2, wp4, listOf(wave2))
+//                           val wave3 = WPWave(listOf(des4, des3))
+//                           val des6 = WPDescriptor(wp1, wp4, listOf(wave3))
+//                           table.insert(des6)
+//                           val read = table.read(listOf(wp1, wp4))!!
+//                           assertEquals(des6, read)
+//                       }
                    }
                    afterGroup { database.delete() }
                }
