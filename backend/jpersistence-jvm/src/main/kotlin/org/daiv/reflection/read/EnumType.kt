@@ -23,7 +23,6 @@
 
 package org.daiv.reflection.read
 
-import org.daiv.reflection.common.AutoKeyProperty
 import org.daiv.reflection.common.PropertyData
 import org.daiv.reflection.common.ReadValue
 import org.daiv.reflection.common.SimpleTypes
@@ -60,7 +59,7 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
     }
 }
 
-internal class AutoKeyType(override val propertyData: AutoKeyProperty, override val prefix: String?) : SimpleTypes<Any, Any> {
+internal class AutoKeyType(override val propertyData: PropertyData<Any,Any,Any>, override val prefix: String?) : SimpleTypes<Any, Any> {
     override fun toTableHead() = "$prefixedName Int NOT NULL"
 
     override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<Any> {

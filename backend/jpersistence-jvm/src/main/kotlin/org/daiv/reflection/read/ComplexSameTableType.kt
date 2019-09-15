@@ -25,24 +25,22 @@ package org.daiv.reflection.read
 
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.Persister
-import java.sql.ResultSet
-import kotlin.reflect.KClass
 
 internal class ComplexSameTableType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
+                                                                  val persisterProvider: PersisterProvider,
                                                                   override val prefix: String?,
                                                                   parentTableName: String?,
-                                                                  persister: Persister,
-                                                                  val _persisterData: ReadPersisterData<T, Any>? = null) :
+                                                                  persister: Persister) :
         NoList<R, T, T> {
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
-    private val builder = FieldDataFactory(propertyData.clazz,
-                                          prefixedName,
-                                          parentTableName,
-                                          persister).fieldsRead()
-    private val persisterData: ReadPersisterData<T, Any> = _persisterData
-            ?: ReadPersisterData(builder.idField!!,
-                                 builder.fields as List<FieldData<T, Any, Any, Any>>,
-                                 method = ReadPersisterData.readValue(propertyData.clazz))
+    private val builder = FieldDataFactory(persisterProvider,
+                                           propertyData.clazz,
+                                           prefixedName,
+                                           parentTableName,
+                                           persister).fieldsRead()
+    private val persisterData: ReadPersisterData<T, Any> = ReadPersisterData(builder.idField!!,
+                                                                             builder.fields as List<FieldData<T, Any, Any, Any>>,
+                                                                             method = ReadPersisterData.readValue(propertyData.clazz))
 
     override fun subFields() = persisterData.fields as List<FieldData<Any, Any, Any, Any>>
 

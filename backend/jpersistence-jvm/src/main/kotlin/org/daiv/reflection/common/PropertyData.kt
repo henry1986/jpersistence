@@ -62,17 +62,30 @@ internal interface PropertyReader<R : Any, S : Any> : FieldReadable<R, S> {
 
 class DefaultProperyReader<R : Any, S : Any>(override val property: KProperty1<R, S>) : PropertyReader<R, S>
 
-data class DefProperty<R : Any, T : Any>(override val property: KProperty1<R, T>, override val receiverType: KClass<R>) :
+data class DefProperty<R : Any, T : Any>(override val property: KProperty1<R, T>,
+                                         override val receiverType: KClass<R>,
+                                         override val name: String = property.name) :
         PropertyReader<R, T>, PropertyData<R, T, T> {
     override val clazz: KClass<T> = property.returnType.classifier as KClass<T>
-    override val name: String = property.name
+
 }
 
-internal class AutoKeyProperty(val key: KeyHashCodeable) : PropertyData<Any, Any, Any> {
+//internal class AutoKeyProperty(val hashCodeables:List<HashCodeProperty>) : PropertyData<Any, Any, Any> {
+//    override val clazz: KClass<Any> = Any::class
+//    override val receiverType: KClass<Any>? = Any::class
+//    override val name: String = "autoID"
+//    override fun getObject(r: Any) = hashCodeables.map { it.getObject(r)}
+//
+//    override fun getValue(o: Any) = hashCodeables.map { it.getValue(o)}
+//}
+
+internal class HashCodeProperty(val hashCodeable: HashCodeable<Any>, val property: KProperty1<Any, Any>): PropertyData<Any,Any,Any>{
     override val clazz: KClass<Any> = Any::class
     override val receiverType: KClass<Any>? = Any::class
     override val name: String = "autoID"
-    override fun getObject(r: Any) = key.hashCodeX(r)
+    override fun getObject(r: Any) = hashCodeable.hashCodeX(r)
+
+    override fun getValue(o: Any) = property.getObject(o)
 }
 
 internal class KeyTypeProperty(val fields: List<FieldData<Any, Any, Any, Any>>) : PropertyData<Any, List<Any>, Any> {
@@ -81,6 +94,9 @@ internal class KeyTypeProperty(val fields: List<FieldData<Any, Any, Any, Any>>) 
     override val name: String = fields.joinToString("_") { it.name }
     override fun getObject(r: Any): List<Any> {
         return fields.map { it.getObject(r) }
+    }
+    override fun getValue(r: Any): List<Any> {
+        return fields.map { it.getValue(r) }
     }
 
     override fun toString(): String {

@@ -114,10 +114,11 @@ class Persister(private val databaseInterface: DatabaseInterface,
             persistWithName(tableName)
         }
 
-        fun persistWithName(tableName: String = this.tableName) {
+        fun persistWithName(tableName: String = this.tableName, checkName: Set<String> = emptySet()) :Set<String>{
             persister.justPersist(tableName, readPersisterData)
-            readPersisterData.createTableForeign()
+            val ret = readPersisterData.createTableForeign(checkName + tableName)
             persister.event()
+            return ret
         }
 
         fun fromWhere(fieldName: String, id: Any, sep: String): String {
@@ -180,10 +181,14 @@ class Persister(private val databaseInterface: DatabaseInterface,
         override val persister = this@Persister
 
         constructor(clazz: KClass<R>, tableName: String = "")
+                : this(clazz, tableName, null, null)
+
+        internal constructor(clazz: KClass<R>, tableName: String = "", prefix: String? = null, persisterProvider: PersisterProvider? = null)
                 : this(ReadPersisterData(clazz,
-                                         null,
                                          this@Persister,
-                                         getTableName(tableName, clazz)),
+                                         persisterProvider,
+                                         prefix = prefix,
+                                         parentTableName = getTableName(tableName, clazz)),
                        getTableName(tableName, clazz))
 
         //        private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz, this@Persister)
@@ -331,7 +336,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
                     it.getList { clazz.cast(getObject(1)) }
                 }
             } else {
-                val readPersisterData = ReadPersisterData<T, Any>(clazz, null, this@Persister)
+                val readPersisterData = ReadPersisterData<T, Any>(clazz, this@Persister)
                 val key = readPersisterData.createTableKeyData()
 //                val key = readPersisterData.createTableKeyData(fieldName)
                 this@Persister.read(cmd(key)) { it.getList { readPersisterData.readKey(ReadValue(this)) } as List<T> }

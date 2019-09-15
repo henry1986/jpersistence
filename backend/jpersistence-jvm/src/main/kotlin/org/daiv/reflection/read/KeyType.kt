@@ -18,6 +18,8 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
                 .keySimpleType(r)
     }
 
+    fun keyValue(o:Any) = fields.map { it.getObject(o) }
+
     override fun key(): String {
         return fields.map { it.key() }
                 .joinToString(", ")

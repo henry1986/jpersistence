@@ -33,6 +33,7 @@ import kotlin.reflect.KClass
 
 
 internal class SetType<R : Any, T : Any> constructor(override val propertyData: SetProperty<R, T>,
+                                                     val persisterProvider: PersisterProvider,
                                                      private val many: ManyList,
                                                      val persister: Persister,
                                                      override val prefix: String?,
@@ -40,7 +41,7 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
         CollectionFieldData<R, Set<T>, T, Set<T>> {
     private val helperTableName = "${propertyData.receiverType.simpleName}_$name"
 
-    private val valueField = propertyData.clazz.toFieldData(KeyAnnotation(propertyData.property), "value", persister)
+    private val valueField = propertyData.clazz.toFieldData(persisterProvider, KeyAnnotation(propertyData.property), "value", persister)
 
     override val helperTable = persister.HelperTable(listOf(idField, valueField) as List<FieldData<Any, Any, Any, Any>>, helperTableName, 2)
 
@@ -72,8 +73,9 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
         helperTable.clear()
     }
 
-    override fun createTable() = helperTable.persist()
-    override fun createTableForeign() = valueField.persist()
+    override fun createTableForeign(tableNames: Set<String>): Set<String> {
+        return valueField.createTableForeign(helperTable.persistWithName(checkName = tableNames))
+    }
 
     override fun fNEqualsValue(o: Set<T>, sep: String): String {
         return o.map {

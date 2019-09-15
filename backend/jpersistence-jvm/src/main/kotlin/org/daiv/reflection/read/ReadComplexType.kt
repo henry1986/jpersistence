@@ -24,20 +24,30 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.annotations.ManyToOne
-import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
-import org.daiv.reflection.common.FieldData.JoinName
 import org.daiv.reflection.persister.Persister
 
 internal class ReadComplexType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
-                                                             manyToOne: ManyToOne,
+                                                             val persisterProvider: PersisterProvider,
+                                                             val manyToOne: ManyToOne,
                                                              private val persister: Persister,
-                                                             override val prefix: String?,
-                                                             _persisterData: ReadPersisterData<T, Any>? = null) : NoList<R, T, T> {
-    private val persisterData = _persisterData ?: ReadPersisterData(propertyData.clazz,
-                                                                    prefixedName,
-                                                                    persister,
-                                                                    manyToOne.tableName)
+                                                             override val prefix: String?) : NoList<R, T, T> {
+    val providerKey = ProviderKey(propertyData, prefixedName)
+
+    //    private val persisterData: ReadPersisterData<T, Any> = ReadPersisterData(propertyData.clazz,
+//                                                                             persister,
+//                                                                             persisterProvider,
+//                                                                             prefix = prefixedName,
+//                                                                             parentTableName = manyToOne.tableName)
+    init {
+        persisterProvider.register(providerKey, manyToOne.tableName)
+    }
+
+    private val persisterData
+        get() = persisterProvider.readPersisterData(providerKey) as ReadPersisterData<T, Any>
+
+    private val table
+        get() = persisterProvider.table(providerKey) as Persister.Table<T>
 
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = persisterData.fields as List<FieldData<Any, Any, Any, Any>>
 
@@ -45,10 +55,14 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         persisterData.storeManyToOneObject(t, table)
     }
 
-    override fun persist() = table.persist()
+    override fun persist() {}
 
-    private val table = persister.Table(propertyData.clazz, manyToOne.tableName)
-    override fun createTableForeign() = table.persist()
+    override fun createTableForeign(tableNames: Set<String>): Set<String> {
+        if (!tableNames.contains(this.manyToOne.tableName)) {
+            return table.persistWithName(checkName = tableNames)
+        }
+        return tableNames
+    }
 
     val clazz = propertyData.clazz
     override fun getColumnValue(resultSet: ReadValue) = persisterData.readKey(resultSet)

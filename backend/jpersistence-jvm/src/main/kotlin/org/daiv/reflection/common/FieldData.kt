@@ -43,16 +43,6 @@ private fun <T : Any> T.checkDBValue(objectValue: T): T {
     return objectValue
 }
 
-internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValue: T, table: Table<T>) {
-    if (objectValue::class.isPrimitiveOrWrapperOrStringOrEnum()) {
-        return
-    }
-    val key = getKey(objectValue)
-    table.read(key)?.let { it.checkDBValue(objectValue) } ?: run {
-        table.insert(objectValue)
-    }
-}
-
 internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValues: List<T>, table: Table<T>) {
     if (objectValues.isEmpty()) {
         return
@@ -105,6 +95,7 @@ internal interface FieldCollection<R : Any, S : Any, T : Any, X : Any> {
 
 internal interface FieldReadable<R : Any, S : Any> {
     fun getObject(o: R): S
+    fun getValue(o: R): S = getObject(o)
 }
 
 internal interface HashCodeable<S : Any> : FieldReadable<Any, S> {
@@ -170,11 +161,10 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
     }
 
 
-    fun createTable()
     fun insertLists(r: List<R>)
     fun deleteLists(keySimpleType: Any)
     fun clearLists()
-    fun createTableForeign()
+    fun createTableForeign(tableName: Set<String>): Set<String>
 
     fun key(): String
 
@@ -206,8 +196,7 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
 internal data class ToStoreManyToOneObjects(val field: FieldData<*, *, *, *>, val any: Any)
 
 internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
-    override fun createTable() {}
-    override fun createTableForeign() {}
+    override fun createTableForeign(tableName: Set<String>) = tableName
     override fun insertLists(r: List<R>) {}
     override fun deleteLists(keySimpleType: Any) {}
     override fun clearLists() {}

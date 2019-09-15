@@ -30,6 +30,7 @@ import org.daiv.reflection.persister.Persister.HelperTable
 
 
 internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val propertyData: MapProperty<R, X, T, M>,
+                                                           val persisterProvider: PersisterProvider,
                                                            override val prefix: String?,
                                                            val persister: Persister,
                                                            val parentTableName: String,
@@ -45,10 +46,10 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
 
     private val helperTableName = "${parentTableName}_${propertyData.receiverType.simpleName}_$name"
 
-    private val keyField = propertyData.keyClazz.toFieldData(KeyAnnotation(propertyData.property),
+    private val keyField = propertyData.keyClazz.toFieldData(persisterProvider, KeyAnnotation(propertyData.property),
                                                              "key",
                                                              persister) as FieldData<Any, Any, Any, Any>
-    private val valueField = propertyData.clazz.toFieldData(KeyAnnotation(propertyData.property), "value", persister)
+    private val valueField = propertyData.clazz.toFieldData(persisterProvider, KeyAnnotation(propertyData.property), "value", persister)
 
 
     init {
@@ -62,10 +63,8 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
                 .joinToString(", ")
     }
 
-    override fun createTable() = helperTable.persist()
-    override fun createTableForeign() {
-        keyField.persist()
-        valueField.persist()
+    override fun createTableForeign(tableNames: Set<String>): Set<String> {
+        return valueField.createTableForeign(keyField.createTableForeign(helperTable.persistWithName(checkName = tableNames)))
     }
 
     override fun insertLists(r: List<R>) {

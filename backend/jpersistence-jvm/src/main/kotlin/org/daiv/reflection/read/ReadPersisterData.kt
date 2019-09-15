@@ -66,8 +66,15 @@ internal interface InternalRPD<R : Any, T : Any> {
         }
     }
 
-    fun createTableForeign() {
-        fields.forEach { it.createTableForeign() }
+    fun recursiveCreateTableForeign(tableNames: Set<String>, i: Int = 0): Set<String> {
+        if (i < fields.size) {
+            return recursiveCreateTableForeign(fields[i].createTableForeign(tableNames), i + 1)
+        }
+        return tableNames
+    }
+
+    fun createTableForeign(tableName: Set<String>): Set<String> {
+        return recursiveCreateTableForeign(tableName)
     }
 
 
@@ -105,7 +112,6 @@ internal interface InternalRPD<R : Any, T : Any> {
 //            .map { it.sqlMethod() }
 //            .joinToString(", ")
 
-        fields.forEach { it.createTable() }
         val s = if (createTableInnerData == "") "" else "$createTableInnerData, "
         try {
             return ("(${key.toTableHead()}, $s"
@@ -200,10 +206,15 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
                                                                     method)
 
     constructor(clazz: KClass<R>,
-                prefix: String?,
                 persister: Persister,
+                persisterProvider: PersisterProvider? = null,
+                prefix: String? = null,
                 parentTableName: String? = null) :
-            this(FieldDataFactory(clazz, prefix, parentTableName, persister).fieldsRead(),
+            this(FieldDataFactory(persisterProvider ?: PersisterProviderImpl(persister),
+                                  clazz,
+                                  prefix,
+                                  parentTableName,
+                                  persister).fieldsRead(),
                  clazz.simpleName ?: "no name",
                  readValue(clazz))
 
