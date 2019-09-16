@@ -23,13 +23,10 @@
 
 package org.daiv.reflection.common
 
-import org.daiv.reflection.annotations.TableData
 import org.daiv.reflection.isPrimitiveOrWrapperOrStringOrEnum
-import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.HelperTable
 import org.daiv.reflection.persister.Persister.Table
 import org.daiv.reflection.read.InsertObject
-import org.daiv.reflection.read.KeyType
 import org.daiv.reflection.read.NextSize
 import org.daiv.reflection.read.ReadPersisterData
 import kotlin.reflect.KClass
@@ -95,7 +92,6 @@ internal interface FieldCollection<R : Any, S : Any, T : Any, X : Any> {
 
 internal interface FieldReadable<R : Any, S : Any> {
     fun getObject(o: R): S
-    fun getValue(o: R): S = getObject(o)
 }
 
 internal interface HashCodeable<S : Any> : FieldReadable<Any, S> {

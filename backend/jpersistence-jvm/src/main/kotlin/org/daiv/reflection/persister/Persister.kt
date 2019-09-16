@@ -114,9 +114,11 @@ class Persister(private val databaseInterface: DatabaseInterface,
             persistWithName(tableName)
         }
 
-        fun persistWithName(tableName: String = this.tableName, checkName: Set<String> = emptySet()) :Set<String>{
+        fun persistWithName(tableName: String = this.tableName,
+                            checkName: Set<String> = emptySet(),
+                            _tableName: String = this._tableName): Set<String> {
             persister.justPersist(tableName, readPersisterData)
-            val ret = readPersisterData.createTableForeign(checkName + tableName)
+            val ret = readPersisterData.createTableForeign(checkName + _tableName)
             persister.event()
             return ret
         }

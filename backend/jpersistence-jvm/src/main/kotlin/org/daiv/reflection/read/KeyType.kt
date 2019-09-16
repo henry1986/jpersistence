@@ -2,7 +2,8 @@ package org.daiv.reflection.read
 
 import org.daiv.reflection.common.*
 
-internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any>>) : NoList<Any, List<Any>, Any> {
+internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any>>,
+                                   val keyValuePropertyData: PropertyData<Any, List<Any>, Any>? = null) : NoList<Any, List<Any>, Any> {
     override val propertyData: PropertyData<Any, List<Any>, Any> = KeyTypeProperty(fields)
 
     override val prefix: String?
@@ -18,7 +19,7 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
                 .keySimpleType(r)
     }
 
-    fun keyValue(o:Any) = fields.map { it.getObject(o) }
+    fun keyValue(o: Any) = (keyValuePropertyData ?: propertyData).getObject(o)
 
     override fun key(): String {
         return fields.map { it.key() }

@@ -242,7 +242,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
     }
 
     fun getKey(o: R): Any {
-        return key.getObject(o)
+        return key.keyValue(o)
     }
 
 

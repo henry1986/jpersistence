@@ -58,7 +58,7 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
     override fun persist() {}
 
     override fun createTableForeign(tableNames: Set<String>): Set<String> {
-        if (!tableNames.contains(this.manyToOne.tableName)) {
+        if (!tableNames.contains(this.table._tableName)) {
             return table.persistWithName(checkName = tableNames)
         }
         return tableNames
