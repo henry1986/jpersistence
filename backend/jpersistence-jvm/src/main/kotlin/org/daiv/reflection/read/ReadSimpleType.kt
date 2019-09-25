@@ -116,7 +116,7 @@ internal class MapHashCodeable<M : Any, T : Any> constructor(val keyHashCodeable
 
 internal class ListHashCodeable<T : Any> constructor(val valueHashCodeable: KeyHashCodeable, listReadable: ListReadable<T>) :
         HashCodeable<List<T>>, FieldReadable<Any, List<T>> by listReadable {
-    override fun hashCodeX(t: Any) = getObject(t).iterator()
+    override fun hashCodeX(t: Any) = (t as List<T>).iterator()
             .hashCodeX { valueHashCodeable.hashCodeX(this) }
 }
 

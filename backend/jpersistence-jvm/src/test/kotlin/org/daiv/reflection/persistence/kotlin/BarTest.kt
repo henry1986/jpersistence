@@ -3,6 +3,8 @@ package org.daiv.reflection.persistence.kotlin
 import mu.KotlinLogging
 import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
 import org.daiv.reflection.annotations.MoreKeys
+import org.daiv.reflection.common.FieldDataFactory
+import org.daiv.reflection.common.createHashCode
 import org.daiv.reflection.persister.Persister
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
@@ -101,8 +103,8 @@ class BarTest
                                    .map { it.x }
                            assertEquals(listOf(500, 550), list)
                        }
-
                    }
+
                    on("complexReadOrdered") {
                        val table = persister.Table(WavePoint::class)
                        it("readOrdered") {
@@ -167,8 +169,10 @@ class BarTest
                            val wp2 = Tick(650000L, 0.9, OfferSide.BID)
                            val wp3 = Tick(620000L, 1.9, OfferSide.BID)
                            val wave1 = TickList(listOf(wp1, wp2, wp3))
+                           val hashCode = TickList::class.createHashCode(wave1.ticks)
+                           assertEquals(30815, hashCode)
                            table.insert(wave1)
-                           val read = table.read(wave1)
+                           val read = table.read(listOf(wp1, wp2, wp3))
                            assertEquals(wave1, read)
                        }
                        it("test autoId") {
@@ -179,7 +183,7 @@ class BarTest
                            val wp3 = WavePoint(Tick(620000L, 1.9, OfferSide.BID), true, m1)
                            val wave1 = Wave(listOf(wp1, wp2, wp3))
                            table.insert(wave1)
-                           val read = table.read(wave1)
+                           val read = table.read(listOf(wp1, wp2, wp3))
                            assertEquals(wave1, read)
                        }
                        it("test auto id many lists ticks") {
@@ -190,7 +194,7 @@ class BarTest
                            val wp3 = Tick(620000L, 1.9, OfferSide.BID)
                            val wave1 = ManyListsTickList(listOf(wp1, wp2, wp3), listOf(wp2, wp3))
                            table.insert(wave1)
-                           val read = table.read(wave1)
+                           val read = table.read(listOf(listOf(wp1, wp2, wp3), listOf(wp2, wp3)))
                            assertEquals(wave1, read)
                        }
                    }

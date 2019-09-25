@@ -3,7 +3,8 @@ package org.daiv.reflection.read
 import org.daiv.reflection.common.*
 
 internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any>>,
-                                   val keyValuePropertyData: PropertyData<Any, List<Any>, Any>? = null) : NoList<Any, List<Any>, Any> {
+                                   val key: KeyHashCodeable? = null,
+                                   val idFieldIfAuto: KeyType? = null) : NoList<Any, List<Any>, Any> {
     override val propertyData: PropertyData<Any, List<Any>, Any> = KeyTypeProperty(fields)
 
     override val prefix: String?
@@ -19,11 +20,37 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
                 .keySimpleType(r)
     }
 
-    fun keyValue(o: Any) = (keyValuePropertyData ?: propertyData).getObject(o)
+    fun isKeyType(list: List<Any>): Boolean {
+        if (idFieldIfAuto != null) {
+            return idFieldIfAuto.isKeyType(list)
+        }
+        if (list.size != fields.size) {
+            return false
+        }
+        return fields.mapIndexed { i, e -> e.isType(list[i]) }
+                .all { it }
+    }
+
+    override fun keyValue(o: Any) = (idFieldIfAuto?.propertyData ?: propertyData).getObject(o)
 
     override fun key(): String {
         return fields.map { it.key() }
                 .joinToString(", ")
+    }
+
+    /**
+     * returns hashcodeX if this is a autoKey, [getObject] of [t] else
+     */
+    override fun hashCodeXIfAutoKey(t: Any): List<Any> {
+        val obj = getObject(t)
+        return key?.hashCodeX(obj[0])?.asList() ?: obj
+    }
+
+    override fun getObject(o: Any): List<Any> {
+        if (idFieldIfAuto != null) {
+            return idFieldIfAuto.getObject(o)
+        }
+        return super.getObject(o)
     }
 
     override fun storeManyToOneObject(t: List<Any>) {

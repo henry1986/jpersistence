@@ -98,8 +98,7 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
     val moreKeys = clazz.findAnnotation<MoreKeys>()
             .default(1)
 
-    inner class Builder(val autoIdField: KeyType?,
-                        val idField: KeyType?,
+    inner class Builder(val idField: KeyType?,
                         val keyFields: List<FieldData<R, *, *, *>> = emptyList(),
                         val fields: List<FieldData<R, *, *, *>> = emptyList()) {
         fun next(i: Int, constructor: KFunction<R>): Builder {
@@ -111,7 +110,7 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
                 when {
                     i < moreKeys.amount && moreKeys.auto -> {
                         c = createKeyDependent(y)
-                        keyField = null
+                        keyField = c
                     }
                     i < moreKeys.amount -> {
                         c = create(y) ?: throw RuntimeException("in class: $clazz -> type unkown ${y.returnType} -> or a type," +
@@ -133,9 +132,21 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
                     i >= moreKeys.amount || idField != null -> idField
                     else -> null
                 }
-                return Builder(autoIdField, idField, nextKeyFields, fields).next(i + 1, constructor)
+                return Builder(idField, nextKeyFields, fields).next(i + 1, constructor)
             }
-            return if (moreKeys.auto) Builder(autoIdField, KeyType(autoIdField!!.fields, idField!!.propertyData), fields, fields) else this
+
+            return if (moreKeys.auto) {
+                val keyHashCodeable = clazz.createHashCodeableKey()
+                val autoIdField = KeyType(listOf(AutoKeyType(AutoKeyProperty(keyHashCodeable),
+                                                             prefix)) as List<FieldData<Any, Any, Any, Any>>)
+                val keyType = KeyType(autoIdField!!.fields, keyHashCodeable, idField)
+                val fields = (listOf(keyType) + fields) as List<FieldData<R, *, *, *>>
+                fields.forEach { it.onIdField(keyType) }
+                Builder(keyType, fields, fields)
+            } else {
+                fields.forEach { it.onIdField(idField!!) }
+                this
+            }
         }
 
         fun create(property: KProperty1<R, out Any>): FieldData<R, *, *, *>? {
@@ -164,40 +175,28 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
             if (simple != null) {
                 return simple
             }
-            val id = autoIdField ?: idField
             return when {
-                id == null -> {
-                    throw RuntimeException("class: $idField -> the primary Key must not be a collection!")
-                }
                 property.returnType.classifier as KClass<out Any> == Map::class -> {
                     MapType(DefaultMapProperty(property as KProperty1<R, Map<Any, out Any>>, clazz),
                             persisterProvider,
                             prefix,
                             persister,
-                            parentTableName!!,
-                            { it },
-                            id)
+                            parentTableName!!)
                 }
                 property.returnType.classifier as KClass<out Any> == List::class -> {
-                    MapType(ListMapProperty(property as KProperty1<R, List<out Any>>, clazz),
-                            persisterProvider,
-                            prefix,
-                            persister,
-                            parentTableName!!,
-                            {
-                                it.toList()
-                                        .sortedBy { it.first }
-                                        .map { it.second }
-                            },
-                            id)
+                    ListType(ListMapProperty(property as KProperty1<R, List<out Any>>, clazz),
+                             persisterProvider,
+                             prefix,
+                             persister,
+                             parentTableName!!)
                 }
+
                 property.returnType.classifier as KClass<out Any> == Set::class -> {
                     SetType(SetProperty(property as KProperty1<R, Set<out Any>>, clazz),
                             persisterProvider,
                             property.findAnnotation() ?: ManyList::class.constructors.first().call(""),
                             persister,
-                            prefix,
-                            id)
+                            prefix)
                 }
                 else -> {
                     throw RuntimeException("unknown type : ${property.returnType}")
@@ -207,13 +206,7 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
     }
 
     private fun MoreKeys.createAutoKey(constructor: KFunction<R>): Builder {
-        val autoIdField = if (auto) {
-            KeyType(listOf(AutoKeyType(AutoKeyProperty(clazz.createHashCodeableKey()), prefix)) as List<FieldData<Any, Any, Any, Any>>)
-        } else {
-            null
-        }
-        return Builder(autoIdField, null, emptyList(), listOfNotNull(autoIdField) as List<FieldData<R, *, *, *>>).next(0, constructor)
-
+        return Builder(null, emptyList()).next(0, constructor)
     }
 
     fun fieldsRead(): Builder {
@@ -221,7 +214,7 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
             val key = KeyType(listOf(ReadSimpleType(SimpleTypeProperty(clazz, clazz.tableName()),
                                                     prefix)) as List<FieldData<Any, Any, Any, Any>>)
             val fields = listOf(key) as List<FieldData<R, *, *, *>>
-            return Builder(null, key, fields, fields)
+            return Builder(key, fields, fields)
         }
         return clazz.findAnnotation<MoreKeys>()
                 .default(1)
@@ -230,6 +223,8 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
                 })
     }
 }
+
+fun KClass<out Any>.createHashCode(obj: Any) = createHashCodeableKey().hashCodeX(obj)
 
 internal fun KClass<out Any>.createHashCodeableKey(moreKeys: MoreKeys = this.findAnnotation<MoreKeys>().default(1)) =
         createHashCodeables(moreKeys, moreKeys.amount).key()

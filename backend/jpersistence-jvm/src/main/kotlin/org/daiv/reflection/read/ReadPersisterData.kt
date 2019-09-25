@@ -266,7 +266,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
          * is written in one time, so that it is faster. Other fields may have an empty implementation
          * of this method
          */
-        val z = o.flatMap { fields.flatMap { f -> f.toStoreObjects(f.getObject(it) as T) } }
+        val z = o.flatMap { fields.flatMap { f -> f.toStoreObjects(f.hashCodeXIfAutoKey(it) as T) } }
         val x = toMany(z)
         x.forEach { t, u -> t.storeManyToOneObject(u as List<T>) }
     }
@@ -306,7 +306,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
     }
 
     private fun insertObject(o: R): List<InsertObject> {
-        return fields.flatMap { it.insertObject(it.getObject(o) as T) }
+        return fields.flatMap { it.insertObject(it.hashCodeXIfAutoKey(o) as T) }
     }
 
 

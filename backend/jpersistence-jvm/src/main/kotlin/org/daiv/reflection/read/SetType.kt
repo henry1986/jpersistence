@@ -30,21 +30,34 @@ import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.HelperTable
 import org.daiv.reflection.persister.Persister.Table
 import kotlin.reflect.KClass
+import kotlin.reflect.full.isSubclassOf
 
 
 internal class SetType<R : Any, T : Any> constructor(override val propertyData: SetProperty<R, T>,
                                                      val persisterProvider: PersisterProvider,
                                                      private val many: ManyList,
                                                      val persister: Persister,
-                                                     override val prefix: String?,
-                                                     val idField: KeyType) :
+                                                     override val prefix: String?) :
         CollectionFieldData<R, Set<T>, T, Set<T>> {
     private val helperTableName = "${propertyData.receiverType.simpleName}_$name"
 
+    private lateinit var idField: KeyType
+
     private val valueField = propertyData.clazz.toFieldData(persisterProvider, KeyAnnotation(propertyData.property), "value", persister)
 
-    override val helperTable = persister.HelperTable(listOf(idField, valueField) as List<FieldData<Any, Any, Any, Any>>, helperTableName, 2)
+    override val helperTable
+        get() = helper
 
+    private lateinit var helper: HelperTable
+
+    override fun onIdField(idField: KeyType) {
+        this.idField = idField
+        helper = persister.HelperTable(listOf(idField, valueField) as List<FieldData<Any, Any, Any, Any>>, helperTableName, 2)
+    }
+
+    override fun isType(a: Any): Boolean {
+        return a::class.isSubclassOf(Set::class)
+    }
 
     /**
      * get receiver object as parameter [r] and insert its values to the helper table as well as they

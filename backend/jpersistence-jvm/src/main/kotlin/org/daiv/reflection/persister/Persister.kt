@@ -243,9 +243,16 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         private fun Any.toList(): List<*> {
             val req = if (this is List<*>) {
-                this
+                this as List<Any>
             } else
                 listOf(this)
+            if (!readPersisterData.key.isKeyType(req)) {
+                val asList = listOf(req)
+                if (!readPersisterData.key.isKeyType(asList)) {
+                    throw RuntimeException("$this is no key for table $_tableName")
+                }
+                return asList
+            }
             return req
         }
 

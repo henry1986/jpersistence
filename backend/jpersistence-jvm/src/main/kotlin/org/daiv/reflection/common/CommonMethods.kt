@@ -36,11 +36,11 @@ fun <R : Any> ResultSet.getList(method: ResultSet.() -> R): List<R> {
 
 fun <T : Any> KClass<T>.tableName() = "${this.java.simpleName}"
 
+fun <T : Any> T?.asList() = listOfNotNull(this)
 
 internal class ReadValue(private val resultSet: ResultSet) {
     fun getObject(number: Int, clazz: KClass<Any>) = resultSet.getObject(number)!!
 }
-
 
 
 //class TableDataReadValue constructor(val tables: AllTables, val values: List<String>) : ReadValue {

@@ -69,11 +69,22 @@ data class DefProperty<R : Any, T : Any>(override val property: KProperty1<R, T>
     override val clazz: KClass<T> = property.returnType.classifier as KClass<T>
 
 }
+
 internal class AutoKeyProperty(val key: KeyHashCodeable) : PropertyData<Any, Any, Any> {
     override val clazz: KClass<Any> = Any::class
     override val receiverType: KClass<Any>? = Any::class
     override val name: String = "autoID"
-    override fun getObject(r: Any) = key.hashCodeX(r)
+    override fun getObject(r: Any): Int {
+        try {
+            return key.hashCodeX(r)
+        } catch (t: Throwable) {
+            throw t
+        }
+    }
+
+    fun hashCodeX(r:Any): Int {
+        return key.hashCodeX(r)
+    }
 }
 //
 //internal class HashCodeProperty(val hashCodeable: HashCodeable<Any>, val property: KProperty1<Any, Any>): PropertyData<Any,Any,Any>{
@@ -109,7 +120,7 @@ internal class MapReadable<R : Any, M : Any, T : Any>(override val property: KPr
     val keyClazz: KClass<M> = property.returnType.arguments.first().type!!.classifier as KClass<M>
 }
 
-internal interface MapProperty<R : Any, S : Any, T : Any, M : Any> : PropertyData<R, Map<M, T>, T> {
+internal interface MapProperty<R : Any, S : Any, T : Any, M : Any> : PropertyData<R, S, T> {
     val keyClazz: KClass<M>
     val property: KProperty1<R, S>
     override val receiverType: KClass<R>
@@ -134,5 +145,6 @@ data class ListMapProperty<R : Any, T : Any>(override val property: KProperty1<R
     override val clazz: KClass<T> = property.returnType.arguments.first().type!!.classifier as KClass<T>
     override val keyClazz: KClass<Int> = Int::class
     override val name = property.name
-    override fun getObject(r: R) = property.getObject(r).mapIndexed { index, t -> index to t }.toMap()
+    //    override fun getObject(r: R) = property.getObject(r).mapIndexed { index, t -> index to t }.toMap()
+    override fun getObject(o: R) = property.getObject(o)
 }

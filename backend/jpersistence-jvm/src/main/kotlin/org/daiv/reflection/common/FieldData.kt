@@ -27,6 +27,7 @@ import org.daiv.reflection.isPrimitiveOrWrapperOrStringOrEnum
 import org.daiv.reflection.persister.Persister.HelperTable
 import org.daiv.reflection.persister.Persister.Table
 import org.daiv.reflection.read.InsertObject
+import org.daiv.reflection.read.KeyType
 import org.daiv.reflection.read.NextSize
 import org.daiv.reflection.read.ReadPersisterData
 import kotlin.reflect.KClass
@@ -116,6 +117,12 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
 
     fun forwardedName() = prefixedName
 
+    fun isType(a: Any): Boolean {
+        return propertyData.clazz == a::class
+    }
+
+    fun keyValue(o: R) = propertyData.getObject(o)
+
     fun keySimpleType(r: R): Any
 
     fun collectionElementName(prefix: String?, i: Int): String {
@@ -142,9 +149,10 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
 //        return property.findAnnotation<ManyToOne>()?.let(onManyToOne) ?: run(noManyToOne)
 //    }
 
+    fun innerGetObject(o: R) = propertyData.getObject(o)
 
     /**
-     * gets the [property] value of [o]
+     * gets the [propertyData] value of [o]
      */
     override fun getObject(o: R): S {
         try {
@@ -156,6 +164,12 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
         }
     }
 
+    /**
+     * returns hashcodeX if this is a autoKey, [getObject] of [t] else
+     */
+    fun hashCodeXIfAutoKey(t: R): S {
+        return getObject(t)
+    }
 
     fun insertLists(r: List<R>)
     fun deleteLists(keySimpleType: Any)
@@ -186,6 +200,8 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
     fun persist()
     fun subFields(): List<FieldData<Any, Any, Any, Any>>
 
+    fun onIdField(idField: KeyType)
+
 //    fun makeString(any: R): String
 }
 
@@ -198,6 +214,7 @@ internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
     override fun clearLists() {}
     override fun copyTableName() = mapOf(prefixedName to prefixedName)
     override fun copyData(map: Map<String, String>) {}
+    override fun onIdField(idField: KeyType) {}
 }
 
 internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : FieldData<R, S, T, X> {

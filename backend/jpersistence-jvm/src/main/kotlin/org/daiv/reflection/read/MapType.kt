@@ -23,26 +23,100 @@
 
 package org.daiv.reflection.read
 
-import mu.KotlinLogging
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.HelperTable
+import kotlin.reflect.full.isSubclassOf
 
 
-internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val propertyData: MapProperty<R, X, T, M>,
-                                                           val persisterProvider: PersisterProvider,
-                                                           override val prefix: String?,
-                                                           val persister: Persister,
-                                                           val parentTableName: String,
-                                                           val converter: (Map<M, T>) -> X,
-                                                           val idField: KeyType) :
-        CollectionFieldData<R, Map<M, T>, T, X> {
+internal class MapType<R : Any, T : Any, M : Any> constructor(override val propertyData: DefaultMapProperty<R, T, M>,
+                                                              val persisterProvider: PersisterProvider,
+                                                              override val prefix: String?,
+                                                              val persister: Persister,
+                                                              val parentTableName: String,
+                                                              val mapEngine: MapEngine<R, M, T> = MapEngine(propertyData,
+                                                                                                            persisterProvider,
+                                                                                                            persister,
+                                                                                                            parentTableName) {
+                                                                  propertyData.getObject(it)
+                                                              }) :
+        CollectionFieldData<R, Map<M, T>, T, Map<M, T>>, MapEngineInterface<R, M, T> by mapEngine {
 
-    companion object {
-        val logger = KotlinLogging.logger { }
+    override fun isType(a: Any): Boolean {
+        return a::class.isSubclassOf(Map::class)
     }
 
+    override fun fNEqualsValue(o: Map<M, T>, sep: String): String {
+        return mapEngine.fNEqualsValue(o, sep)
+    }
+
+    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<Map<M, T>> {
+        return mapEngine.getValue(readValue, number, key)
+    }
+}
+
+
+internal class ListType<R : Any, T : Any>(override val propertyData: ListMapProperty<R, T>,
+                                          val persisterProvider: PersisterProvider,
+                                          override val prefix: String?,
+                                          val persister: Persister,
+                                          val parentTableName: String,
+                                          val converterToMap: (List<T>) -> Map<Int, T> = {
+                                              it.mapIndexed { index, t -> index to t }
+                                                      .toMap()
+                                          },
+                                          val mapEngine: MapEngine<R, Int, T> = MapEngine(propertyData,
+                                                                                          persisterProvider,
+                                                                                          persister,
+                                                                                          parentTableName) {
+                                              converterToMap(propertyData.getObject(it))
+                                          }) : CollectionFieldData<R, List<T>, T, List<T>>,
+                                               MapEngineInterface<R, Int, T> by mapEngine {
+
+    val converter: (Map<Int, T>) -> List<T> = {
+        it.toList()
+                .sortedBy { it.first }
+                .map { it.second }
+    }
+
+    override fun isType(a: Any): Boolean {
+        return a::class.isSubclassOf(List::class)
+    }
+
+    override fun fNEqualsValue(o: List<T>, sep: String): String {
+        return mapEngine.fNEqualsValue(converterToMap(o), sep)
+    }
+
+    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<List<T>> {
+        val ret = mapEngine.getValue(readValue, number, key)
+        return NextSize(converter(ret.t), ret.i)
+    }
+}
+
+internal interface MapEngineInterface<R : Any, M : Any, T : Any> {
+    val helperTable: HelperTable
+
+    fun onIdField(idField: KeyType)
+
+    fun createTableForeign(tableNames: Set<String>): Set<String>
+
+    fun insertLists(r: List<R>)
+    fun deleteLists(keySimpleType: Any)
+
+    fun clearLists()
+}
+
+internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapProperty<*, *, T, *>,
+                                                    val persisterProvider: PersisterProvider,
+                                                    val persister: Persister,
+                                                    val parentTableName: String,
+                                                    val getObjectMethod: (R) -> Map<M, T>) : MapEngineInterface<R, M, T> {
     override val helperTable: HelperTable
+    get() = helper
+
+    val name: String = propertyData.name
+    private lateinit var idField: KeyType
+    private lateinit var helper: HelperTable
 
     private val helperTableName = "${parentTableName}_${propertyData.receiverType.simpleName}_$name"
 
@@ -52,12 +126,13 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
     private val valueField = propertyData.clazz.toFieldData(persisterProvider, KeyAnnotation(propertyData.property), "value", persister)
 
 
-    init {
+    override fun onIdField(idField: KeyType) {
+        this.idField = idField
         val fields3 = listOf(idField, keyField, valueField) as List<FieldData<Any, Any, Any, Any>>
-        helperTable = persister.HelperTable(fields3, helperTableName, 2)
+        helper = persister.HelperTable(fields3, helperTableName, 2)
     }
 
-    override fun fNEqualsValue(o: Map<M, T>, sep: String): String {
+    fun fNEqualsValue(o: Map<M, T>, sep: String): String {
         return sequenceOf(o.values.map { valueField.fNEqualsValue(it, sep) },
                           o.keys.map { keyField.fNEqualsValue(it, sep) })
                 .joinToString(", ")
@@ -69,15 +144,15 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
 
     override fun insertLists(r: List<R>) {
         val b = r.flatMap { key ->
-            val p = getObject(key)
+            val p = getObjectMethod(key)
 
             p.map { key to it }
         }
         keyField.storeManyToOneObject(b.map { it.second.key })
         valueField.storeManyToOneObject(b.map { it.second.value })
         helperTable.insertListBy(b.map {
-            val x = idField.insertObject(idField.getObject(it.first))
-            val y = keyField.insertObject(keyField.getObject(it.second.key))
+            val x = idField.insertObject(idField.hashCodeXIfAutoKey(it.first))
+            val y = keyField.insertObject(keyField.hashCodeXIfAutoKey(it.second.key))
             val z = valueField.insertObject(it.second.value)
             x + y + z
         })
@@ -87,7 +162,7 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
         helperTable.deleteBy(idField.name, keySimpleType)
     }
 
-    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<X> {
+    fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<Map<M, T>> {
         if (key.isEmpty()) {
             throw NullPointerException("a List cannot be a key")
         }
@@ -96,7 +171,7 @@ internal class MapType<R : Any, T : Any, M : Any, X : Any>(override val property
         val map = read.map { it[1].value as M to it[2].value as T }
                 .toMap()
 
-        return NextSize(converter(map), number)
+        return NextSize(map, number)
     }
 
     override fun clearLists() {

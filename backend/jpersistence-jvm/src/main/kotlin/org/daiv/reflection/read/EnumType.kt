@@ -80,5 +80,4 @@ internal class AutoKeyType(override val propertyData: PropertyData<Any,Any,Any>,
         return "$prefixedName = ${makeString(o)}"
 //        return "$prefixedName = ${makeString(o)}"
     }
-
 }
