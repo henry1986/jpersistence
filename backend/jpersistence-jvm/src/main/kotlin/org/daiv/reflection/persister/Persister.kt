@@ -241,7 +241,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return read(fieldName, id, "ORDER BY ${readPersisterData.keyName()}")
         }
 
-        private fun Any.toList(): List<*> {
+        private fun Any.toList(): List<Any> {
             val req = if (this is List<*>) {
                 this as List<Any>
             } else
@@ -256,11 +256,23 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return req
         }
 
+        private fun List<Any>.toHashCodeX(): List<Any> {
+            return if (readPersisterData.key.isAuto()) {
+                map { readPersisterData.key.plainHashCodeXIfAutoKey(it) }
+            } else {
+                this
+            }
+        }
+
         fun read(id: Any): R? {
-            return read(idName, id.toList()).firstOrNull()
+            return read(idName, id.toList().toHashCodeX()).firstOrNull()
         }
 
         fun readMultiple(id: List<Any>): R? {
+            return read(idName, id.toHashCodeX()).firstOrNull()
+        }
+
+        fun readMultipleUseHashCode(id: List<Any>): R? {
             return read(idName, id).firstOrNull()
         }
 
@@ -273,18 +285,22 @@ class Persister(private val databaseInterface: DatabaseInterface,
 //        }
 
         fun insert(o: R) {
-            val createTable = "INSERT INTO $tableName ${readPersisterData.insert(o)}"
-            write(createTable)
-            readPersisterData.insertInnerFieldCollections(o)
-            tableEvent()
+            insert(listOf(o))
+//            val createTable = "INSERT INTO $tableName ${readPersisterData.insert(o)}"
+//            write(createTable)
+//            readPersisterData.insertInnerFieldCollections(o)
+//            tableEvent()
         }
 
         fun insert(o: List<R>) {
             if (o.isEmpty()) {
                 return
             }
-            write("INSERT INTO $tableName ${readPersisterData.insertList(o)}")
-            readPersisterData.insertLists(o)
+            val map = InsertMap(persister)
+            readPersisterData.putInsertRequests(tableName, map, o)
+            map.insertAll()
+//            write("INSERT INTO $tableName ${readPersisterData.insertList(o)}")
+//            readPersisterData.insertLists(o)
             tableEvent()
         }
 

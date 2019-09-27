@@ -24,6 +24,9 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.common.*
+import org.daiv.reflection.persister.InsertKey
+import org.daiv.reflection.persister.InsertMap
+import org.daiv.reflection.persister.InsertRequest
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.HelperTable
 import kotlin.reflect.full.isSubclassOf
@@ -97,6 +100,7 @@ internal interface MapEngineInterface<R : Any, M : Any, T : Any> {
     val helperTable: HelperTable
 
     fun onIdField(idField: KeyType)
+    fun toStoreData(insertMap: InsertMap, objectValue: List<R>)
 
     fun createTableForeign(tableNames: Set<String>): Set<String>
 
@@ -112,7 +116,7 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
                                                     val parentTableName: String,
                                                     val getObjectMethod: (R) -> Map<M, T>) : MapEngineInterface<R, M, T> {
     override val helperTable: HelperTable
-    get() = helper
+        get() = helper
 
     val name: String = propertyData.name
     private lateinit var idField: KeyType
@@ -124,6 +128,28 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
                                                              "key",
                                                              persister) as FieldData<Any, Any, Any, Any>
     private val valueField = propertyData.clazz.toFieldData(persisterProvider, KeyAnnotation(propertyData.property), "value", persister)
+
+
+    override fun toStoreData(insertMap: InsertMap, r: List<R>) {
+        val b = r.flatMap { key ->
+            val p = getObjectMethod(key)
+            p.map { key to it }
+        }
+        keyField.toStoreData(insertMap, b.map { it.second.key })
+        b.forEach {
+            val id1 = idField.hashCodeXIfAutoKey(it.first)
+            val key = keyField.getObject(it.second.key)
+            val insertKey = InsertKey(helperTableName, listOf(id1, key))
+            if (!insertMap.exists(insertKey)) {
+                val x = idField.insertObject(id1)
+                val y = keyField.insertObject(key)
+                val z = valueField.insertObject(it.second.value)
+                val insertRequest = InsertRequest(x + y + z)
+                insertMap.put(insertKey, insertRequest)
+            }
+        }
+        valueField.toStoreData(insertMap, b.map { it.second.value })
+    }
 
 
     override fun onIdField(idField: KeyType) {
@@ -145,17 +171,16 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
     override fun insertLists(r: List<R>) {
         val b = r.flatMap { key ->
             val p = getObjectMethod(key)
-
             p.map { key to it }
         }
         keyField.storeManyToOneObject(b.map { it.second.key })
-        valueField.storeManyToOneObject(b.map { it.second.value })
         helperTable.insertListBy(b.map {
             val x = idField.insertObject(idField.hashCodeXIfAutoKey(it.first))
-            val y = keyField.insertObject(keyField.hashCodeXIfAutoKey(it.second.key))
+            val y = keyField.insertObject(keyField.getObject(it.second.key))
             val z = valueField.insertObject(it.second.value)
             x + y + z
         })
+        valueField.storeManyToOneObject(b.map { it.second.value })
     }
 
     override fun deleteLists(keySimpleType: Any) {

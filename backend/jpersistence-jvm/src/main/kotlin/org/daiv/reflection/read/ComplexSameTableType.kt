@@ -24,6 +24,7 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.common.*
+import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.Persister
 
 internal class ComplexSameTableType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
@@ -32,6 +33,9 @@ internal class ComplexSameTableType<R : Any, T : Any> constructor(override val p
                                                                   parentTableName: String?,
                                                                   persister: Persister) :
         NoList<R, T, T> {
+    override fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {
+    }
+
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
     private val builder = FieldDataFactory(persisterProvider,
                                            propertyData.clazz,

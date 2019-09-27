@@ -24,6 +24,7 @@
 package org.daiv.reflection.common
 
 import org.daiv.reflection.isPrimitiveOrWrapperOrStringOrEnum
+import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.Persister.HelperTable
 import org.daiv.reflection.persister.Persister.Table
 import org.daiv.reflection.read.InsertObject
@@ -171,6 +172,10 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
         return getObject(t)
     }
 
+    fun plainHashCodeXIfAutoKey(t: T): T {
+        return t
+    }
+
     fun insertLists(r: List<R>)
     fun deleteLists(keySimpleType: Any)
     fun clearLists()
@@ -197,6 +202,7 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
 
     fun storeManyToOneObject(t: List<T>)
     fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects>
+    fun toStoreData(insertMap: InsertMap, objectValue: List<R>)
     fun persist()
     fun subFields(): List<FieldData<Any, Any, Any, Any>>
 
@@ -257,6 +263,8 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Fie
 
 internal interface SimpleTypes<R : Any, T : Any> : NoList<R, T, T> {
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
+    override fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {
+    }
 
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
 

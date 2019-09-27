@@ -26,6 +26,9 @@ package org.daiv.reflection.read
 import org.daiv.reflection.annotations.ManyList
 import org.daiv.reflection.annotations.SameTable
 import org.daiv.reflection.common.*
+import org.daiv.reflection.persister.InsertKey
+import org.daiv.reflection.persister.InsertMap
+import org.daiv.reflection.persister.InsertRequest
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.HelperTable
 import org.daiv.reflection.persister.Persister.Table
@@ -57,6 +60,26 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
 
     override fun isType(a: Any): Boolean {
         return a::class.isSubclassOf(Set::class)
+    }
+
+    override fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {
+        val b = objectValue.flatMap { key ->
+            val p = getObject(key).toList()
+            p.map { key to it }
+        }
+        valueField.toStoreData(insertMap, b.map { it.second })
+        b.forEach {
+            val id = idField.getObject(it.first)
+            val value = it.second
+            val insertKey = InsertKey(helperTableName, listOf(id, value))
+            if (!insertMap.exists(insertKey)) {
+                val x = idField.insertObject(id)
+                        .first()
+                val y = valueField.insertObject(value)
+                        .first()
+                insertMap.put(insertKey, InsertRequest(listOf(x, y)))
+            }
+        }
     }
 
     /**

@@ -1,11 +1,14 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.common.*
+import org.daiv.reflection.persister.InsertMap
 
 internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any>>,
                                    val key: KeyHashCodeable? = null,
                                    val idFieldIfAuto: KeyType? = null) : NoList<Any, List<Any>, Any> {
     override val propertyData: PropertyData<Any, List<Any>, Any> = KeyTypeProperty(fields)
+
+    fun isAuto() = key != null
 
     override val prefix: String?
         get() = fields.first().prefix
@@ -13,6 +16,9 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
     override fun getColumnValue(readValue: ReadValue): Any {
         return fields.first()
                 .getColumnValue(readValue)
+    }
+
+    override fun toStoreData(insertMap: InsertMap, objectValue: List<Any>) {
     }
 
     override fun keySimpleType(r: Any): Any {
@@ -39,11 +45,15 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
     }
 
     /**
-     * returns hashcodeX if this is a autoKey, [getObject] of [t] else
+     * returns hashcodeX of [getObject] of [t] if this is a autoKey, [getObject] of [t] else
      */
     override fun hashCodeXIfAutoKey(t: Any): List<Any> {
         val obj = getObject(t)
         return key?.hashCodeX(obj[0])?.asList() ?: obj
+    }
+
+    override fun plainHashCodeXIfAutoKey(t: Any): Any {
+        return key?.hashCodeX(t) ?: t
     }
 
     override fun getObject(o: Any): List<Any> {

@@ -72,7 +72,8 @@ internal class AutoKeyType(override val propertyData: PropertyData<Any,Any,Any>,
     }
 
     override fun makeStringOnEqualsValue(t: Any): String {
-        return propertyData.getObject(t).toString()
+        return t.toString()
+//        return propertyData.getObject(t).toString()
 
     }
 

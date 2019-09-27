@@ -26,6 +26,9 @@ package org.daiv.reflection.read
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
 import org.daiv.reflection.common.FieldData.JoinName
+import org.daiv.reflection.persister.InsertKey
+import org.daiv.reflection.persister.InsertMap
+import org.daiv.reflection.persister.InsertRequest
 import org.daiv.reflection.persister.Persister
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
@@ -184,7 +187,6 @@ internal interface InternalRPD<R : Any, T : Any> {
         val headString = insertObjects.first()
                 .insertHeadString()
         val valueString = insertObjects.joinToString(separator = "), (") { it.insertValueString() }
-
         return "($headString ) VALUES ($valueString);"
     }
 
@@ -271,6 +273,15 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
         x.forEach { t, u -> t.storeManyToOneObject(u as List<T>) }
     }
 
+    fun putInsertRequests(tableName: String, insertMap: InsertMap, o: List<R>) {
+        o.map {
+            val insertKey = InsertKey(tableName, key.hashCodeXIfAutoKey(it))
+            if (!insertMap.exists(insertKey)) {
+                insertMap.put(insertKey, InsertRequest(insertObject(it)))
+                fields.forEach {f -> f.toStoreData(insertMap, listOf(it)) }
+            }
+        }
+    }
 
     fun insert(o: R): String {
         toManyStore(listOf(o))

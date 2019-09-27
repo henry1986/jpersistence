@@ -33,6 +33,11 @@ class BarTest
                @MoreKeys(2)
                data class Descriptor(val start: WavePoint, val end: WavePoint, val isValid: Boolean)
 
+               @MoreKeys(2)
+               data class ComplexObject(val x: Int, val y: Int, val s: String)
+
+               data class ListHolder(val x: Int, val list: List<ComplexObject>)
+
 
                data class RawWave(val id: Int, val wavePoints: List<WavePoint>) {
                    constructor(wavePoints: List<WavePoint>) : this(wavePoints.hashCode(), wavePoints)
@@ -196,6 +201,20 @@ class BarTest
                            table.insert(wave1)
                            val read = table.read(listOf(listOf(wp1, wp2, wp3), listOf(wp2, wp3)))
                            assertEquals(wave1, read)
+                       }
+                       it("test complexKey with more primary keys in list") {
+                           val table = persister.Table(ListHolder::class)
+                           table.persist()
+                           val c1 = ComplexObject(1, 2, "hallo1")
+                           val c2 = ComplexObject(1, 2, "hallo2")
+                           val c3 = ComplexObject(1, 3, "hallo3")
+                           val c4 = ComplexObject(1, 4, "hallo4")
+                           val lists = listOf(ListHolder(2, listOf(c1, c2)),
+                                              ListHolder(3, listOf(c1, c2, c3)),
+                                              ListHolder(4, listOf(c3, c4)))
+                           table.insert(lists)
+                           val read = table.readAll()
+                           assertEquals(lists, read)
                        }
                    }
                    on("double reference") {
