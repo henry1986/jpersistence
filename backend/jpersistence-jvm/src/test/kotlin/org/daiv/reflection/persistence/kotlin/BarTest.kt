@@ -205,7 +205,7 @@ class BarTest
                        it("test complexKey with more primary keys in list") {
                            val table = persister.Table(ListHolder::class)
                            table.persist()
-                           val c1 = ComplexObject(1, 2, "hallo1")
+                           val c1 = ComplexObject(1, 1, "hallo1")
                            val c2 = ComplexObject(1, 2, "hallo2")
                            val c3 = ComplexObject(1, 3, "hallo3")
                            val c4 = ComplexObject(1, 4, "hallo4")
@@ -214,7 +214,10 @@ class BarTest
                                               ListHolder(4, listOf(c3, c4)))
                            table.insert(lists)
                            val read = table.readAll()
-                           assertEquals(lists, read)
+                           assertEquals(lists[0], read[0], "0")
+                           assertEquals(lists[1], read[1], "1")
+                           assertEquals(lists[2], read[2], "2")
+                           assertEquals(lists, read, "all")
                        }
                    }
                    on("double reference") {

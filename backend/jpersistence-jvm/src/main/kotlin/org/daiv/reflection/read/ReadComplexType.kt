@@ -24,6 +24,7 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.annotations.ManyToOne
+import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertKey
 import org.daiv.reflection.persister.InsertMap
@@ -31,6 +32,7 @@ import org.daiv.reflection.persister.InsertRequest
 import org.daiv.reflection.persister.Persister
 
 internal class ReadComplexType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
+                                                             val moreKeys: MoreKeys,
                                                              val persisterProvider: PersisterProvider,
                                                              val manyToOne: ManyToOne,
                                                              private val persister: Persister,
@@ -53,6 +55,8 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         get() = persisterProvider.table(providerKey) as Persister.Table<T>
 
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = persisterData.fields as List<FieldData<Any, Any, Any, Any>>
+
+    override fun numberOfKeyFields(): Int = moreKeys.amount
 
     override fun storeManyToOneObject(t: List<T>) {
         persisterData.storeManyToOneObject(t, table)

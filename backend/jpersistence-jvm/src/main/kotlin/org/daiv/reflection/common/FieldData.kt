@@ -118,6 +118,8 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
 
     fun forwardedName() = prefixedName
 
+    fun numberOfKeyFields(): Int
+
     fun isType(a: Any): Boolean {
         return propertyData.clazz == a::class
     }
@@ -225,6 +227,9 @@ internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
 
 internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : FieldData<R, S, T, X> {
     val helperTable: HelperTable
+
+    override fun numberOfKeyFields() = 0
+
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
     override fun keySimpleType(r: R) = throw RuntimeException("a collection cannot be a key")
     override fun key() = throw RuntimeException("a collection cannot be a key")
@@ -262,6 +267,8 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Fie
 }
 
 internal interface SimpleTypes<R : Any, T : Any> : NoList<R, T, T> {
+    override fun numberOfKeyFields(): Int = 1
+
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
     override fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {
     }

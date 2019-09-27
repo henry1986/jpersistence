@@ -155,7 +155,9 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
     override fun onIdField(idField: KeyType) {
         this.idField = idField
         val fields3 = listOf(idField, keyField, valueField) as List<FieldData<Any, Any, Any, Any>>
-        helper = persister.HelperTable(fields3, helperTableName, 2)
+        helper = persister.HelperTable(fields3,
+                                       helperTableName,
+                                       idField.numberOfKeyFields() + keyField.numberOfKeyFields() + valueField.numberOfKeyFields())
     }
 
     fun fNEqualsValue(o: Map<M, T>, sep: String): String {

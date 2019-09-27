@@ -53,7 +53,10 @@ internal fun <T : Any> T?.default(clazz: KClass<T>, vararg args: Any): T {
 }
 
 fun MoreKeys?.default(i: Int = 1) = default(MoreKeys::class, i, false)
-fun moreKeys(i: Int) = MoreKeys::class.createObject(i, false)
+//fun moreKeys(i: Int) = MoreKeys::class.createObject(i, false)
+
+internal fun <T : Any> KClass<T>.moreKeys() = this.findAnnotation<MoreKeys>()
+        .default(1)
 
 class KeyAnnotation(private val property: KProperty1<*, *>) : CheckAnnotation {
     override fun isSameTabe(): Boolean {
@@ -81,6 +84,7 @@ internal fun <T : Any> KClass<T>.toFieldData(persisterProvider: PersisterProvide
             ComplexSameTableType(propertyData, persisterProvider, prefix, null, persister) as FieldData<Any, Any, T, Any>
         }
         this.isNoMapAndNoListAndNoSet() -> ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
+                                                           moreKeys(),
                                                            persisterProvider,
                                                            checkAnnotation.manyToOne(),
                                                            persister, prefix) as FieldData<Any, Any, T, Any>
@@ -161,6 +165,7 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
                 }
                 (property.returnType.classifier as KClass<out Any>).isNoMapAndNoListAndNoSet() ->
                     ReadComplexType(DefProperty(property, clazz),
+                                    moreKeys,
                                     persisterProvider,
                                     property.findAnnotation<ManyToOne>().default(ManyToOne::class, ""),
                                     persister, prefix)

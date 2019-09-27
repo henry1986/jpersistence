@@ -18,6 +18,8 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
                 .getColumnValue(readValue)
     }
 
+    override fun numberOfKeyFields(): Int = fields.size
+
     override fun toStoreData(insertMap: InsertMap, objectValue: List<Any>) {
     }
 

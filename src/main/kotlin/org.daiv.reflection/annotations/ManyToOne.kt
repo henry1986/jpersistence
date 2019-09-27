@@ -37,7 +37,7 @@ annotation class ManyList(val tableName: String = "")
 @Retention(AnnotationRetention.RUNTIME)
 annotation class ManyMap(val tableNameKey: String = "", val tableNameValue: String = "")
 
-
+@Deprecated("Do not use this anymore - use @MoreKeys instead")
 @Target(AnnotationTarget.PROPERTY)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class SameTable

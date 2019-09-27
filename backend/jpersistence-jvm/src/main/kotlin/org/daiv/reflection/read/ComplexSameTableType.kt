@@ -27,6 +27,7 @@ import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.Persister
 
+@Deprecated("Do not use this anymore")
 internal class ComplexSameTableType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
                                                                   val persisterProvider: PersisterProvider,
                                                                   override val prefix: String?,
@@ -45,6 +46,8 @@ internal class ComplexSameTableType<R : Any, T : Any> constructor(override val p
     private val persisterData: ReadPersisterData<T, Any> = ReadPersisterData(builder.idField!!,
                                                                              builder.fields as List<FieldData<T, Any, Any, Any>>,
                                                                              method = ReadPersisterData.readValue(propertyData.clazz))
+
+    override fun numberOfKeyFields(): Int = 1
 
     override fun subFields() = persisterData.fields as List<FieldData<Any, Any, Any, Any>>
 
