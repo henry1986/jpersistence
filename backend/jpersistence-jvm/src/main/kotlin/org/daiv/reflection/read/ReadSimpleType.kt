@@ -28,7 +28,7 @@ import java.sql.SQLException
 import kotlin.reflect.KClass
 
 internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
-        SimpleTypes<R,T> {
+        SimpleTypes<R, T> {
 
     override fun toTableHead() = toTableHead(propertyData.clazz, prefixedName)
 
@@ -68,8 +68,9 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
 }
 
 
-object SimpleHashCodeable : HashCodeable<Any> {
-    override fun hashCodeX(o: Any): Int {
+internal data class SimpleHashCodeable(val fieldReadable: FieldReadable<Any, Any>) : HashCodeable<Any>,
+                                                                                     FieldReadable<Any, Any> by fieldReadable {
+    override fun plainHashCodeX(o: Any): Int {
         return when (o::class) {
             Int::class -> {
                 o as Int
@@ -94,13 +95,20 @@ object SimpleHashCodeable : HashCodeable<Any> {
         }
     }
 
-    override fun getObject(o: Any) = o
+    override fun hashCodeX(r: Any): Int {
+        val o = getObject(r)
+        return plainHashCodeX(o)
+    }
 }
 
 object EnumHashCodeable : HashCodeable<Any> {
-    override fun hashCodeX(t: Any): Int {
+    override fun plainHashCodeX(t: Any): Int {
         return t.toString()
                 .hashCodeX()
+    }
+
+    override fun hashCodeX(t: Any): Int {
+        return plainHashCodeX(t)
     }
 
     override fun getObject(o: Any) = o
@@ -110,25 +118,77 @@ internal class MapHashCodeable<M : Any, T : Any> constructor(val keyHashCodeable
                                                              val valueHashCodeable: KeyHashCodeable,
                                                              val readable: MapReadable<Any, M, T>) : HashCodeable<Map<M, T>>,
                                                                                                      FieldReadable<Any, Map<M, T>> by readable {
+    override fun plainHashCodeX(t: Any): Int {
+        try {
+            t as Map<M, T>
+        } catch (t: Throwable) {
+            throw t
+        }
+        return t.iterator()
+                .hashCodeX { keyHashCodeable.hashCodeX(this.key) xor valueHashCodeable.hashCodeX(this.value) }
+    }
+
     override fun hashCodeX(t: Any) = getObject(t).iterator()
             .hashCodeX { keyHashCodeable.hashCodeX(this.key) xor valueHashCodeable.hashCodeX(this.value) }
 }
 
-internal class ListHashCodeable<T : Any> constructor(val valueHashCodeable: KeyHashCodeable, listReadable: ListReadable<T>) :
+internal class ListHashCodeable<T : Any> constructor(val valueHashCodeable: HashCodeable<Any>, listReadable: ListReadable<T>) :
         HashCodeable<List<T>>, FieldReadable<Any, List<T>> by listReadable {
-    override fun hashCodeX(t: Any) = (t as List<T>).iterator()
-            .hashCodeX { valueHashCodeable.hashCodeX(this) }
+    override fun plainHashCodeX(t: Any): Int {
+        try {
+            t as List<Any>
+        } catch (t: Throwable) {
+            throw t
+        }
+        return t.iterator()
+                .hashCodeX { valueHashCodeable.hashCodeX(this) }
+    }
+
+    override fun hashCodeX(r: Any): Int {
+        val t = getObject(r)
+        return t.iterator()
+                .hashCodeX { valueHashCodeable.hashCodeX(this) }
+    }
 }
 
-internal class SetHashCodeable(val valueHashCodeable: KeyHashCodeable, setReadable: PropertyReader<Any, Set<Any>>) :
+internal class SetHashCodeable(val valueHashCodeable: HashCodeable<Any>, setReadable: PropertyReader<Any, Set<Any>>) :
         HashCodeable<Set<Any>>, FieldReadable<Any, Set<Any>> by setReadable {
+    override fun plainHashCodeX(t: Any): Int {
+        try {
+            t as Set<Any>
+        } catch (t: Throwable) {
+            throw t
+        }
+        return t.iterator()
+                .hashCodeX { valueHashCodeable.hashCodeX(this) }
+    }
+
     override fun hashCodeX(t: Any) = getObject(t).iterator().hashCodeX { valueHashCodeable.hashCodeX(this) }
 }
 
-internal class ComplexHashCodeable(val key: KeyHashCodeable, complexReadable: FieldReadable<Any, Any>) : HashCodeable<Any>,
-                                                                                                         FieldReadable<Any, Any> by complexReadable {
+internal class ComplexHashCodeable(val clazz: KClass<Any>,
+                                   val provider: HashCodeableProvider,
+                                   val complexReadable: FieldReadable<Any, Any>) :
+        HashCodeable<Any>,
+        FieldReadable<Any, Any> {
+
+    init {
+        provider.register(clazz)
+    }
+
+    val key: KeyHashCodeable
+        get() = provider.hashCodeable(clazz)
+
+    override fun getObject(o: Any): Any {
+        return complexReadable.getObject(o)
+    }
+
     override fun hashCodeX(t: Any): Int {
-        return key.hashCodeX(key.getObject(t))
+        return key.hashCodeX(getObject(t))
+    }
+
+    override fun plainHashCodeX(t: Any): Int {
+        return key.hashCodeX(t)
     }
 }
 
@@ -136,14 +196,34 @@ internal class ComplexSameTableHashCodeable(val list: List<HashCodeable<out Any>
         HashCodeable<Any>,
         FieldReadable<Any, Any> by complexReadable {
     override fun hashCodeX(t: Any) = list.hashCodeX { this.hashCodeX(this.getObject(t)) }
+    override fun plainHashCodeX(t: Any): Int {
+        return list.hashCodeX { this.hashCodeX(t) }
+    }
 }
 
-internal class KeyHashCodeable(val list: List<HashCodeable<out Any>>) : HashCodeable<List<Any>> {
+internal class KeyHashCodeable constructor(val list: List<HashCodeable<out Any>>) : HashCodeable<List<Any>> {
     override fun getObject(o: Any): List<Any> {
         return list.map { it.getObject(o) }
     }
 
-    override fun hashCodeX(t: Any) = list.map { it.hashCodeX(t) }.hashCodeX()
+    override fun plainHashCodeX(t: Any): Int {
+        try {
+            t as List<Any>
+        } catch (t: Throwable) {
+            throw t
+        }
+        return list.mapIndexed { i, e -> e.plainHashCodeX(t[i]) }
+                .hashCodeX()
+    }
+
+    override fun hashCodeX(r: Any): Int {
+        try {
+            return list.mapIndexed { i, e -> e.hashCodeX(r) }
+                    .hashCodeX()
+        } catch (t: Throwable) {
+            throw t
+        }
+    }
 }
 
 

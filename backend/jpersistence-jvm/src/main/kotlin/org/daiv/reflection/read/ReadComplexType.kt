@@ -75,7 +75,7 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         objectValue.forEach {
             val obj = getObject(it)
             val key = persisterData.key.hashCodeXIfAutoKey(obj)
-            val read = table.read(key)
+            val read = table.readMultipleUseHashCode(key)
             if (read != null) {
                 read.checkDBValue(obj)
                 val insertKey = InsertKey(table.tableName, key)

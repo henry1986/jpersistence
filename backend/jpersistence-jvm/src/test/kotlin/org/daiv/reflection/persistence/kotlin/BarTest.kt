@@ -174,8 +174,8 @@ class BarTest
                            val wp2 = Tick(650000L, 0.9, OfferSide.BID)
                            val wp3 = Tick(620000L, 1.9, OfferSide.BID)
                            val wave1 = TickList(listOf(wp1, wp2, wp3))
-                           val hashCode = TickList::class.createHashCode(wave1.ticks)
-                           assertEquals(30815, hashCode)
+                           val hashCode = TickList::class.createHashCode(listOf(wave1.ticks))
+                           assertEquals(501330605, hashCode)
                            table.insert(wave1)
                            val read = table.read(listOf(wp1, wp2, wp3))
                            assertEquals(wave1, read)
@@ -220,30 +220,44 @@ class BarTest
                            assertEquals(lists, read, "all")
                        }
                    }
+
                    on("double reference") {
                        it("test double reference") {
                            val table = persister.Table(WPDescriptor::class)
                            val wpTable = persister.Table(WavePoint::class)
                            val tickTable = persister.Table(Tick::class)
+
                            wpTable.truncate()
                            tickTable.truncate()
                            table.persist()
-                           val wp1 = WavePoint(Tick(500000L, 0.5, OfferSide.BID), true, m1)
-                           val wp2 = WavePoint(Tick(600000L, 0.9, OfferSide.BID), false, m1)
-                           val wp3 = WavePoint(Tick(620000L, 1.9, OfferSide.BID), true, m1)
-                           val wp4 = WavePoint(Tick(650000L, 1.8, OfferSide.BID), true, m1)
+
+                           val wp1 = WavePoint(Tick(100L, 1.0, OfferSide.BID), true, m1)
+                           val wp2 = WavePoint(Tick(200L, 2.0, OfferSide.BID), false, m1)
+                           val wp3 = WavePoint(Tick(300L, 3.0, OfferSide.BID), true, m1)
+                           val wp4 = WavePoint(Tick(400L, 4.0, OfferSide.BID), false, m1)
                            val des1 = WPDescriptor(wp1, wp2, emptyList())
                            val des2 = WPDescriptor(wp2, wp3, emptyList())
                            val des3 = WPDescriptor(wp3, wp4, emptyList())
                            val wave1 = WPWave(listOf(des1, des2))
-                           val wave2 = WPWave(listOf(des2, des3))
+
                            val des4 = WPDescriptor(wp1, wp3, listOf(wave1))
-                           val des5 = WPDescriptor(wp2, wp4, listOf(wave2))
-                           val wave3 = WPWave(listOf(des4, des3))
-                           val des6 = WPDescriptor(wp1, wp4, listOf(wave3))
+
+                           val wave2 = WPWave(listOf(des4, des3))
+                           val hashCodeDes1 = WPDescriptor::class.createHashCode(listOf(des1.wp1, des1.wp2))
+
+                           val hashCode1 = WPWave::class.createHashCode(listOf(wave1.wpDescriptors))
+                           val hashCode2 = WPWave::class.createHashCode(listOf(wave2.wpDescriptors))
+
+                           val des6 = WPDescriptor(wp1, wp4, listOf(wave2))
+
                            table.insert(des6)
+
                            val read = table.read(listOf(wp1, wp4))!!
+
                            assertEquals(des6, read)
+//                           table.insert(des4)
+//                           val read = table.read(listOf(wp1, wp3))!!
+//                           assertEquals(des4, read)
                        }
                    }
                    afterGroup { database.delete() }

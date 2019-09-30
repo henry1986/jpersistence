@@ -98,6 +98,7 @@ internal interface FieldReadable<R : Any, S : Any> {
 
 internal interface HashCodeable<S : Any> : FieldReadable<Any, S> {
     fun hashCodeX(t: Any): Int
+    fun plainHashCodeX(t:Any):Int
 }
 
 fun toPrefixedName(prefix: String?, name: String) = prefix?.let { "${it}_$name" } ?: name

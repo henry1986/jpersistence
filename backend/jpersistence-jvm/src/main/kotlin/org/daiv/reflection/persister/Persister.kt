@@ -258,7 +258,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         private fun List<Any>.toHashCodeX(): List<Any> {
             return if (readPersisterData.key.isAuto()) {
-                map { readPersisterData.key.plainHashCodeXIfAutoKey(it) }
+                listOf(readPersisterData.key.plainHashCodeXIfAutoKey(this))
             } else {
                 this
             }

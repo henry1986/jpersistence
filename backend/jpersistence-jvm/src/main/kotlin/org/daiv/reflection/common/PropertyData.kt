@@ -49,6 +49,10 @@ private fun <R : Any, T : Any> KProperty1<R, T>.getObject(r: R): T {
     }
 }
 
+object SimpleTypeReadable : FieldReadable<Any, Any> {
+    override fun getObject(o: Any) = o
+}
+
 data class SimpleTypeProperty<R : Any> constructor(override val clazz: KClass<R>, override val name: String) :
         PropertyData<R, R, R> {
     override val receiverType: KClass<R>? = null
@@ -82,7 +86,7 @@ internal class AutoKeyProperty(val key: KeyHashCodeable) : PropertyData<Any, Any
         }
     }
 
-    fun hashCodeX(r:Any): Int {
+    fun hashCodeX(r: Any): Int {
         return key.hashCodeX(r)
     }
 }

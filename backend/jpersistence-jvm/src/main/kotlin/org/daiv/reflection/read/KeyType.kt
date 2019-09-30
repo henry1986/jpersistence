@@ -51,11 +51,11 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
      */
     override fun hashCodeXIfAutoKey(t: Any): List<Any> {
         val obj = getObject(t)
-        return key?.hashCodeX(obj[0])?.asList() ?: obj
+        return key?.plainHashCodeX(obj)?.asList() ?: obj
     }
 
     override fun plainHashCodeXIfAutoKey(t: Any): Any {
-        return key?.hashCodeX(t) ?: t
+        return key?.plainHashCodeX(t) ?: t
     }
 
     override fun getObject(o: Any): List<Any> {

@@ -33,3 +33,9 @@ internal data class InsertMap(val persister: Persister) {
         res.map { persister.write("INSERT INTO ${it.key} ${insertListBy(it.value)} ") }
     }
 }
+
+//internal data class ReadMap(){
+//    private val map: MutableMap<InsertKey, Any> = mutableMapOf()
+//
+//    fun read(key:Any)
+//}
