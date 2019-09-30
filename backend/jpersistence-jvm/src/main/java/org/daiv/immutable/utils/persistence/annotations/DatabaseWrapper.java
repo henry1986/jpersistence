@@ -88,6 +88,7 @@ public class DatabaseWrapper implements DatabaseInterface {
         return new DatabaseWrapper(path);
     }
 
+    @Override
     public String getPath(){
         return DB_PATH;
     }

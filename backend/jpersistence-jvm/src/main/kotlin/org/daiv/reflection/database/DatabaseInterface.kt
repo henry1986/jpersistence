@@ -23,10 +23,92 @@
 
 package org.daiv.reflection.database
 
+import org.daiv.reflection.persister.Persister
+import java.io.File
+import java.sql.Connection
+import java.sql.DriverManager
+import java.sql.SQLException
 import java.sql.Statement
 
-interface DatabaseInterface : SimpleDatabase{
+interface DatabaseInterface : SimpleDatabase {
     val statement: Statement
     fun commit()
-    val path:String
+    val path: String
 }
+
+/**
+ * class that automatically opens a connection - to create a new connection,
+ * a new instance must be created. Calling [open] does nothing
+ */
+class DatabaseHandler constructor(override val path: String) : DatabaseInterface {
+
+    private val connection: Connection
+
+    init {
+        try {
+            Class.forName("org.sqlite.JDBC")
+        } catch (e: ClassNotFoundException) {
+            throw RuntimeException(e)
+        }
+        try {
+            connection = DriverManager.getConnection("jdbc:sqlite:$path")
+            if (!connection!!.isClosed) {
+                println("...Connection established to $path")
+            }
+        } catch (e: SQLException) {
+            throw RuntimeException(e)
+        }
+
+        Runtime.getRuntime()
+                .addShutdownHook(object : Thread() {
+                    override fun run() {
+                        close()
+                    }
+                })
+    }
+
+    override val statement: Statement
+        get() {
+            try {
+                if (connection == null) {
+                    throw NullPointerException("Database connection not opened")
+                }
+                return connection!!.createStatement()
+            } catch (e: SQLException) {
+                throw RuntimeException(e)
+            }
+
+        }
+
+    override fun close() {
+        try {
+            if (!connection!!.isClosed && connection != null) {
+                connection!!.close()
+                if (connection!!.isClosed)
+                    println("Connection to DatabaseInterface closed")
+            }
+        } catch (e: SQLException) {
+            throw RuntimeException(e)
+        }
+
+    }
+
+    override fun open() {
+    }
+
+    override fun delete(): Boolean {
+        return File(path).delete()
+    }
+
+    override fun commit() {
+        try {
+            connection!!.commit()
+        } catch (e: SQLException) {
+            throw RuntimeException(e)
+        }
+
+    }
+}
+
+fun persister(path: String) = Persister(DatabaseHandler(path))
+

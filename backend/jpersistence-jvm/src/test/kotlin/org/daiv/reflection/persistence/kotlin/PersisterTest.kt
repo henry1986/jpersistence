@@ -29,6 +29,7 @@ import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
 import org.daiv.reflection.annotations.ManyList
 import org.daiv.reflection.annotations.ManyMap
 import org.daiv.reflection.annotations.ManyToOne
+import org.daiv.reflection.database.persister
 import org.daiv.reflection.persister.DBChangeListener
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.read.ReadPersisterData
@@ -94,9 +95,10 @@ class PersisterTest :
                      }
                      afterGroup { o.delete() }
                  }
-                 val database = DatabaseWrapper.create("ReadValue.db")
-                 database.open()
-                 val persister = Persister(database)
+//                 val database = DatabaseWrapper.create("ReadValue.db")
+//                 database.open()
+//                 val persister = Persister(database)
+                 val persister = persister("ReadValue.db")
                  on("special reads") {
                      val persisterListener = mockk<DBChangeListener>(relaxed = true)
                      val tableListener = mockk<DBChangeListener>(relaxed = true)
@@ -261,7 +263,7 @@ class PersisterTest :
                          assertEquals(insert, xRes)
                      }
                  }
-                 afterGroup { database.delete() }
+                 afterGroup { persister.delete() }
              }
          })
 

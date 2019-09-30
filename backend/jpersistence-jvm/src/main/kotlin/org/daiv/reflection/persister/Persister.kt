@@ -44,6 +44,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
                 private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
         Registerer<DBChangeListener> by registerer {
 
+    val logger = KotlinLogging.logger ("Persister - ${databaseInterface.path}")
+    fun delete() = databaseInterface.delete()
+
     private fun event() {
         registerer.forEach(DBChangeListener::onChange)
     }
@@ -484,6 +487,5 @@ class Persister(private val databaseInterface: DatabaseInterface,
         private const val comma = ", "
         private const val and = " and "
         internal const val createTable = "CREATE TABLE IF NOT EXISTS"
-        private val logger = KotlinLogging.logger {}
     }
 }
