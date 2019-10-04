@@ -23,6 +23,7 @@
 
 package org.daiv.reflection.database
 
+import mu.KotlinLogging
 import org.daiv.reflection.persister.Persister
 import java.io.File
 import java.sql.Connection
@@ -42,6 +43,8 @@ interface DatabaseInterface : SimpleDatabase {
  */
 class DatabaseHandler constructor(override val path: String) : DatabaseInterface {
 
+    val logger = KotlinLogging.logger{}
+
     private val connection: Connection
 
     init {
@@ -53,7 +56,7 @@ class DatabaseHandler constructor(override val path: String) : DatabaseInterface
         try {
             connection = DriverManager.getConnection("jdbc:sqlite:$path")
             if (!connection!!.isClosed) {
-                println("...Connection established to $path")
+                logger.info("...Connection established to $path")
             }
         } catch (e: SQLException) {
             throw RuntimeException(e)
@@ -85,7 +88,7 @@ class DatabaseHandler constructor(override val path: String) : DatabaseInterface
             if (!connection!!.isClosed && connection != null) {
                 connection!!.close()
                 if (connection!!.isClosed)
-                    println("Connection to DatabaseInterface closed")
+                    logger.info("Connection to DatabaseInterface closed")
             }
         } catch (e: SQLException) {
             throw RuntimeException(e)

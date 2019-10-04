@@ -34,7 +34,6 @@ import org.daiv.reflection.persister.Persister
 internal class ReadComplexType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
                                                              val moreKeys: MoreKeys,
                                                              val persisterProvider: PersisterProvider,
-                                                             val manyToOne: ManyToOne,
                                                              private val persister: Persister,
                                                              override val prefix: String?) : NoList<R, T, T> {
     val providerKey = ProviderKey(propertyData, prefixedName)
@@ -45,7 +44,7 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
 //                                                                             prefix = prefixedName,
 //                                                                             parentTableName = manyToOne.tableName)
     init {
-        persisterProvider.register(providerKey, manyToOne.tableName)
+        persisterProvider.register(providerKey)
     }
 
     private val persisterData

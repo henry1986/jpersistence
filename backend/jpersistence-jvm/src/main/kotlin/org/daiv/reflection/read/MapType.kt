@@ -29,6 +29,7 @@ import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.InsertRequest
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.HelperTable
+import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
 
 
@@ -36,11 +37,11 @@ internal class MapType<R : Any, T : Any, M : Any> constructor(override val prope
                                                               val persisterProvider: PersisterProvider,
                                                               override val prefix: String?,
                                                               val persister: Persister,
-                                                              val parentTableName: String,
+                                                              val parentClass: KClass<R>,
                                                               val mapEngine: MapEngine<R, M, T> = MapEngine(propertyData,
                                                                                                             persisterProvider,
                                                                                                             persister,
-                                                                                                            parentTableName) {
+                                                                                                            parentClass) {
                                                                   propertyData.getObject(it)
                                                               }) :
         CollectionFieldData<R, Map<M, T>, T, Map<M, T>>, MapEngineInterface<R, M, T> by mapEngine {
@@ -63,7 +64,7 @@ internal class ListType<R : Any, T : Any>(override val propertyData: ListMapProp
                                           val persisterProvider: PersisterProvider,
                                           override val prefix: String?,
                                           val persister: Persister,
-                                          val parentTableName: String,
+                                          val parentClass: KClass<R>,
                                           val converterToMap: (List<T>) -> Map<Int, T> = {
                                               it.mapIndexed { index, t -> index to t }
                                                       .toMap()
@@ -71,7 +72,7 @@ internal class ListType<R : Any, T : Any>(override val propertyData: ListMapProp
                                           val mapEngine: MapEngine<R, Int, T> = MapEngine(propertyData,
                                                                                           persisterProvider,
                                                                                           persister,
-                                                                                          parentTableName) {
+                                                                                          parentClass) {
                                               converterToMap(propertyData.getObject(it))
                                           }) : CollectionFieldData<R, List<T>, T, List<T>>,
                                                MapEngineInterface<R, Int, T> by mapEngine {
@@ -113,7 +114,7 @@ internal interface MapEngineInterface<R : Any, M : Any, T : Any> {
 internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapProperty<*, *, T, *>,
                                                     val persisterProvider: PersisterProvider,
                                                     val persister: Persister,
-                                                    val parentTableName: String,
+                                                    val parrentClass: KClass<R>,
                                                     val getObjectMethod: (R) -> Map<M, T>) : MapEngineInterface<R, M, T> {
     override val helperTable: HelperTable
         get() = helper
@@ -122,7 +123,7 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
     private lateinit var idField: KeyType
     private lateinit var helper: HelperTable
 
-    private val helperTableName = "${parentTableName}_${propertyData.receiverType.simpleName}_$name"
+    private val helperTableName = "${persisterProvider[parrentClass]}_${propertyData.receiverType.simpleName}_$name"
 
     private val keyField = propertyData.keyClazz.toFieldData(persisterProvider, KeyAnnotation(propertyData.property),
                                                              "key",

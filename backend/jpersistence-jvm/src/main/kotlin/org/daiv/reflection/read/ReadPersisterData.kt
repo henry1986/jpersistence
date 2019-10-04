@@ -196,27 +196,26 @@ internal interface InternalRPD<R : Any, T : Any> {
 }
 
 internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyType,
+                                                        val persisterProvider: PersisterProvider,
                                                         override val fields: List<FieldData<R, Any, T, Any>>,
                                                         private val className: String = "no name",
                                                         private val method: (List<ReadFieldValue>) -> R) : InternalRPD<R, T> {
 
     private constructor(builder: FieldDataFactory<R>.Builder,
+                        persisterProvider: PersisterProvider,
                         className: String = "no name",
                         method: (List<ReadFieldValue>) -> R) : this(builder.idField!!,
+                                                                    persisterProvider,
                                                                     builder.fields as List<FieldData<R, Any, T, Any>>,
                                                                     className,
                                                                     method)
 
     constructor(clazz: KClass<R>,
                 persister: Persister,
-                persisterProvider: PersisterProvider? = null,
-                prefix: String? = null,
-                parentTableName: String? = null) :
-            this(FieldDataFactory(persisterProvider ?: PersisterProviderImpl(persister),
-                                  clazz,
-                                  prefix,
-                                  parentTableName,
-                                  persister).fieldsRead(),
+                persisterProvider: PersisterProvider,
+                prefix: String? = null) :
+            this(FieldDataFactory(persisterProvider, clazz, prefix, persister).fieldsRead(),
+                 persisterProvider,
                  clazz.simpleName ?: "no name",
                  readValue(clazz))
 
@@ -278,7 +277,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
             val insertKey = InsertKey(tableName, key.hashCodeXIfAutoKey(it))
             if (!insertMap.exists(insertKey)) {
                 insertMap.put(insertKey, InsertRequest(insertObject(it)))
-                fields.forEach {f -> f.toStoreData(insertMap, listOf(it)) }
+                fields.forEach { f -> f.toStoreData(insertMap, listOf(it)) }
             }
         }
     }

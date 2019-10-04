@@ -26,7 +26,6 @@ package org.daiv.reflection.common
 import org.daiv.reflection.annotations.ManyList
 import org.daiv.reflection.annotations.ManyToOne
 import org.daiv.reflection.annotations.MoreKeys
-import org.daiv.reflection.annotations.SameTable
 import org.daiv.reflection.isEnum
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.persister.Persister
@@ -40,7 +39,6 @@ import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.primaryConstructor
 
 interface CheckAnnotation {
-    fun isSameTabe(): Boolean
     fun manyToOne(): ManyToOne
 }
 
@@ -59,10 +57,6 @@ internal fun <T : Any> KClass<T>.moreKeys() = this.findAnnotation<MoreKeys>()
         .default(1)
 
 class KeyAnnotation(private val property: KProperty1<*, *>) : CheckAnnotation {
-    override fun isSameTabe(): Boolean {
-        return property.findAnnotation<SameTable>() != null
-    }
-
     override fun manyToOne(): ManyToOne {
         return property.findAnnotation() ?: getManyToOne()
     }
@@ -79,15 +73,11 @@ internal fun <T : Any> KClass<T>.toFieldData(persisterProvider: PersisterProvide
                                                                                       this.simpleName!!),
                                                                    prefix) as FieldData<Any, Any, T, Any>
         this.isEnum() -> EnumType(SimpleTypeProperty(this, this.simpleName!!), prefix) as FieldData<Any, Any, T, Any>
-        checkAnnotation.isSameTabe() -> {
-            val propertyData = SimpleTypeProperty(this, this.simpleName!!)
-            ComplexSameTableType(propertyData, persisterProvider, prefix, null, persister) as FieldData<Any, Any, T, Any>
-        }
         this.isNoMapAndNoListAndNoSet() -> ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
                                                            moreKeys(),
                                                            persisterProvider,
-                                                           checkAnnotation.manyToOne(),
-                                                           persister, prefix) as FieldData<Any, Any, T, Any>
+                                                           persister,
+                                                           prefix) as FieldData<Any, Any, T, Any>
         else -> {
             throw RuntimeException("this: $this not possible")
         }
@@ -97,7 +87,6 @@ internal fun <T : Any> KClass<T>.toFieldData(persisterProvider: PersisterProvide
 internal class FieldDataFactory<R : Any> constructor(val persisterProvider: PersisterProvider,
                                                      val clazz: KClass<R>,
                                                      val prefix: String?,
-                                                     val parentTableName: String?,
                                                      val persister: Persister) {
     val moreKeys = clazz.findAnnotation<MoreKeys>()
             .default(1)
@@ -159,16 +148,8 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
                                                                                                       clazz), prefix)
                 property.toKClass().isEnum() -> EnumType(DefProperty(property as KProperty1<R, Enum<*>>,
                                                                      clazz), prefix)
-                property.findAnnotation<SameTable>() != null -> {
-                    val propertyData = DefProperty(property, clazz)
-                    ComplexSameTableType(propertyData, persisterProvider, prefix, parentTableName!!, persister)
-                }
                 (property.returnType.classifier as KClass<out Any>).isNoMapAndNoListAndNoSet() ->
-                    ReadComplexType(DefProperty(property, clazz),
-                                    moreKeys,
-                                    persisterProvider,
-                                    property.findAnnotation<ManyToOne>().default(ManyToOne::class, ""),
-                                    persister, prefix)
+                    ReadComplexType(DefProperty(property, clazz), moreKeys, persisterProvider, persister, prefix)
                 else -> {
                     null
                 }
@@ -186,14 +167,14 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
                             persisterProvider,
                             prefix,
                             persister,
-                            parentTableName!!)
+                            clazz)
                 }
                 property.returnType.classifier as KClass<out Any> == List::class -> {
                     ListType(ListMapProperty(property as KProperty1<R, List<out Any>>, clazz),
                              persisterProvider,
                              prefix,
                              persister,
-                             parentTableName!!)
+                             clazz)
                 }
 
                 property.returnType.classifier as KClass<out Any> == Set::class -> {
@@ -261,10 +242,6 @@ internal fun KProperty1<*, *>.createHashCodeable(provider: HashCodeableProvider)
     return when {
         this.toKClass().java.isPrimitiveOrWrapperOrString() -> SimpleHashCodeable(DefaultProperyReader(this as KProperty1<Any, Any>))
         this.toKClass().isEnum() -> EnumHashCodeable
-        this.findAnnotation<SameTable>() != null ->
-            ComplexSameTableHashCodeable((this.returnType.classifier as KClass<Any>).createHashCodeables(provider).list,
-                                         DefaultProperyReader(this as KProperty1<Any, Any>))
-
         (this.returnType.classifier as KClass<Any>).isNoMapAndNoListAndNoSet() ->
             ComplexHashCodeable((this.returnType.classifier as KClass<Any>), provider,
                                 DefaultProperyReader(this as KProperty1<Any, Any>))
@@ -316,55 +293,3 @@ internal fun <R : Any, S : Any> KProperty1<R, S>.keyHashCodeable(provider: HashC
     return (returnType.arguments.first().type!!.classifier as KClass<Any>).createHashCodeable(provider) as HashCodeable<Any>
 }
 
-
-internal data class ProviderKey(val propertyData: PropertyData<*, *, *>, val prefixedName: String)
-internal data class ProviderValue(val readPersisterData: ReadPersisterData<*, *>, val table: Persister.Table<*>)
-
-internal interface PersisterProvider {
-    fun readPersisterData(providerKey: ProviderKey): ReadPersisterData<*, *>
-    fun register(providerKey: ProviderKey, tableName: String)
-    fun table(providerKey: ProviderKey): Persister.Table<*>
-}
-
-internal class PersisterProviderImpl(val persister: Persister) : PersisterProvider {
-    private val map: MutableMap<ProviderKey, ProviderValue> = mutableMapOf()
-    private val registeredSet: MutableSet<ProviderKey> = mutableSetOf()
-
-    override fun readPersisterData(providerKey: ProviderKey): ReadPersisterData<*, *> {
-        return map[providerKey]!!.readPersisterData
-    }
-
-    override fun register(providerKey: ProviderKey, tableName: String) {
-        if (!registeredSet.contains(providerKey)) {
-            registeredSet.add(providerKey)
-            val r = ReadPersisterData<Any, Any>(providerKey.propertyData.clazz as KClass<Any>,
-                                                persister,
-                                                this,
-                                                prefix = providerKey.prefixedName,
-                                                parentTableName = tableName)
-            val table = persister.Table(providerKey.propertyData.clazz, tableName, null, this)
-            map[providerKey] = ProviderValue(r, table)
-        }
-    }
-
-    override fun table(providerKey: ProviderKey): Persister.Table<*> {
-        return map[providerKey]!!.table
-    }
-}
-
-internal class HashCodeableProvider {
-    private val map: MutableMap<KClass<Any>, KeyHashCodeable> = mutableMapOf()
-    private val registeredSet: MutableSet<KClass<Any>> = mutableSetOf()
-
-    fun hashCodeable(clazz: KClass<Any>): KeyHashCodeable {
-        return map[clazz]!!
-    }
-
-    fun register(clazz: KClass<Any>) {
-        if (!registeredSet.contains(clazz)) {
-            registeredSet.add(clazz)
-            map[clazz] = clazz.createHashCodeables(this)
-                    .key()
-        }
-    }
-}

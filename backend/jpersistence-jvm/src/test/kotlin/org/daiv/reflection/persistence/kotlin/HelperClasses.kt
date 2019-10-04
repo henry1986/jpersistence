@@ -2,6 +2,13 @@ package org.daiv.reflection.persistence.kotlin
 
 import org.daiv.reflection.annotations.MoreKeys
 
+
+enum class X1 { B1, B2, B3 }
+enum class X2(private val s: String) {
+    B1("1"), B2("2"), B3("3");
+}
+
+
 enum class OfferSide {
     BID, ASK;
 }

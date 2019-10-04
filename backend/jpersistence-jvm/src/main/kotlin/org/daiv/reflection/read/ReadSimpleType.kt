@@ -192,15 +192,6 @@ internal class ComplexHashCodeable(val clazz: KClass<Any>,
     }
 }
 
-internal class ComplexSameTableHashCodeable(val list: List<HashCodeable<out Any>>, complexReadable: FieldReadable<Any, Any>) :
-        HashCodeable<Any>,
-        FieldReadable<Any, Any> by complexReadable {
-    override fun hashCodeX(t: Any) = list.hashCodeX { this.hashCodeX(this.getObject(t)) }
-    override fun plainHashCodeX(t: Any): Int {
-        return list.hashCodeX { this.hashCodeX(t) }
-    }
-}
-
 internal class KeyHashCodeable constructor(val list: List<HashCodeable<out Any>>) : HashCodeable<List<Any>> {
     override fun getObject(o: Any): List<Any> {
         return list.map { it.getObject(o) }

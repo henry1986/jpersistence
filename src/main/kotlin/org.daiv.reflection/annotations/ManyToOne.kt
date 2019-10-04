@@ -37,11 +37,6 @@ annotation class ManyList(val tableName: String = "")
 @Retention(AnnotationRetention.RUNTIME)
 annotation class ManyMap(val tableNameKey: String = "", val tableNameValue: String = "")
 
-@Deprecated("Do not use this anymore - use @MoreKeys instead")
-@Target(AnnotationTarget.PROPERTY)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class SameTable
-
 annotation class MoreKeys(val amount: Int = 1, val auto: Boolean = false)
 @Serializable
 data class TableData(val tableName: String, val db: String, val header: List<String>, val values: List<List<String>>) {

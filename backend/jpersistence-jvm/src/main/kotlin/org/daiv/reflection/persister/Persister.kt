@@ -44,7 +44,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
                 private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
         Registerer<DBChangeListener> by registerer {
 
-    val logger = KotlinLogging.logger ("Persister - ${databaseInterface.path}")
+    val logger = KotlinLogging.logger("Persister - ${databaseInterface.path}")
     fun delete() = databaseInterface.delete()
 
     private fun event() {
@@ -92,9 +92,8 @@ class Persister(private val databaseInterface: DatabaseInterface,
             persister.write("DROP TABLE $tableName;")
         }
 
-        fun <T : InternalTable<R>> rename(oldTableName: String, newTableName: String, creator: () -> T): T {
+        fun rename(oldTableName: String, newTableName: String) {
             persister.write("ALTER TABLE $oldTableName RENAME TO `$newTableName`")
-            return creator()
         }
 
         fun namesToMap() = readPersisterData.names()
@@ -102,15 +101,6 @@ class Persister(private val databaseInterface: DatabaseInterface,
         fun copyData(newVariables: Map<String, String>, oldTableName: String, newTableName: String) {
             val command = this.readPersisterData.copyTable(this.namesToMap() + newVariables)
             persister.write("INSERT INTO $newTableName $command from $oldTableName;")
-        }
-
-        fun <T : Any, S : InternalTable<T>> change(next: InternalTable<T>,
-                                                   newVariables: Map<String, String> = mapOf(),
-                                                   creator: (String) -> S): S {
-            next.persist()
-            next.copyData(newVariables, tableName, next.tableName)
-            dropTable()
-            return next.rename(next.tableName, _tableName) { creator(_tableName) }
         }
 
         fun persist() {
@@ -167,7 +157,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     }
 
-    internal inner class HelperTable(val fields: List<FieldData<Any, Any, Any, Any>>, tableName: String, numberOfKeyFields: Int = 1) :
+    internal inner class HelperTable(val fields: List<FieldData<Any, Any, Any, Any>>,
+                                     tableName: String,
+                                     numberOfKeyFields: Int = 1) :
             InternalTable<Any> {
         override val readPersisterData: InternalRPD<out Any, Any> = object : InternalRPD<Any, Any> {
             override val fields: List<FieldData<Any, Any, Any, Any>> = this@HelperTable.fields
@@ -179,33 +171,36 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     }
 
+    private fun <R : Any> createPersisterProvider(clazz: KClass<R>, tableName: String, tableNames: Map<String, String>): PersisterProvider {
+        val persisterProvider = PersisterProviderImpl(this@Persister, tableNames)
+        persisterProvider[clazz] = getTableName(tableName, clazz)
+        return persisterProvider
+    }
+
     inner class Table<R : Any> internal constructor(override val readPersisterData: ReadPersisterData<R, Any>,
-                                                    override val _tableName: String) :
+                                                    val clazz: KClass<R>) :
             InternalTable<R>, Registerer<DBChangeListener> by registerer {
-        override val tableName = "`$_tableName`"
+        override val _tableName
+            get() = readPersisterData.persisterProvider[clazz]
+        override val tableName
+            get() = "`$_tableName`"
         override val persister = this@Persister
 
-        constructor(clazz: KClass<R>, tableName: String = "")
-                : this(clazz, tableName, null, null)
+        private val persisterProvider
+            get() = readPersisterData.persisterProvider
 
-        internal constructor(clazz: KClass<R>, tableName: String = "", prefix: String? = null, persisterProvider: PersisterProvider? = null)
-                : this(ReadPersisterData(clazz,
-                                         this@Persister,
-                                         persisterProvider,
-                                         prefix = prefix,
-                                         parentTableName = getTableName(tableName, clazz)),
-                       getTableName(tableName, clazz))
 
-        //        private val readPersisterData: ReadPersisterData<R> = ReadPersisterData.create(clazz, this@Persister)
+        constructor(clazz: KClass<R>, tableName: String = "", tableNames: Map<String, String> = mapOf())
+                : this(clazz, createPersisterProvider(clazz, tableName, tableNames))
+
+        internal constructor(clazz: KClass<R>, persisterProvider: PersisterProvider)
+                : this(ReadPersisterData(clazz, this@Persister, persisterProvider), clazz)
+
         private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()
 
         private val selectHeader by lazy { readPersisterData.underscoreName() }
         private val selectKeyHeader by lazy { readPersisterData.keyName() }
-        //        private val join by lazy {
-//            readPersisterData.joinNames(tableName)
-//                .map { "INNER JOIN ${it.join()}" }
-//                .joinToString(" ")
-//        }
+
         private val idName = readPersisterData.getIdName()
 
         private fun tableEvent() {
@@ -214,13 +209,28 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
 
         fun rename(newTableName: String): Table<R> {
-            return this.rename(this.tableName, newTableName) { Table(readPersisterData, newTableName) }
+            this.rename(this.tableName, newTableName)
+            readPersisterData.persisterProvider[clazz] = newTableName
+            return this
         }
+
+        private fun <T : Any, S : InternalTable<T>> change(next: Table<T>,
+                                                           newVariables: Map<String, String> = mapOf(),
+                                                           creator: (String) -> S): S {
+            next.persist()
+            next.copyData(newVariables, tableName, next.tableName)
+            dropTable()
+            next.rename(next.tableName, _tableName)
+            persisterProvider.rename(next.clazz, _tableName)
+            return creator(_tableName)
+        }
+
 
         fun <T : Any> change(clazz: KClass<T>, newVariables: Map<String, String> = mapOf()): Table<T> {
             val tName = "${_tableName}_temp"
-            val next = persister.Table(clazz, tName)
-            return change(next, newVariables) { Table(next.readPersisterData, it) }
+            persisterProvider.rename(clazz, tName)
+            val next = persister.Table(clazz, persisterProvider)
+            return change(next, newVariables) { Table(next.readPersisterData, clazz) }
         }
 
         fun copyHelperTable(map: Map<String, Map<String, String>>): Table<R> {
@@ -229,16 +239,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
 
         fun read(fieldName: String, id: Any, orderOrder: String = ""): List<R> {
-//            val req = "SELECT $selectHeader FROM $tableName $join ${whereClause(fieldName, id, and)};"
             val req = "SELECT * ${fromWhere(fieldName, id, and)} $orderOrder;"
             return this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this)) } }
         }
-
-//        fun readMultiple(fieldName: List<String>, id: List<Any>, orderOrder: String = ""): List<R> {
-////            val req = "SELECT $selectHeader FROM $tableName $join ${whereClause(fieldName, id, and)};"
-//            val req = "SELECT * ${fromWhere(fieldName, id, and)} $orderOrder;"
-//            return this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this)) } }
-//        }
 
         fun readOrdered(fieldName: String, id: Any): List<R> {
             return read(fieldName, id, "ORDER BY ${readPersisterData.keyName()}")
@@ -289,10 +292,6 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         fun insert(o: R) {
             insert(listOf(o))
-//            val createTable = "INSERT INTO $tableName ${readPersisterData.insert(o)}"
-//            write(createTable)
-//            readPersisterData.insertInnerFieldCollections(o)
-//            tableEvent()
         }
 
         fun insert(o: List<R>) {
@@ -364,7 +363,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
                     it.getList { clazz.cast(getObject(1)) }
                 }
             } else {
-                val readPersisterData = ReadPersisterData<T, Any>(clazz, this@Persister)
+                val readPersisterData = ReadPersisterData<T, Any>(clazz, this@Persister, readPersisterData.persisterProvider)
                 val key = readPersisterData.createTableKeyData()
 //                val key = readPersisterData.createTableKeyData(fieldName)
                 this@Persister.read(cmd(key)) { it.getList { readPersisterData.readKey(ReadValue(this)) } as List<T> }

@@ -66,35 +66,8 @@ class PersisterTest :
 
              val simpleObject = SimpleObject(5, "Hallo")
 
-             val s = ObjectToTest(simpleObject,
-                                  "(x Int NOT NULL, y Text NOT NULL, PRIMARY KEY(x))",
-                                  "(x, y ) VALUES (5, \"Hallo\")", "KotlinSimpleObject", 5)
-             val u = ObjectToTest(Transaction("x5", false),
-                                  "(id Text NOT NULL, bool Boolean NOT NULL, PRIMARY KEY(id))",
-                                  "(id, bool ) VALUES (\"x5\", 0)",
-                                  "Transaction",
-                                  "x5")
-
-             val listOf = listOf(s/*, k, t*/, u)
-
 
              describe("Persister Table creation, read and insert") {
-                 listOf.forEach { o ->
-                     o.open()
-                     on("persist $o") {
-                         it("check createTable") {
-                             o.checkCreateTable()
-                         }
-                         it("check insert") {
-                             o.checkInsert()
-                         }
-                         o.beforeReadFromDatabase()
-                         it("check readData") {
-                             o.checkReadData()
-                         }
-                     }
-                     afterGroup { o.delete() }
-                 }
 //                 val database = DatabaseWrapper.create("ReadValue.db")
 //                 database.open()
 //                 val persister = Persister(database)
@@ -226,41 +199,6 @@ class PersisterTest :
                          assertEquals(listOf(l6), table.readAll())
                          val keys = table.readAllKeys<Int>()
                          assertEquals(listOf(5), keys)
-                     }
-                 }
-                 on("test namebuilding for joins") {
-                     //                         data class L1(val r:Int, val s:String)
-//                         data class L2(val id:Int, val l1:L1)
-//                         data class L2b(val l1Id:L1, val l1Value:L1)
-//                         data class L3(val id:Int, val l2Value:L2)
-//                         data class L4(val idL2b:L2b, val l3Value:L3)
-                     val r = ReadPersisterData<L3, Any>(L3::class, persister)
-                     val n = r.underscoreName()
-
-                     // JOIN L2 as l2Value ON L3.l2Value = l2Value.id
-                     // JOIN L1 as l2Value_l1 ON L2.l2Value_l1 = l2Value_l1.id
-                     println("n: $n")
-//                         println("n: INNER JOIN ${r.joinNames("L3").map { it.join() }}")
-//                     println("foreignKey: ${r.foreignKey()}")
-                     listOf(L1::class, L2::class, L2b::class, L3::class, L4::class).forEach {
-                         persister.Table(it)
-                             .persist()
-                     }
-
-                     it("test L2") {
-                         val t = persister.Table(L2::class)
-                         val insert = L2(5, L1(2, "Hallo"))
-                         t.insert(insert)
-                         val xRes = t.read(5)
-                         assertEquals(insert, xRes)
-                     }
-                     it("test L4") {
-                         val t = persister.Table(L4::class)
-                         val key = L2b(L1(3, "L1-3"), L1(4, "L1-4"))
-                         val insert = L4(key, L3(5, L2(1, L1(9, "L1-9"))))
-                         t.insert(insert)
-                         val xRes = t.read(key)
-                         assertEquals(insert, xRes)
                      }
                  }
                  afterGroup { persister.delete() }

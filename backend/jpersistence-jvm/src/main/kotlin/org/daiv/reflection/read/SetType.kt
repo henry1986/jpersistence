@@ -24,20 +24,17 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.annotations.ManyList
-import org.daiv.reflection.annotations.SameTable
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertKey
 import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.InsertRequest
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.HelperTable
-import org.daiv.reflection.persister.Persister.Table
-import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
 
 
 internal class SetType<R : Any, T : Any> constructor(override val propertyData: SetProperty<R, T>,
-                                                     val persisterProvider: PersisterProvider,
+                                                     persisterProvider: PersisterProvider,
                                                      private val many: ManyList,
                                                      val persister: Persister,
                                                      override val prefix: String?) :

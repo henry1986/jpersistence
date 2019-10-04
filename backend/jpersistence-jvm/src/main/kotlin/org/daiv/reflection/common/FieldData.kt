@@ -258,7 +258,7 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Fie
             helperTable.persistWithName(tmpName)
             helperTable.copyData(map, currentName, tmpName)
             helperTable.dropTable(currentName)
-            helperTable.rename(tmpName, currentName) { helperTable }
+            helperTable.rename(tmpName, currentName)
 
         } else {
             helperTable.copyData(map, currentName, nextName)

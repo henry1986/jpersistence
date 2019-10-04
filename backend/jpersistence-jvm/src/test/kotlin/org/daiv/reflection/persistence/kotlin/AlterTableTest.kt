@@ -65,7 +65,7 @@ class AlterTableTest :
                          table.persist()
                          table.insert(BeforeComplex(1, Before(0, "hello")))
 
-                         val simple = persister.Table(Before::class, "After")
+                         val simple = persister.Table(Before::class).rename("After")
                          simple.change(After::class, mapOf("z" to "0.1"))
 
                          val newTable = table.change(AfterComplex::class, mapOf("z" to "0.1"))

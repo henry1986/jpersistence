@@ -24,8 +24,6 @@
 package org.daiv.reflection.persistence.kotlin
 
 import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
-import org.daiv.reflection.annotations.SameTable
-import org.daiv.reflection.annotations.appendValues
 import org.daiv.reflection.persister.Persister
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
@@ -36,17 +34,13 @@ import kotlin.test.assertEquals
 class PersisterTest2
     : Spek({
                data class L1(val r: Int, val s: String)
-               data class L2(val id: Int, @SameTable val l1: L1)
 
                data class SimpleObject(val x: Int, val y: String)
                data class ComplexKey(val x: SimpleObject, val string: String)
 
-               data class ComplexKeySameTable(@SameTable val x: SimpleObject, val string: String)
 
                data class B1(val r: Int, val s: String)
                data class B2(val id: Int, val s: String)
-               data class B3(val id: Int, val b2: B2, @SameTable val b1: B1)
-               data class B4(val id: Int, val b2: List<B2>, @SameTable val b1: B1)
 
                data class C1(val id: X1, val x: Int)
                data class C2(val id: Int, val x: X1)
@@ -55,7 +49,6 @@ class PersisterTest2
 
                data class D1(val x: Int, val y: List<Int>)
                data class E1(val x: Int, val y: String)
-               data class E2(val x: Int, @SameTable val y: E1)
 
                data class InnerVal(val x:Int){
                    val y = x+1
@@ -67,21 +60,6 @@ class PersisterTest2
                    database.open()
                    val persister = Persister(database)
                    on("table") {
-                       it("includedKey") {
-                           val table = persister.Table(L2::class)
-                           table.persist()
-                           val l2 = L2(5, L1(5, "Halo"))
-                           table.insert(l2)
-                           assertEquals(l2, table.read(5))
-                       }
-                       it("includedKey and foreign") {
-                           val table = persister.Table(B3::class)
-                           table.persist()
-                           val l2 = B3(4, B2(5, "wow"), B1(6, "hi"))
-                           table.insert(l2)
-                           table.readAll()
-                           assertEquals(l2, table.read(4))
-                       }
 //                       it("printTableDatas") {
 //                           val table = persister.Table(B4::class)
 //                           table.persist()
@@ -143,33 +121,12 @@ class PersisterTest2
                            val x = table.read(s)
                            assertEquals(v, x)
                        }
-                       it("complexKey sameTable test") {
-                           val table = persister.Table(ComplexKeySameTable::class)
-                           table.persist()
-                           val s = SimpleObject(1, "hello2")
-                           val s2 = SimpleObject(1, "hello1")
-                           val v = ComplexKeySameTable(s, "world")
-                           val v2 = ComplexKeySameTable(s2, "world")
-                           table.insert(v)
-                           table.insert(v2)
-                           table.insert(ComplexKeySameTable(SimpleObject(2, "wow"), "kow"))
-                           val x = table.read(s)
-                           assertEquals(v, x)
-                       }
                        it("List simpleType test") {
                            val table = persister.Table(D1::class)
                            table.persist()
                            val v = D1(5, listOf(1, 3, 4))
                            table.insert(v)
                            table.insert(D1(4, listOf(5, 92, 4)))
-                           val x = table.read(5)
-                           assertEquals(v, x)
-                       }
-                       it("same table with same id") {
-                           val table = persister.Table(E2::class)
-                           table.persist()
-                           val v = E2(5, E1(5, ""))
-                           table.insert(v)
                            val x = table.read(5)
                            assertEquals(v, x)
                        }
