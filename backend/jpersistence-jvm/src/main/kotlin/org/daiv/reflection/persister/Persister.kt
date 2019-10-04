@@ -171,8 +171,11 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     }
 
-    private fun <R : Any> createPersisterProvider(clazz: KClass<R>, tableName: String, tableNames: Map<String, String>): PersisterProvider {
-        val persisterProvider = PersisterProviderImpl(this@Persister, tableNames)
+    private fun <R : Any> createPersisterProvider(clazz: KClass<R>,
+                                                  tableName: String,
+                                                  tableNames: Map<KClass<out Any>, String>,
+                                                  tableNamePrefix: String?): PersisterProvider {
+        val persisterProvider = PersisterProviderImpl(this@Persister, tableNames, tableNamePrefix)
         persisterProvider[clazz] = getTableName(tableName, clazz)
         return persisterProvider
     }
@@ -190,8 +193,11 @@ class Persister(private val databaseInterface: DatabaseInterface,
             get() = readPersisterData.persisterProvider
 
 
-        constructor(clazz: KClass<R>, tableName: String = "", tableNames: Map<String, String> = mapOf())
-                : this(clazz, createPersisterProvider(clazz, tableName, tableNames))
+        constructor(clazz: KClass<R>,
+                    tableName: String = "",
+                    tableNames: Map<KClass<out Any>, String> = mapOf(),
+                    tableNamePrefix: String? = null)
+                : this(clazz, createPersisterProvider(clazz, tableName, tableNames, tableNamePrefix))
 
         internal constructor(clazz: KClass<R>, persisterProvider: PersisterProvider)
                 : this(ReadPersisterData(clazz, this@Persister, persisterProvider), clazz)
@@ -224,7 +230,6 @@ class Persister(private val databaseInterface: DatabaseInterface,
             persisterProvider.rename(next.clazz, _tableName)
             return creator(_tableName)
         }
-
 
         fun <T : Any> change(clazz: KClass<T>, newVariables: Map<String, String> = mapOf()): Table<T> {
             val tName = "${_tableName}_temp"

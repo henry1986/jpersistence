@@ -260,6 +260,34 @@ class BarTest
 //                           assertEquals(des4, read)
                        }
                    }
+                   fun getCandles(value: Double): List<Candle> {
+                       val candles = (0 until 50).map {
+                           Candle(it * 60L, m1,
+                                  Tick(it * 60L + 1, value, OfferSide.BID),
+                                  (0..5).map { t -> Tick(it * 60L + 2 + t, value, OfferSide.BID) })
+                       }
+                       return candles
+                   }
+
+                   fun createTable(tableNamePrefix: String, value: Double) {
+                       val test1 = persister.Table(Candle::class, tableNamePrefix = tableNamePrefix)
+                       test1.persist()
+                       val candles = getCandles(value)
+                       test1.insert(candles)
+                       val ticks = persister.Table(Tick::class, tableNamePrefix = tableNamePrefix)
+                       val read = ticks.readAll()
+                       assertEquals(350, read.size)
+                       read.forEach {
+                           assertEquals(value, it.value)
+                       }
+                   }
+                   on("test same tables different tableNames") {
+                       it("test") {
+                           createTable("test1", 200.0)
+                           createTable("test2", 300.0)
+                           createTable("test3", 400.0)
+                       }
+                   }
                    afterGroup { database.delete() }
                }
            })

@@ -26,17 +26,22 @@ internal interface PersisterProvider {
     }
 }
 
-internal class PersisterProviderImpl(val persister: Persister, _tableNames: Map<String, String>) : PersisterProvider {
+internal class PersisterProviderImpl(val persister: Persister,
+                                     _tableNames: Map<KClass<out Any>, String>,
+                                     val tableNamePrefix: String?) : PersisterProvider {
     private val map: MutableMap<ProviderKey, ProviderValue> = mutableMapOf()
     private val registeredSet: MutableSet<ProviderKey> = mutableSetOf()
-    private val tableNames: MutableMap<String, String> = _tableNames.toMutableMap()
+    private val tableNames: MutableMap<String, String> = _tableNames.map { it.key.java.name to it.value }
+            .toMap()
+            .toMutableMap()
 
     override fun readPersisterData(providerKey: ProviderKey): ReadPersisterData<*, *> {
         return map[providerKey]!!.readPersisterData
     }
 
     override fun tableName(clazz: KClass<out Any>): String {
-        return tableNames[clazz.java.name] ?: clazz.simpleName!!
+        val mapName = tableNames[clazz.java.name] ?: clazz.simpleName!!
+        return tableNamePrefix?.let { "${it}_$mapName" } ?: mapName
     }
 
     override fun rename(clazz: KClass<out Any>, newTableName: String) {
