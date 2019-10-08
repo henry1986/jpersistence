@@ -211,6 +211,8 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
 
     fun onIdField(idField: KeyType)
 
+    fun dropHelper()
+
 //    fun makeString(any: R): String
 }
 
@@ -224,11 +226,15 @@ internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
     override fun copyTableName() = mapOf(prefixedName to prefixedName)
     override fun copyData(map: Map<String, String>) {}
     override fun onIdField(idField: KeyType) {}
+    override fun dropHelper(){}
 }
 
 internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : FieldData<R, S, T, X> {
     val helperTable: HelperTable
 
+    override fun dropHelper(){
+        helperTable.dropTable()
+    }
     override fun numberOfKeyFields() = 0
 
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
@@ -257,12 +263,12 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Fie
             val tmpName = "tmp_$currentName"
             helperTable.persistWithName(tmpName)
             helperTable.copyData(map, currentName, tmpName)
-            helperTable.dropTable(currentName)
+            helperTable.onlyDropMaster(currentName)
             helperTable.rename(tmpName, currentName)
 
         } else {
             helperTable.copyData(map, currentName, nextName)
-            helperTable.dropTable(currentName)
+            helperTable.onlyDropMaster(currentName)
         }
     }
 }

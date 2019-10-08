@@ -58,6 +58,10 @@ internal interface InternalRPD<R : Any, T : Any> {
                         "couldn't find any fields with name: $fieldName")
     }
 
+    fun dropHelper() {
+        fields.forEach { it.dropHelper() }
+    }
+
     fun fromWhere(fieldName: String, id: Any, sep: String): String {
         return if (key.fieldName == fieldName) {
 //            if (id is List<*>)

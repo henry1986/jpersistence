@@ -24,7 +24,6 @@
 package org.daiv.reflection.persister
 
 import mu.KotlinLogging
-import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
@@ -35,7 +34,6 @@ import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.reflect.KClass
 import kotlin.reflect.full.cast
-import kotlin.reflect.full.findAnnotation
 
 /**
  * @author Martin Heinrich
@@ -82,13 +80,18 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     private fun getTableName(tableName: String, clazz: KClass<*>) = if (tableName == "") clazz.tableName() else tableName
 
-    internal interface InternalTable<R : Any> {
+    internal interface InternalTable {
         val readPersisterData: InternalRPD<out Any, Any>
         val tableName: String
         val _tableName: String
         val persister: Persister
 
         fun dropTable(tableName: String = this.tableName) {
+            readPersisterData.dropHelper()
+            onlyDropMaster(tableName)
+        }
+
+        fun onlyDropMaster(tableName: String = this.tableName){
             persister.write("DROP TABLE $tableName;")
         }
 
@@ -158,14 +161,13 @@ class Persister(private val databaseInterface: DatabaseInterface,
     }
 
     internal inner class HelperTable(val fields: List<FieldData<Any, Any, Any, Any>>,
-                                     tableName: String,
+                                     override val tableName: String,
                                      numberOfKeyFields: Int = 1) :
-            InternalTable<Any> {
+            InternalTable {
         override val readPersisterData: InternalRPD<out Any, Any> = object : InternalRPD<Any, Any> {
             override val fields: List<FieldData<Any, Any, Any, Any>> = this@HelperTable.fields
             override val key: KeyType = KeyType(fields.take(numberOfKeyFields))
         }
-        override val tableName: String = tableName
         override val _tableName: String = tableName
         override val persister: Persister = this@Persister
 
@@ -182,7 +184,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     inner class Table<R : Any> internal constructor(override val readPersisterData: ReadPersisterData<R, Any>,
                                                     val clazz: KClass<R>) :
-            InternalTable<R>, Registerer<DBChangeListener> by registerer {
+            InternalTable, Registerer<DBChangeListener> by registerer {
         override val _tableName
             get() = readPersisterData.persisterProvider[clazz]
         override val tableName
@@ -220,12 +222,12 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return this
         }
 
-        private fun <T : Any, S : InternalTable<T>> change(next: Table<T>,
-                                                           newVariables: Map<String, String> = mapOf(),
-                                                           creator: (String) -> S): S {
+        private fun <T : Any, S : InternalTable> change(next: Table<T>,
+                                                        newVariables: Map<String, String> = mapOf(),
+                                                        creator: (String) -> S): S {
             next.persist()
             next.copyData(newVariables, tableName, next.tableName)
-            dropTable()
+            onlyDropMaster()
             next.rename(next.tableName, _tableName)
             persisterProvider.rename(next.clazz, _tableName)
             return creator(_tableName)
