@@ -50,9 +50,11 @@ class PersisterTest2
                data class D1(val x: Int, val y: List<Int>)
                data class E1(val x: Int, val y: String)
 
-               data class InnerVal(val x:Int){
-                   val y = x+1
+               data class InnerVal(val x: Int) {
+                   val y = x + 1
                }
+
+               data class SimpleList(val id: String, val list: List<String>)
 
 
                val database = DatabaseWrapper.create("PersisterTest2.db")
@@ -60,7 +62,7 @@ class PersisterTest2
                    database.open()
                    val persister = Persister(database)
                    on("table") {
-//                       it("printTableDatas") {
+                       //                       it("printTableDatas") {
 //                           val table = persister.Table(B4::class)
 //                           table.persist()
 //                           val l2 = listOf(B4(4, listOf(B2(5, "wow"), B2(9, "cool")), B1(6, "hi")),
@@ -130,13 +132,20 @@ class PersisterTest2
                            val x = table.read(5)
                            assertEquals(v, x)
                        }
-                       it("inner val test"){
+                       it("inner val test") {
                            val table = persister.Table(InnerVal::class)
                            table.persist()
                            val v = InnerVal(5)
                            table.insert(v)
                            assertEquals(v, table.read(5))
 
+                       }
+                       it("check SimpleList") {
+                           val table = persister.Table(SimpleList::class)
+                           table.persist()
+                           table.insert(SimpleList("id", listOf("1", "2", "3")))
+                           table.delete("id")
+                           assertEquals(emptyList(), table.readAll())
                        }
                    }
                    afterGroup { database.delete() }

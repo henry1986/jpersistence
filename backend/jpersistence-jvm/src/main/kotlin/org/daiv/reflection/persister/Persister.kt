@@ -327,7 +327,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
             try {
                 val list = read(fieldName, id)
                 this@Persister.write("DELETE ${fromWhere(fieldName, id, and)};")
-                list.forEach { readPersisterData.deleteLists(it) }
+                list.forEach { readPersisterData.deleteLists(readPersisterData.keySimpleType(it).toList()) }
                 tableEvent()
             } catch (e: Throwable) {
                 throw e

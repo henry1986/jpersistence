@@ -69,7 +69,11 @@ internal interface InternalRPD<R : Any, T : Any> {
 //            else
 //                key.whereClause(listOf(id), sep)
         } else {
-            field(fieldName).whereClause(id, sep)
+            try {
+                field(fieldName).whereClause(id, sep)
+            } catch (t:Throwable){
+                throw t
+            }
         }
     }
 
@@ -308,8 +312,8 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
         onFields { insertLists(listOf(o)) }
     }
 
-    fun deleteLists(o: R) {
-        val key = keySimpleType(o)
+    fun deleteLists(key:Any) {
+//        val key = keySimpleType(o)
         onFields { deleteLists(key) }
     }
 
