@@ -24,8 +24,9 @@
 buildscript {
     ext.kotlin_version = '1.3.11'
     ext.dokka_version = '0.9.16'
-    ext.jpersistence_version = '0.5.6-SNAPSHOT'
+    ext.jpersistence_version = '0.5.7-SNAPSHOT'
     ext.serialization_version = '0.9.1'
+    ext.kutil_version = '0.0.5-SNAPSHOT'
 
     repositories {
         jcenter()
@@ -135,7 +136,7 @@ configure(jvmProjects) {
 
     dependencies {
         compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-        compile "org.daiv.util:kutil-jvm:0.0.3-SNAPSHOT"
+        compile "org.daiv.util:kutil-jvm:$kutil_version"
         compile 'io.github.microutils:kotlin-logging:1.5.9'
         compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.3.0-alpha4'
         compile "org.jetbrains.kotlinx:kotlinx-serialization-runtime:$serialization_version"

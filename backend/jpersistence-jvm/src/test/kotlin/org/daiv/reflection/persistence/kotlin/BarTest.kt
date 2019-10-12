@@ -25,6 +25,14 @@ class BarTest
                @MoreKeys(1, true)
                data class TickList(val ticks: List<Tick>)
 
+               @MoreKeys(1, true)
+               data class TickList2(val ticks: List<Tick>)
+
+               @MoreKeys(2)
+               data class ComplexOfAuto(val id: Int, val tickList: TickList2)
+
+               data class HigherComplexOfAuto(val complexOfAuto: ComplexOfAuto, val s: String)
+
                @MoreKeys(2, true)
                data class ManyListsTickList(val ticks: List<Tick>, val ticks2: List<Tick>)
 
@@ -218,6 +226,20 @@ class BarTest
                            assertEquals(lists[1], read[1], "1")
                            assertEquals(lists[2], read[2], "2")
                            assertEquals(lists, read, "all")
+                       }
+                       it("test auto id in complex object") {
+                           val table = persister.Table(HigherComplexOfAuto::class)
+                           table.persist()
+                           val wp1 = Tick(500000L, 0.5, OfferSide.BID)
+                           val wp2 = Tick(650000L, 0.9, OfferSide.BID)
+                           val wp3 = Tick(620000L, 1.9, OfferSide.BID)
+                           val list1 = listOf(wp1, wp2)
+                           val list2 = listOf(wp1, wp3)
+                           val complexIfAutos = listOf(ComplexOfAuto(1, TickList2(list1)), ComplexOfAuto(1, TickList2(list2)))
+                           val higher = listOf(HigherComplexOfAuto(complexIfAutos.first(), "Hello"),
+                                               HigherComplexOfAuto(complexIfAutos.last(), "World"))
+                           table.insert(higher)
+                           assertEquals(higher.toSet(), table.readAll().toSet())
                        }
                    }
 

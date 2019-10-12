@@ -137,7 +137,7 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
     }
 
     override fun fNEqualsValue(objectValue: T, sep: String): String {
-        return persisterData.key.fNEqualsValue(persisterData.key.getObject(objectValue), sep)
+        return persisterData.key.fNEqualsValue(persisterData.key.hashCodeXIfAutoKey(objectValue), sep)
     }
 
     override fun insertObject(objectValue: T): List<InsertObject> {

@@ -43,7 +43,7 @@ interface DatabaseInterface : SimpleDatabase {
  */
 class DatabaseHandler constructor(override val path: String) : DatabaseInterface {
 
-    val logger = KotlinLogging.logger{}
+    val logger = KotlinLogging.logger {}
 
     private val connection: Connection
 
@@ -51,7 +51,7 @@ class DatabaseHandler constructor(override val path: String) : DatabaseInterface
         try {
             Class.forName("org.sqlite.JDBC")
         } catch (e: ClassNotFoundException) {
-            throw RuntimeException(e)
+            throw e
         }
         try {
             connection = DriverManager.getConnection("jdbc:sqlite:$path")
@@ -74,7 +74,7 @@ class DatabaseHandler constructor(override val path: String) : DatabaseInterface
         get() {
             try {
                 if (connection == null) {
-                    throw NullPointerException("Database connection not opened")
+                    throw NullPointerException("Database connection to $path not opened")
                 }
                 return connection!!.createStatement()
             } catch (e: SQLException) {
@@ -88,7 +88,7 @@ class DatabaseHandler constructor(override val path: String) : DatabaseInterface
             if (!connection!!.isClosed && connection != null) {
                 connection!!.close()
                 if (connection!!.isClosed)
-                    logger.info("Connection to DatabaseInterface closed")
+                    logger.info("Connection to database $path closed")
             }
         } catch (e: SQLException) {
             throw RuntimeException(e)

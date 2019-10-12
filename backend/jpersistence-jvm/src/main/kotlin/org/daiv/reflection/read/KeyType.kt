@@ -3,6 +3,9 @@ package org.daiv.reflection.read
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
 
+/**
+ * in case, this is an auto idField, [idFieldIfAuto] is the older idField without [key]
+ */
 internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any>>,
                                    val key: KeyHashCodeable? = null,
                                    val idFieldIfAuto: KeyType? = null) : NoList<Any, List<Any>, Any> {
@@ -97,11 +100,18 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
     override fun fNEqualsValue(o: List<Any>, sep: String): String {
         return fields.mapIndexed { i, e ->
             val obj = o[i]
-            e.fNEqualsValue(obj, sep)
+//            if(e is AutoKeyType){
+//                e.plainHashCodeXIfAutoKey(obj)
+//            } else{
+                e.fNEqualsValue(obj, sep)
+//            }
         }
                 .joinToString(sep)
     }
 
+    /**
+     * if autoId, the value must already be the hashCodeX
+     */
     fun autoIdFNEqualsValue(o: List<Any>, sep: String): String {
         return fields.mapIndexed { i, e ->
             if (e is AutoKeyType) {
