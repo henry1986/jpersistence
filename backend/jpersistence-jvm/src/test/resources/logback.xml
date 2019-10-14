@@ -7,13 +7,30 @@
     <!-- STDOUT APPENDER -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{60} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{10} - %msg%n</pattern>
         </encoder>
     </appender>
+    <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
+        <!--<Marker>BarTest.db</Marker>-->
+        <!--<onMatch>DENY</onMatch>-->
+    <!--</turboFilter>-->
+    <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
+    <!--<Marker>READ</Marker>-->
+    <!--<onMatch>DENY</onMatch>-->
+    <!--</turboFilter>-->
+    <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
+        <!--<Marker>WRITE</Marker>-->
+        <!--<onMatch>DENY</onMatch>-->
+    <!--</turboFilter>-->
+    <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
+        <!--<Marker>Persister</Marker>-->
+        <!--<onMatch>DENY</onMatch>-->
+    <!--</turboFilter>-->
     <!-- switch the log level between error and trace -> with error, much fewer log messages will appear-->
     <!--<logger name="com.ea.modbus.dc.EconDriver" levedl="DEBUG"/>-->
     <!--<logger name="com.ea.modbus.dc.ModbusBridge" level="ERROR"/>-->
 
+    <!--<logger name="org.daiv.reflection.persister.Persister" level="TRACE"/>-->
     <logger name="org.daiv.reflection.persister.Persister" level="TRACE"/>
     <!--<logger additivity="false" level="DEBUG">-->
     <!--<appender-ref ref="STDOUT"/>-->

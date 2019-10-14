@@ -58,7 +58,6 @@ class BarTest
                data class WaveSet(val id: Int, val waves: List<DrawnWave>) {
                    constructor(waves: List<DrawnWave>) : this(waves.hashCode(), waves)
                }
-
                val logger = KotlinLogging.logger { }
                val database = DatabaseWrapper.create("BarTest.db")
                describe("BarTest") {

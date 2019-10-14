@@ -30,10 +30,14 @@ import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.read.*
 import org.daiv.util.DefaultRegisterer
 import org.daiv.util.Registerer
+import org.slf4j.Marker
+import org.slf4j.MarkerFactory
 import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.reflect.KClass
 import kotlin.reflect.full.cast
+
+private val persisterMarker = MarkerFactory.getMarker("Persister")
 
 /**
  * @author Martin Heinrich
@@ -42,7 +46,19 @@ class Persister(private val databaseInterface: DatabaseInterface,
                 private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
         Registerer<DBChangeListener> by registerer {
 
-    val logger = KotlinLogging.logger("Persister - ${databaseInterface.path}")
+    val logger = KotlinLogging.logger {}
+    //    val logger = KotlinLogging.logger("Persister. ${databaseInterface.path}")
+    val dbMarkerRead = MarkerFactory.getDetachedMarker("READ")
+    val dbMarkerWrite = MarkerFactory.getDetachedMarker("WRITE")
+
+    init {
+        val dbMarker = MarkerFactory.getMarker(databaseInterface.path)
+        dbMarkerRead.add(dbMarker)
+        dbMarkerRead.add(persisterMarker)
+        dbMarkerWrite.add(dbMarker)
+        dbMarkerWrite.add(persisterMarker)
+    }
+
     fun delete() = databaseInterface.delete()
 
     private fun event() {
@@ -55,7 +71,8 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     internal fun <T : Any> read(query: String, func: (ResultSet) -> T): T {
         try {
-            logger.trace(query)
+
+            logger.trace(dbMarkerRead, query)
             val statement = databaseInterface.statement
             val result = statement.executeQuery(query)
             val ret = func(result)
@@ -69,7 +86,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     internal fun write(query: String) {
         try {
-            logger.trace(query)
+            logger.trace(dbMarkerWrite, query)
             val statement = databaseInterface.statement
             statement.execute(query)
             statement.close()
@@ -91,7 +108,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
             onlyDropMaster(tableName)
         }
 
-        fun onlyDropMaster(tableName: String = this.tableName){
+        fun onlyDropMaster(tableName: String = this.tableName) {
             persister.write("DROP TABLE $tableName;")
         }
 
