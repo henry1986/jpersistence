@@ -7,24 +7,36 @@
     <!-- STDOUT APPENDER -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{10} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %marker %logger{10} - %msg%n</pattern>
         </encoder>
     </appender>
+    <turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">
+        <Marker>DB_OPEN</Marker>
+        <onMatch>DENY</onMatch>
+    </turboFilter>
+    <turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">
+        <Marker>DB_CLOSE</Marker>
+        <onMatch>DENY</onMatch>
+    </turboFilter>
+    <turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">
+        <Marker>CREATE</Marker>
+        <onMatch>DENY</onMatch>
+    </turboFilter>
     <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
-        <!--<Marker>BarTest.db</Marker>-->
-        <!--<onMatch>DENY</onMatch>-->
+    <!--<Marker>BarTest.db</Marker>-->
+    <!--<onMatch>DENY</onMatch>-->
     <!--</turboFilter>-->
+    <turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">
+    <Marker>READ</Marker>
+    <onMatch>DENY</onMatch>
+    </turboFilter>
     <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
-    <!--<Marker>READ</Marker>-->
+    <!--<Marker>WRITE</Marker>-->
     <!--<onMatch>DENY</onMatch>-->
     <!--</turboFilter>-->
     <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
-        <!--<Marker>WRITE</Marker>-->
-        <!--<onMatch>DENY</onMatch>-->
-    <!--</turboFilter>-->
-    <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
-        <!--<Marker>Persister</Marker>-->
-        <!--<onMatch>DENY</onMatch>-->
+    <!--<Marker>Persister</Marker>-->
+    <!--<onMatch>DENY</onMatch>-->
     <!--</turboFilter>-->
     <!-- switch the log level between error and trace -> with error, much fewer log messages will appear-->
     <!--<logger name="com.ea.modbus.dc.EconDriver" levedl="DEBUG"/>-->

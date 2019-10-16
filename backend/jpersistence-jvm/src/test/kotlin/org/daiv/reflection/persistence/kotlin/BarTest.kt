@@ -5,6 +5,7 @@ import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.FieldDataFactory
 import org.daiv.reflection.common.createHashCode
+import org.daiv.reflection.database.persister
 import org.daiv.reflection.persister.Persister
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
@@ -59,10 +60,8 @@ class BarTest
                    constructor(waves: List<DrawnWave>) : this(waves.hashCode(), waves)
                }
                val logger = KotlinLogging.logger { }
-               val database = DatabaseWrapper.create("BarTest.db")
                describe("BarTest") {
-                   database.open()
-                   val persister = Persister(database)
+                   val persister = persister("BarTest.db")
                    on("from to") {
                        val list = (0 until 100).map { Bar(it, " - $it - ") }
                                .toList()
@@ -309,6 +308,6 @@ class BarTest
                            createTable("test3", 400.0)
                        }
                    }
-                   afterGroup { database.delete() }
+                   afterGroup { persister.delete() }
                }
            })

@@ -37,6 +37,8 @@ import java.sql.SQLException
 import kotlin.reflect.KClass
 import kotlin.reflect.full.cast
 
+internal val dbOpen = MarkerFactory.getMarker("DB_OPEN")
+internal val dbClose = MarkerFactory.getMarker("DB_CLOSE")
 private val persisterMarker = MarkerFactory.getMarker("Persister")
 
 /**
@@ -50,6 +52,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
     //    val logger = KotlinLogging.logger("Persister. ${databaseInterface.path}")
     val dbMarkerRead = MarkerFactory.getDetachedMarker("READ")
     val dbMarkerWrite = MarkerFactory.getDetachedMarker("WRITE")
+    val dbMarkerCreate = MarkerFactory.getDetachedMarker("CREATE")
 
     init {
         val dbMarker = MarkerFactory.getMarker(databaseInterface.path)
@@ -57,6 +60,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         dbMarkerRead.add(persisterMarker)
         dbMarkerWrite.add(dbMarker)
         dbMarkerWrite.add(persisterMarker)
+        dbMarkerCreate.add(dbMarkerWrite)
     }
 
     fun delete() = databaseInterface.delete()
@@ -86,7 +90,11 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     internal fun write(query: String) {
         try {
-            logger.trace(dbMarkerWrite, query)
+            if(query.startsWith("CREATE")){
+                logger.trace(dbMarkerCreate, query)
+            } else {
+                logger.trace(dbMarkerWrite, query)
+            }
             val statement = databaseInterface.statement
             statement.execute(query)
             statement.close()

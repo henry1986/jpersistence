@@ -25,6 +25,9 @@ package org.daiv.reflection.database
 
 import mu.KotlinLogging
 import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.persister.dbClose
+import org.daiv.reflection.persister.dbOpen
+import org.slf4j.MarkerFactory
 import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
@@ -36,6 +39,7 @@ interface DatabaseInterface : SimpleDatabase {
     fun commit()
     val path: String
 }
+
 
 /**
  * class that automatically opens a connection - to create a new connection,
@@ -56,7 +60,7 @@ class DatabaseHandler constructor(override val path: String) : DatabaseInterface
         try {
             connection = DriverManager.getConnection("jdbc:sqlite:$path")
             if (!connection!!.isClosed) {
-                logger.info("...Connection established to $path")
+                logger.info(dbOpen, "...Connection established to $path")
             }
         } catch (e: SQLException) {
             throw RuntimeException(e)
@@ -88,7 +92,7 @@ class DatabaseHandler constructor(override val path: String) : DatabaseInterface
             if (!connection!!.isClosed && connection != null) {
                 connection!!.close()
                 if (connection!!.isClosed)
-                    logger.info("Connection to database $path closed")
+                    logger.info(dbClose, "Connection to database $path closed")
             }
         } catch (e: SQLException) {
             throw RuntimeException(e)

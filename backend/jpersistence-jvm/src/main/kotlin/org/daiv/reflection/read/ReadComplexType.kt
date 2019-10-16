@@ -61,10 +61,15 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         persisterData.storeManyToOneObject(t, table)
     }
 
-    private fun <T : Any> T.checkDBValue(objectValue: T): T {
+    private fun <T : Any> T.checkDBValue(objectValue: T, key: List<Any>): T {
         if (this != objectValue) {
-            val msg = "values are not the same -> " +
+            val firstTryMsg = "values are not the same -> " +
                     "databaseValue: $this vs manyToOne Value: $objectValue"
+            val msg = if (firstTryMsg.length > 1000) {
+                "values of class ${this::class} are not fitting. Object is too big to print - key: $key"
+            } else {
+                firstTryMsg
+            }
             throw RuntimeException(msg)
         }
         return objectValue
@@ -76,7 +81,7 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
             val key = persisterData.key.hashCodeXIfAutoKey(obj)
             val read = table.readMultipleUseHashCode(key)
             if (read != null) {
-                read.checkDBValue(obj)
+                read.checkDBValue(obj, key)
                 val insertKey = InsertKey(table.tableName, key)
                 if (!insertMap.exists(insertKey)) {
                     insertMap.put(insertKey, InsertRequest(emptyList()))
@@ -130,7 +135,9 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
 
     override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
         val nextSize = persisterData.key.getValue(readValue, number, key)
-        val read = table.readMultipleUseHashCode(nextSize.t)!!
+        val read = table.readMultipleUseHashCode(nextSize.t)
+                ?: throw RuntimeException("did not find value for key ${nextSize.t}")
+
 //        val value = readValue.read(table, nextSize.t)
 //        val value = table.read(nextSize.t)!!
         return NextSize(read, nextSize.i)
