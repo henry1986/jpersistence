@@ -25,7 +25,6 @@ package org.daiv.reflection.read
 
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
-import org.daiv.reflection.common.FieldData.JoinName
 import org.daiv.reflection.persister.*
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
@@ -272,64 +271,42 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
         return ret
     }
 
-    private fun toManyStore(o: List<R>) {
-        /**
-         * only for fields, that have to store data in other tables. It ensures that this data
-         * is written in one time, so that it is faster. Other fields may have an empty implementation
-         * of this method
-         */
-        val z = o.flatMap { fields.flatMap { f -> f.toStoreObjects(f.hashCodeXIfAutoKey(it) as T) } }
-        val x = toMany(z)
-        x.forEach { t, u -> t.storeManyToOneObject(u as List<T>) }
-    }
+//    private fun toManyStore(o: List<R>) {
+//        /**
+//         * only for fields, that have to store data in other tables. It ensures that this data
+//         * is written in one time, so that it is faster. Other fields may have an empty implementation
+//         * of this method
+//         */
+//        val z = o.flatMap { fields.flatMap { f -> f.toStoreObjects(f.hashCodeXIfAutoKey(it) as T) } }
+//        val x = toMany(z)
+//        x.forEach { t, u -> t.storeManyToOneObject(u as List<T>) }
+//    }
 
     fun putInsertRequests(tableName: String, insertMap: InsertMap, o: List<R>) {
         o.map {
             val insertKey = InsertKey(tableName, key.hashCodeXIfAutoKey(it))
             if (!insertMap.exists(insertKey)) {
-                insertMap.put(insertKey, InsertRequest(insertObject(it)))
+                insertMap.put(insertKey, InsertRequest(insertObject(it)), it)
                 fields.forEach { f -> f.toStoreData(insertMap, listOf(it)) }
             }
         }
     }
 
-    fun insert(o: R): String {
-        toManyStore(listOf(o))
+//    fun insert(o: R): String {
+//        toManyStore(listOf(o))
+//
+//        val insertObjects = insertObject(o)
+//        return insertBy(insertObjects)
+//    }
 
-        val insertObjects = insertObject(o)
-        return insertBy(insertObjects)
-    }
-
-    fun insertList(o: List<R>): String {
-        if (o.isEmpty()) {
-            return "() VALUES ();"
-        }
-        toManyStore(o)
-
-        val insertObjects = o.map { insertObject(it) }
-        return insertListBy(insertObjects)
-    }
-
-    fun insertInnerFieldCollections(o: R) {
-//        val key = keySimpleType(o)
-        onFields { insertLists(listOf(o)) }
-    }
-
-    fun deleteLists(key: Any) {
+    fun deleteLists(key: List<Any>) {
 //        val key = keySimpleType(o)
         onFields { deleteLists(key) }
-    }
-
-
-    fun insertLists(l: List<R>) {
-        fields.forEach { it.insertLists(l) }
-//        l.forEach { o -> fields.forEach { it.insertLists(o, o) } }
     }
 
     private fun insertObject(o: R): List<InsertObject> {
         return fields.flatMap { it.insertObject(it.hashCodeXIfAutoKey(o) as T) }
     }
-
 
     companion object {
 

@@ -35,7 +35,11 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
 
     override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
         try {
-            val any = readValue.getObject(number)
+            val any = if (propertyData.clazz == Long::class) {
+                readValue.resultSet.getLong(number)
+            } else {
+                readValue.getObject(number)
+            }
             val x = if (propertyData.clazz == Boolean::class)
                 any == 1
             else

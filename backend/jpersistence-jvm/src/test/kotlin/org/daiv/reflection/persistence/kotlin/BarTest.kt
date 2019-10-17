@@ -7,6 +7,7 @@ import org.daiv.reflection.common.FieldDataFactory
 import org.daiv.reflection.common.createHashCode
 import org.daiv.reflection.database.persister
 import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.persister.PersisterPreference
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
@@ -59,9 +60,11 @@ class BarTest
                data class WaveSet(val id: Int, val waves: List<DrawnWave>) {
                    constructor(waves: List<DrawnWave>) : this(waves.hashCode(), waves)
                }
+
                val logger = KotlinLogging.logger { }
                describe("BarTest") {
                    val persister = persister("BarTest.db")
+                   val doubleRefPersister = Persister("BarTestDoubleRef.db", PersisterPreference(true, 1000000))
                    on("from to") {
                        val list = (0 until 100).map { Bar(it, " - $it - ") }
                                .toList()
@@ -241,45 +244,57 @@ class BarTest
                        }
                    }
 
-                   on("double reference") {
-                       it("test double reference") {
-                           val table = persister.Table(WPDescriptor::class)
-                           val wpTable = persister.Table(WavePoint::class)
-                           val tickTable = persister.Table(Tick::class)
+                   fun Persister.testDoubleReference(testName: String, initBlock:()->Unit = {}) {
+                       on(testName) {
+                           it("test double reference") {
+                               val table = Table(WPDescriptor::class)
+                               val wpTable = Table(WavePoint::class)
+                               val tickTable = Table(Tick::class)
 
-                           wpTable.truncate()
-                           tickTable.truncate()
-                           table.persist()
+                               table.persist()
 
-                           val wp1 = WavePoint(Tick(100L, 1.0, OfferSide.BID), true, m1)
-                           val wp2 = WavePoint(Tick(200L, 2.0, OfferSide.BID), false, m1)
-                           val wp3 = WavePoint(Tick(300L, 3.0, OfferSide.BID), true, m1)
-                           val wp4 = WavePoint(Tick(400L, 4.0, OfferSide.BID), false, m1)
-                           val des1 = WPDescriptor(wp1, wp2, emptyList())
-                           val des2 = WPDescriptor(wp2, wp3, emptyList())
-                           val des3 = WPDescriptor(wp3, wp4, emptyList())
-                           val wave1 = WPWave(listOf(des1, des2))
+                               val wp1 = WavePoint(Tick(100L, 1.0, OfferSide.BID), true, m1)
+                               val wp2 = WavePoint(Tick(200L, 2.0, OfferSide.BID), false, m1)
+                               val wp3 = WavePoint(Tick(300L, 3.0, OfferSide.BID), true, m1)
+                               val wp4 = WavePoint(Tick(400L, 4.0, OfferSide.BID), false, m1)
+                               val des1 = WPDescriptor(wp1, wp2, emptyList())
+                               val des2 = WPDescriptor(wp2, wp3, emptyList())
+                               val des3 = WPDescriptor(wp3, wp4, emptyList())
+                               val wave1 = WPWave(listOf(des1, des2))
 
-                           val des4 = WPDescriptor(wp1, wp3, listOf(wave1))
+                               val des4 = WPDescriptor(wp1, wp3, listOf(wave1))
 
-                           val wave2 = WPWave(listOf(des4, des3))
-                           val hashCodeDes1 = WPDescriptor::class.createHashCode(listOf(des1.wp1, des1.wp2))
+                               val wave2 = WPWave(listOf(des4, des3))
+                               val hashCodeDes1 = WPDescriptor::class.createHashCode(listOf(des1.wp1, des1.wp2))
 
-                           val hashCode1 = WPWave::class.createHashCode(listOf(wave1.wpDescriptors))
-                           val hashCode2 = WPWave::class.createHashCode(listOf(wave2.wpDescriptors))
+                               val hashCode1 = WPWave::class.createHashCode(listOf(wave1.wpDescriptors))
+                               val hashCode2 = WPWave::class.createHashCode(listOf(wave2.wpDescriptors))
 
-                           val des6 = WPDescriptor(wp1, wp4, listOf(wave2))
+                               val des6 = WPDescriptor(wp1, wp4, listOf(wave2))
 
-                           table.insert(des6)
+                               table.insert(des6)
 
-                           val read = table.read(listOf(wp1, wp4))!!
+                               val read = table.read(listOf(wp1, wp4))!!
 
-                           assertEquals(des6, read)
+                               assertEquals(des6, read)
+
 //                           table.insert(des4)
 //                           val read = table.read(listOf(wp1, wp3))!!
 //                           assertEquals(des4, read)
+                           }
                        }
                    }
+
+                   persister.testDoubleReference("without cache")
+//                   {
+//                       val wpTable = persister.Table(WavePoint::class)
+//                       val tickTable = persister.Table(Tick::class)
+//                       wpTable.truncate()
+//                       tickTable.truncate()
+//                   }
+                   doubleRefPersister.testDoubleReference("with cache")
+
+
                    fun getCandles(value: Double): List<Candle> {
                        val candles = (0 until 50).map {
                            Candle(it * 60L, m1,
@@ -308,6 +323,6 @@ class BarTest
                            createTable("test3", 400.0)
                        }
                    }
-                   afterGroup { persister.delete() }
+                   afterGroup { persister.delete(); doubleRefPersister.delete() }
                }
            })

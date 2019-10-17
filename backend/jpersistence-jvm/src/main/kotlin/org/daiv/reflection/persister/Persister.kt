@@ -25,6 +25,7 @@ package org.daiv.reflection.persister
 
 import mu.KotlinLogging
 import org.daiv.reflection.common.*
+import org.daiv.reflection.database.DatabaseHandler
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.read.*
@@ -45,8 +46,13 @@ private val persisterMarker = MarkerFactory.getMarker("Persister")
  * @author Martin Heinrich
  */
 class Persister(private val databaseInterface: DatabaseInterface,
+                val persisterPreference: PersisterPreference = defaultPersisterPreference(),
                 private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
         Registerer<DBChangeListener> by registerer {
+    constructor(dbPath: String, persisterPreference: PersisterPreference = defaultPersisterPreference()) :
+            this(DatabaseHandler(dbPath), persisterPreference)
+
+    fun close() = databaseInterface.close()
 
     val logger = KotlinLogging.logger {}
     //    val logger = KotlinLogging.logger("Persister. ${databaseInterface.path}")
@@ -69,7 +75,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
         registerer.forEach(DBChangeListener::onChange)
     }
 
-    private fun readCache() = ReadCache()
+    private val internalReadCache = ReadCache(persisterPreference)
+
+    private fun readCache() = if (persisterPreference.useCache) internalReadCache else ReadCache(persisterPreference)
 
     internal fun justPersist(tableName: String, readPersisterData: InternalRPD<*, *>) {
         write("$createTable $tableName ${readPersisterData.createTable()}")
@@ -107,7 +115,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     private fun getTableName(tableName: String, clazz: KClass<*>) = if (tableName == "") clazz.tableName() else tableName
 
-    internal interface InternalTable {
+    internal interface InternalTable : PersisterListener {
         val readPersisterData: InternalRPD<out Any, Any>
         val tableName: String
         val _tableName: String
@@ -173,11 +181,14 @@ class Persister(private val databaseInterface: DatabaseInterface,
         fun clear() {
             persister.write("DELETE from $tableName;")
             readPersisterData.clearLists()
+            onClear(tableName)
+
             persister.event()
         }
 
-        fun deleteBy(fieldName: String, id: Any) {
+        fun deleteBy(fieldName: String, id: List<Any>) {
             try {
+                onDelete(tableName, id)
                 persister.write("DELETE ${fromWhere(fieldName, id, comma)};")
                 persister.event()
             } catch (e: Throwable) {
@@ -187,17 +198,17 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     }
 
-    internal inner class HelperTable(val fields: List<FieldData<Any, Any, Any, Any>>,
-                                     override val tableName: String,
-                                     numberOfKeyFields: Int = 1) :
-            InternalTable {
+    internal inner class HelperTable constructor(val fields: List<FieldData<Any, Any, Any, Any>>,
+                                                 override val tableName: String,
+                                                 numberOfKeyFields: Int = 1) :
+            InternalTable, PersisterListener by internalReadCache {
+
         override val readPersisterData: InternalRPD<out Any, Any> = object : InternalRPD<Any, Any> {
             override val fields: List<FieldData<Any, Any, Any, Any>> = this@HelperTable.fields
             override val key: KeyType = KeyType(fields.take(numberOfKeyFields))
         }
         override val _tableName: String = tableName
         override val persister: Persister = this@Persister
-
     }
 
     private fun <R : Any> createPersisterProvider(clazz: KClass<R>,
@@ -211,7 +222,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     inner class Table<R : Any> internal constructor(override val readPersisterData: ReadPersisterData<R, Any>,
                                                     val clazz: KClass<R>) :
-            InternalTable, Registerer<DBChangeListener> by registerer {
+            InternalTable, Registerer<DBChangeListener> by registerer, PersisterListener by internalReadCache {
         override val _tableName
             get() = readPersisterData.persisterProvider[clazz]
         override val tableName
@@ -272,13 +283,17 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return this
         }
 
-        fun read(fieldName: String, id: Any, readCache: ReadCache? = null, orderOrder: String = ""): List<R> {
+        internal fun read(fieldName: String, id: Any, readCache: ReadCache, orderOrder: String = ""): List<R> {
             val req = "SELECT * ${fromWhere(fieldName, id, and)} $orderOrder;"
-            return this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this), readCache ?: readCache()) } }
+            return this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this), readCache) } }
         }
 
-        fun readOrdered(fieldName: String, id: Any, readCache: ReadCache? = null): List<R> {
-            return read(fieldName, id, readCache, orderOrder = "ORDER BY ${readPersisterData.keyName()}")
+        fun read(fieldName: String, id: Any, orderOrder: String = ""): List<R> {
+            return read(fieldName, id, readCache(), orderOrder)
+        }
+
+        fun readOrdered(fieldName: String, id: Any): List<R> {
+            return read(fieldName, id, readCache(), orderOrder = "ORDER BY ${readPersisterData.keyName()}")
         }
 
         private fun Any.toList(): List<Any> {
@@ -304,16 +319,20 @@ class Persister(private val databaseInterface: DatabaseInterface,
             }
         }
 
-        fun read(id: Any, readCache: ReadCache? = null): R? {
-            return read(idName, id.toList().toHashCodeX(), readCache).firstOrNull()
+        fun read(id: Any): R? {
+            return read(idName, id.toList().toHashCodeX(), readCache()).firstOrNull()
         }
 
-        fun readMultiple(id: List<Any>, readCache: ReadCache? = null): R? {
-            return read(idName, id.toHashCodeX(), readCache).firstOrNull()
+        fun readMultiple(id: List<Any>): R? {
+            return read(idName, id.toHashCodeX(), readCache()).firstOrNull()
         }
 
-        fun readMultipleUseHashCode(id: List<Any>, readCache: ReadCache? = null): R? {
+        internal fun innerReadMultipleUseHashCode(id: List<Any>, readCache: ReadCache): R? {
             return read(idName, id, readCache).firstOrNull()
+        }
+
+        fun readMultipleUseHashCode(id: List<Any>): R? {
+            return innerReadMultipleUseHashCode(id, readCache())
         }
 
 //        fun readMultiple(vararg id: Any): R? {
@@ -332,8 +351,8 @@ class Persister(private val databaseInterface: DatabaseInterface,
             if (o.isEmpty()) {
                 return
             }
-            val map = InsertMap(persister)
-            readPersisterData.putInsertRequests(tableName, map, o)
+            val map = InsertMap(persister, readCache())
+            readPersisterData.putInsertRequests(_tableName, map, o)
             map.insertAll()
 //            write("INSERT INTO $tableName ${readPersisterData.insertList(o)}")
 //            readPersisterData.insertLists(o)
@@ -350,7 +369,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return exists(idName, id.toList())
         }
 
-        fun delete(fieldName: String, id: Any) {
+        private fun innerDelete(fieldName: String, id: Any) {
             try {
                 val list = read(fieldName, id)
                 this@Persister.write("DELETE ${fromWhere(fieldName, id, and)};")
@@ -361,11 +380,25 @@ class Persister(private val databaseInterface: DatabaseInterface,
             }
         }
 
+        fun delete(fieldName: String, id: Any) {
+            onDelete(tableName)
+            innerDelete(fieldName, id)
+        }
+
         fun delete(id: Any) {
-            delete(idName, id.toList())
+            val idAsList = id.toList()
+            onDelete(tableName, idAsList)
+            innerDelete(idName, idAsList)
         }
 
         fun truncate() = clear()
+
+        fun innerUpdate(fieldName2Find: String, id: Any, fieldName2Set: String, value: Any) {
+            val field2Find = readPersisterData.field(fieldName2Find)
+            val field2Set = readPersisterData.field(fieldName2Set)
+            write("UPDATE $tableName SET ${field2Set.fNEqualsValue(value, comma)} ${field2Find.whereClause(id, comma)}")
+            tableEvent()
+        }
 
         /**
          * [fieldName2Set] is the fieldName of the field, that has to be reset by [value].
@@ -374,10 +407,8 @@ class Persister(private val databaseInterface: DatabaseInterface,
          * e.g. UPDATE [clazz] SET [fieldName2Set] = [value] WHERE [fieldName2Find] = [id];
          */
         fun update(fieldName2Find: String, id: Any, fieldName2Set: String, value: Any) {
-            val field2Find = readPersisterData.field(fieldName2Find)
-            val field2Set = readPersisterData.field(fieldName2Set)
-            write("UPDATE $tableName SET ${field2Set.fNEqualsValue(value, comma)} ${field2Find.whereClause(id, comma)}")
-            tableEvent()
+            onUpdate(tableName)
+            innerUpdate(fieldName2Find, id, fieldName2Set, value)
         }
 
         /**
@@ -387,6 +418,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
          * e.g. UPDATE [clazz] SET [fieldName2Set] = [value] WHERE [idName] = [id];
          */
         fun update(id: Any, fieldName2Set: String, value: Any) {
+            onUpdate(tableName, id.toList())
             update(idName, id, fieldName2Set, value)
         }
 
@@ -425,7 +457,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         /**
          * returns all data from the current Table [clazz], ordered by [ReadPersisterData.keyName]
          */
-        fun readAll() = internReadAll( "order by ${readPersisterData.keyName()}")
+        fun readAll() = internReadAll("order by ${readPersisterData.keyName()}")
 
         /**
          * same as [readAll], but there is no guarantee about the order

@@ -102,8 +102,7 @@ internal interface MapEngineInterface<R : Any, M : Any, T : Any> {
 
     fun createTableForeign(tableNames: Set<String>): Set<String>
 
-    fun insertLists(r: List<R>)
-    fun deleteLists(keySimpleType: Any)
+    fun deleteLists(key: List<Any>)
 
     fun clearLists()
 }
@@ -168,23 +167,8 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
         return valueField.createTableForeign(keyField.createTableForeign(helperTable.persistWithName(checkName = tableNames)))
     }
 
-    override fun insertLists(r: List<R>) {
-        val b = r.flatMap { key ->
-            val p = getObjectMethod(key)
-            p.map { key to it }
-        }
-        keyField.storeManyToOneObject(b.map { it.second.key })
-        helperTable.insertListBy(b.map {
-            val x = idField.insertObject(idField.hashCodeXIfAutoKey(it.first))
-            val y = keyField.insertObject(keyField.getObject(it.second.key))
-            val z = valueField.insertObject(it.second.value)
-            x + y + z
-        })
-        valueField.storeManyToOneObject(b.map { it.second.value })
-    }
-
-    override fun deleteLists(keySimpleType: Any) {
-        helperTable.deleteBy(idField.name, keySimpleType)
+    override fun deleteLists(key: List<Any>) {
+        helperTable.deleteBy(idField.name, key)
     }
 
     fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<Map<M, T>> {

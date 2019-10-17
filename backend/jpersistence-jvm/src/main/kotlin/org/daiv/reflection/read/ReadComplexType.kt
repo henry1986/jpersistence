@@ -54,10 +54,6 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
 
     override fun numberOfKeyFields(): Int = moreKeys.amount
 
-    override fun storeManyToOneObject(t: List<T>) {
-        persisterData.storeManyToOneObject(t, table)
-    }
-
     private fun <T : Any> T.checkDBValue(objectValue: T, key: List<Any>): T {
         if (this != objectValue) {
             val firstTryMsg = "values are not the same -> " +
@@ -79,12 +75,8 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
             val read = insertMap.readCache.read(table, key)
             if (read != null) {
                 read.checkDBValue(obj, key)
-                val insertKey = InsertKey(table.tableName, key)
-                if (!insertMap.exists(insertKey)) {
-                    insertMap.put(insertKey, InsertRequest(emptyList()))
-                }
             } else {
-                table.readPersisterData.putInsertRequests(table.tableName, insertMap, listOf(obj))
+                table.readPersisterData.putInsertRequests(table._tableName, insertMap, listOf(obj))
             }
         }
     }

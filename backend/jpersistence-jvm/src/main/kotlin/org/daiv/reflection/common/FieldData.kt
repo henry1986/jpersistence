@@ -23,16 +23,12 @@
 
 package org.daiv.reflection.common
 
-import org.daiv.reflection.isPrimitiveOrWrapperOrStringOrEnum
 import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.Persister.HelperTable
-import org.daiv.reflection.persister.Persister.Table
 import org.daiv.reflection.persister.ReadCache
 import org.daiv.reflection.read.InsertObject
 import org.daiv.reflection.read.KeyType
 import org.daiv.reflection.read.NextSize
-import org.daiv.reflection.read.ReadPersisterData
-import kotlin.reflect.KClass
 
 private fun <T : Any> T.checkDBValue(objectValue: T): T {
     if (this != objectValue) {
@@ -41,29 +37,6 @@ private fun <T : Any> T.checkDBValue(objectValue: T): T {
         throw RuntimeException(msg)
     }
     return objectValue
-}
-
-internal fun <T : Any> ReadPersisterData<T, Any>.storeManyToOneObject(objectValues: List<T>, table: Table<T>) {
-    if (objectValues.isEmpty()) {
-        return
-    }
-    if (objectValues.first()::class.isPrimitiveOrWrapperOrStringOrEnum()) {
-        return
-    }
-    val l = objectValues.map { objectValue ->
-        val x = table.read(getKey(objectValue))
-                ?.let { it.checkDBValue(objectValue) }
-        if (x == null) {
-            objectValue
-        } else {
-            null
-        }
-    }
-            .filterNotNull()
-            .distinct()
-    if (!l.isEmpty()) {
-        table.insert(l)
-    }
 }
 
 internal interface FieldCollection<R : Any, S : Any, T : Any, X : Any> {
@@ -99,7 +72,7 @@ internal interface FieldReadable<R : Any, S : Any> {
 
 internal interface HashCodeable<S : Any> : FieldReadable<Any, S> {
     fun hashCodeX(t: Any): Int
-    fun plainHashCodeX(t:Any):Int
+    fun plainHashCodeX(t: Any): Int
 }
 
 fun toPrefixedName(prefix: String?, name: String) = prefix?.let { "${it}_$name" } ?: name
@@ -180,31 +153,17 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
         return t
     }
 
-    fun insertLists(r: List<R>)
-    fun deleteLists(keySimpleType: Any)
+    fun deleteLists(key: List<Any>)
     fun clearLists()
     fun createTableForeign(tableName: Set<String>): Set<String>
 
     fun key(): String
-
-    data class ForeignKey(val name: String, val clazzReference: String) {
-        fun sqlMethod() = "FOREIGN KEY ($name) references $clazzReference"
-    }
-
-//    fun foreignKey(): ForeignKey?
-
-    data class JoinName(val name: String, val clazzSimpleName: String, val keyName: String) {
-        fun join() = "${clazzSimpleName} as $name ON $name = $name.${keyName}"
-    }
-
-//    fun joinNames(clazzSimpleName: String, keyName: String): List<JoinName>
 
     fun size() = 1
 
     fun copyTableName(): Map<String, String>
     fun copyData(map: Map<String, String>)
 
-    fun storeManyToOneObject(t: List<T>)
     fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects>
     fun toStoreData(insertMap: InsertMap, objectValue: List<R>)
     fun persist()
@@ -221,21 +180,21 @@ internal data class ToStoreManyToOneObjects(val field: FieldData<*, *, *, *>, va
 
 internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
     override fun createTableForeign(tableName: Set<String>) = tableName
-    override fun insertLists(r: List<R>) {}
-    override fun deleteLists(keySimpleType: Any) {}
+    override fun deleteLists(key: List<Any>) {}
     override fun clearLists() {}
     override fun copyTableName() = mapOf(prefixedName to prefixedName)
     override fun copyData(map: Map<String, String>) {}
     override fun onIdField(idField: KeyType) {}
-    override fun dropHelper(){}
+    override fun dropHelper() {}
 }
 
 internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : FieldData<R, S, T, X> {
     val helperTable: HelperTable
 
-    override fun dropHelper(){
+    override fun dropHelper() {
         helperTable.dropTable()
     }
+
     override fun numberOfKeyFields() = 0
 
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
@@ -253,7 +212,6 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Fie
 
     override fun underscoreName() = null
     override fun size() = 0
-    override fun storeManyToOneObject(t: List<T>) {}
     override fun persist() {}
     override fun copyTableName() = emptyMap<String, String>()
 
@@ -282,8 +240,6 @@ internal interface SimpleTypes<R : Any, T : Any> : NoList<R, T, T> {
     }
 
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
-
-    override fun storeManyToOneObject(t: List<T>) {}
 
     override fun persist() {}
     override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1)!!

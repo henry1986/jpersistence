@@ -69,9 +69,6 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
         return super.getObject(o)
     }
 
-    override fun storeManyToOneObject(t: List<Any>) {
-    }
-
     override fun toStoreObjects(objectValue: Any): List<ToStoreManyToOneObjects> {
         return emptyList()
     }
