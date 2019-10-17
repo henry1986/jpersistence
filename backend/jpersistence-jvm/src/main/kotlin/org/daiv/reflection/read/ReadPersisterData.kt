@@ -26,21 +26,21 @@ package org.daiv.reflection.read
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
 import org.daiv.reflection.common.FieldData.JoinName
-import org.daiv.reflection.persister.InsertKey
-import org.daiv.reflection.persister.InsertMap
-import org.daiv.reflection.persister.InsertRequest
-import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.persister.*
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.primaryConstructor
 
 internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any, Any, Any, Any>)
-private class Reader<R : Any, T : Any>(val fields: List<FieldData<R, Any, T, Any>>, val key: List<Any>, val readValue: ReadValue) {
+private class Reader<R : Any, T : Any>(val readCache: ReadCache,
+                                       val fields: List<FieldData<R, Any, T, Any>>,
+                                       val key: List<Any>,
+                                       val readValue: ReadValue) {
     fun read(counter: Int, i: Int = 0, list: List<ReadFieldValue> = emptyList()): NextSize<List<ReadFieldValue>> {
         if (i < fields.size) {
             val field = fields[i]
-            val (value, nextCounter) = field.getValue(readValue, counter, key)
+            val (value, nextCounter) = field.getValue(readCache, readValue, counter, key)
             val readFieldValue = ReadFieldValue(value, field as FieldData<Any, Any, Any, Any>)
             return read(nextCounter, i + 1, list + readFieldValue)
         }
@@ -71,7 +71,7 @@ internal interface InternalRPD<R : Any, T : Any> {
         } else {
             try {
                 field(fieldName).whereClause(id, sep)
-            } catch (t:Throwable){
+            } catch (t: Throwable) {
                 throw t
             }
         }
@@ -141,17 +141,20 @@ internal interface InternalRPD<R : Any, T : Any> {
 //    fun helperTables() = onFields { helperTables() }.flatten()
 //    fun keyTables() = onFields { keyTables() }.flatten()
 
-    fun innerRead(readValue: ReadValue, counter: Int = 1): NextSize<List<ReadFieldValue>> {
-        val x = key.getValue(readValue, counter, emptyList())
-        return Reader(fields.drop(key.fields.size), x.t, readValue).read(x.i,
-                                                                         list = x.t.mapIndexed { i, e -> ReadFieldValue(e, key.fields[i]) })
+    fun innerRead(readValue: ReadValue, counter: Int = 1, readCache: ReadCache): NextSize<List<ReadFieldValue>> {
+        val x = key.getValue(readCache, readValue, counter, emptyList())
+        return Reader(readCache, fields.drop(key.fields.size), x.t, readValue).read(x.i,
+                                                                                    list = x.t.mapIndexed { i, e ->
+                                                                                        ReadFieldValue(e,
+                                                                                                       key.fields[i])
+                                                                                    })
     }
 
     /**
      * method reads the [ReadValue] only to a list of [ReadFieldValue], not to [R]
      */
-    fun readWOObject(readValue: ReadValue): List<ReadFieldValue> {
-        return innerRead(readValue).t
+    fun readWOObject(readValue: ReadValue, readCache: ReadCache): List<ReadFieldValue> {
+        return innerRead(readValue, readCache = readCache).t
     }
 
     fun keyName(): String {
@@ -237,17 +240,17 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
 //        return func.getList(::evaluate)
 //    }
 
-    fun evaluate(readValue: ReadValue): R {
-        return read(readValue).t
+    fun evaluate(readValue: ReadValue, readCache: ReadCache): R {
+        return read(readValue, readCache).t
     }
 
 
-    internal fun read(readValue: ReadValue, counter: Int): NextSize<R> {
-        return innerRead(readValue, counter).transform(method)
+    internal fun read(readValue: ReadValue, counter: Int, readCache: ReadCache): NextSize<R> {
+        return innerRead(readValue, counter, readCache).transform(method)
     }
 
-    internal fun read(readValue: ReadValue): NextSize<R> {
-        return read(readValue, 1)
+    internal fun read(readValue: ReadValue, readCache: ReadCache): NextSize<R> {
+        return read(readValue, 1, readCache)
     }
 
     fun getKey(o: R): Any {
@@ -312,7 +315,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
         onFields { insertLists(listOf(o)) }
     }
 
-    fun deleteLists(key:Any) {
+    fun deleteLists(key: Any) {
 //        val key = keySimpleType(o)
         onFields { deleteLists(key) }
     }

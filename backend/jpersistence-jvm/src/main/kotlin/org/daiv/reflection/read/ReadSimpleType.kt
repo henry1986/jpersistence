@@ -24,6 +24,7 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.common.*
+import org.daiv.reflection.persister.ReadCache
 import java.sql.SQLException
 import kotlin.reflect.KClass
 
@@ -32,9 +33,9 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
 
     override fun toTableHead() = toTableHead(propertyData.clazz, prefixedName)
 
-    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
         try {
-            val any = readValue.getObject(number, propertyData.clazz as KClass<Any>)
+            val any = readValue.getObject(number)
             val x = if (propertyData.clazz == Boolean::class)
                 any == 1
             else

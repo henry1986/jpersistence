@@ -26,10 +26,10 @@
     <!--<Marker>BarTest.db</Marker>-->
     <!--<onMatch>DENY</onMatch>-->
     <!--</turboFilter>-->
-    <turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">
-    <Marker>READ</Marker>
-    <onMatch>DENY</onMatch>
-    </turboFilter>
+    <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
+    <!--<Marker>READ</Marker>-->
+    <!--<onMatch>DENY</onMatch>-->
+    <!--</turboFilter>-->
     <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
     <!--<Marker>WRITE</Marker>-->
     <!--<onMatch>DENY</onMatch>-->

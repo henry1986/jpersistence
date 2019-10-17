@@ -39,7 +39,7 @@ fun <T : Any> KClass<T>.tableName() = "${this.java.simpleName}"
 fun <T : Any> T?.asList() = listOfNotNull(this)
 
 internal class ReadValue constructor(private val resultSet: ResultSet) {
-    fun getObject(number: Int, clazz: KClass<Any>) = resultSet.getObject(number)!!
+    fun getObject(number: Int) = resultSet.getObject(number)!!
 }
 
 

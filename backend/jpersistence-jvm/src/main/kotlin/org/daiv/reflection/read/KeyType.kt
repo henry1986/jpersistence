@@ -2,6 +2,7 @@ package org.daiv.reflection.read
 
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
+import org.daiv.reflection.persister.ReadCache
 
 /**
  * in case, this is an auto idField, [idFieldIfAuto] is the older idField without [key]
@@ -83,16 +84,16 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
         return fields.flatMap { it.subFields() }
     }
 
-    private fun read(i: Int, readValue: ReadValue, number: Int, ret: NextSize<List<Any>>): NextSize<List<Any>> {
+    private fun read(i: Int, readCache: ReadCache,readValue: ReadValue, number: Int, ret: NextSize<List<Any>>): NextSize<List<Any>> {
         if (i < fields.size) {
-            val read = fields[i].getValue(readValue, number, emptyList())
-            return read(i + 1, readValue, read.i, NextSize(ret.t + read.t, read.i))
+            val read = fields[i].getValue(readCache, readValue, number, emptyList())
+            return read(i + 1, readCache, readValue, read.i, NextSize(ret.t + read.t, read.i))
         }
         return ret
     }
 
-    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<List<Any>> {
-        return read(0, readValue, number, NextSize(emptyList(), number))
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<List<Any>> {
+        return read(0, readCache, readValue, number, NextSize(emptyList(), number))
 //        return fields.first()
 //                .getValue(readValue, number, key)
     }
@@ -103,7 +104,7 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
 //            if(e is AutoKeyType){
 //                e.plainHashCodeXIfAutoKey(obj)
 //            } else{
-                e.fNEqualsValue(obj, sep)
+            e.fNEqualsValue(obj, sep)
 //            }
         }
                 .joinToString(sep)

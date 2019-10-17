@@ -69,6 +69,8 @@ class Persister(private val databaseInterface: DatabaseInterface,
         registerer.forEach(DBChangeListener::onChange)
     }
 
+    private fun readCache() = ReadCache()
+
     internal fun justPersist(tableName: String, readPersisterData: InternalRPD<*, *>) {
         write("$createTable $tableName ${readPersisterData.createTable()}")
     }
@@ -90,7 +92,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     internal fun write(query: String) {
         try {
-            if(query.startsWith("CREATE")){
+            if (query.startsWith("CREATE")) {
                 logger.trace(dbMarkerCreate, query)
             } else {
                 logger.trace(dbMarkerWrite, query)
@@ -153,10 +155,10 @@ class Persister(private val databaseInterface: DatabaseInterface,
             }
         }
 
-        fun readIntern(fnEqualsValue: String, orderOrder: String = ""): List<List<ReadFieldValue>> {
+        fun readIntern(fnEqualsValue: String, readCache: ReadCache, orderOrder: String = ""): List<List<ReadFieldValue>> {
 //            val req = "SELECT $selectHeader FROM $tableName $join ${whereClause(fieldName, id, and)};"
             val req = "SELECT * FROM $tableName WHERE $fnEqualsValue $orderOrder;"
-            return persister.read(req) { it.getList { readPersisterData.readWOObject(ReadValue(this)) } }
+            return persister.read(req) { it.getList { readPersisterData.readWOObject(ReadValue(this), readCache) } }
         }
 
         fun insertListBy(insertObjects: List<List<InsertObject>>) {
@@ -270,13 +272,13 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return this
         }
 
-        fun read(fieldName: String, id: Any, orderOrder: String = ""): List<R> {
+        fun read(fieldName: String, id: Any, readCache: ReadCache? = null, orderOrder: String = ""): List<R> {
             val req = "SELECT * ${fromWhere(fieldName, id, and)} $orderOrder;"
-            return this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this)) } }
+            return this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this), readCache ?: readCache()) } }
         }
 
-        fun readOrdered(fieldName: String, id: Any): List<R> {
-            return read(fieldName, id, "ORDER BY ${readPersisterData.keyName()}")
+        fun readOrdered(fieldName: String, id: Any, readCache: ReadCache? = null): List<R> {
+            return read(fieldName, id, readCache, orderOrder = "ORDER BY ${readPersisterData.keyName()}")
         }
 
         private fun Any.toList(): List<Any> {
@@ -302,16 +304,16 @@ class Persister(private val databaseInterface: DatabaseInterface,
             }
         }
 
-        fun read(id: Any): R? {
-            return read(idName, id.toList().toHashCodeX()).firstOrNull()
+        fun read(id: Any, readCache: ReadCache? = null): R? {
+            return read(idName, id.toList().toHashCodeX(), readCache).firstOrNull()
         }
 
-        fun readMultiple(id: List<Any>): R? {
-            return read(idName, id.toHashCodeX()).firstOrNull()
+        fun readMultiple(id: List<Any>, readCache: ReadCache? = null): R? {
+            return read(idName, id.toHashCodeX(), readCache).firstOrNull()
         }
 
-        fun readMultipleUseHashCode(id: List<Any>): R? {
-            return read(idName, id).firstOrNull()
+        fun readMultipleUseHashCode(id: List<Any>, readCache: ReadCache? = null): R? {
+            return read(idName, id, readCache).firstOrNull()
         }
 
 //        fun readMultiple(vararg id: Any): R? {
@@ -415,7 +417,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         private fun internReadAll(orderOrder: String = ""): List<R> {
             return this@Persister.read("SELECT * from $tableName $orderOrder;") {
-                it.getList { readPersisterData.evaluate(ReadValue(this)) }
+                it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) }
             }
         }
 
@@ -423,7 +425,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         /**
          * returns all data from the current Table [clazz], ordered by [ReadPersisterData.keyName]
          */
-        fun readAll() = internReadAll("order by ${readPersisterData.keyName()}")
+        fun readAll() = internReadAll( "order by ${readPersisterData.keyName()}")
 
         /**
          * same as [readAll], but there is no guarantee about the order
@@ -453,7 +455,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         private fun timespread(whereClause: String): List<R> {
             return this@Persister.read("select * from $tableName where ${readPersisterData.keyName()} $whereClause") {
-                it.getList { readPersisterData.evaluate(ReadValue(this)) }
+                it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) }
             }
         }
 
@@ -471,7 +473,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         fun <K : Comparable<K>> readLastBefore(last: Long, before: K): List<R> {
             val keyColumnName = readPersisterData.keyColumnName()
             return this@Persister.read("SELECT * FROM ( select * from $tableName where $keyColumnName < $before ORDER BY $keyColumnName DESC LIMIT $last ) X ORDER BY $keyColumnName ASC") {
-                it.getList { readPersisterData.evaluate(ReadValue(this)) }
+                it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) }
             }
         }
 
@@ -485,13 +487,13 @@ class Persister(private val databaseInterface: DatabaseInterface,
         fun last(): R? {
             val keyColumnName = readPersisterData.keyColumnName()
             val req = "SELECT * FROM $tableName WHERE $keyColumnName = (SELECT max($keyColumnName) from $tableName);"
-            val x = this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this)) } }
+            val x = this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) } }
             return x.firstOrNull()
         }
 
         fun first(): R? {
             val req = "SELECT * FROM $tableName LIMIT 1;"
-            val x = this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this)) } }
+            val x = this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) } }
             return x.firstOrNull()
         }
 

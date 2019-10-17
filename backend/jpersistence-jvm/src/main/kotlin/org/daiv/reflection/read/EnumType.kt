@@ -26,6 +26,7 @@ package org.daiv.reflection.read
 import org.daiv.reflection.common.PropertyData
 import org.daiv.reflection.common.ReadValue
 import org.daiv.reflection.common.SimpleTypes
+import org.daiv.reflection.persister.ReadCache
 import java.sql.SQLException
 import kotlin.reflect.KClass
 
@@ -39,9 +40,9 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
     override fun toTableHead() = "${prefixedName} Text NOT NULL"
 
 
-    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
         try {
-            val any = readValue.getObject(number, propertyData.clazz as KClass<Any>) as String
+            val any = readValue.getObject(number) as String
             return NextSize(getEnumValue(propertyData.clazz.qualifiedName!!, any), number + 1)
         } catch (e: SQLException) {
             throw RuntimeException(e)
@@ -62,8 +63,8 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
 internal class AutoKeyType(override val propertyData: PropertyData<Any,Any,Any>, override val prefix: String?) : SimpleTypes<Any, Any> {
     override fun toTableHead() = "$prefixedName Int NOT NULL"
 
-    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<Any> {
-        val any = readValue.getObject(number, propertyData.clazz)
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<Any> {
+        val any = readValue.getObject(number)
         return NextSize(any as Int, number + 1)
     }
 

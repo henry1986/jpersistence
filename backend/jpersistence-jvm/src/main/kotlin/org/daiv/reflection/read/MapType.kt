@@ -24,10 +24,7 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.common.*
-import org.daiv.reflection.persister.InsertKey
-import org.daiv.reflection.persister.InsertMap
-import org.daiv.reflection.persister.InsertRequest
-import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.persister.*
 import org.daiv.reflection.persister.Persister.HelperTable
 import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
@@ -54,8 +51,8 @@ internal class MapType<R : Any, T : Any, M : Any> constructor(override val prope
         return mapEngine.fNEqualsValue(o, sep)
     }
 
-    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<Map<M, T>> {
-        return mapEngine.getValue(readValue, number, key)
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<Map<M, T>> {
+        return mapEngine.getValue(readCache, readValue, number, key)
     }
 }
 
@@ -91,8 +88,8 @@ internal class ListType<R : Any, T : Any>(override val propertyData: ListMapProp
         return mapEngine.fNEqualsValue(converterToMap(o), sep)
     }
 
-    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<List<T>> {
-        val ret = mapEngine.getValue(readValue, number, key)
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<List<T>> {
+        val ret = mapEngine.getValue(readCache, readValue, number, key)
         return NextSize(converter(ret.t), ret.i)
     }
 }
@@ -190,12 +187,12 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
         helperTable.deleteBy(idField.name, keySimpleType)
     }
 
-    fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<Map<M, T>> {
+    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<Map<M, T>> {
         if (key.isEmpty()) {
             throw NullPointerException("a List cannot be a key")
         }
         val fn = idField.autoIdFNEqualsValue(key, " AND ")
-        val read = helperTable.readIntern(fn)
+        val read = helperTable.readIntern(fn, readCache)
         val map = read.map { it[1].value as M to it[2].value as T }
                 .toMap()
 

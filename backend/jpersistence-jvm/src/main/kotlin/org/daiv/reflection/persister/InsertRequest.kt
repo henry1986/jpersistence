@@ -34,6 +34,26 @@ internal data class InsertMap(val persister: Persister) {
     }
 }
 
+private data class ReadCacheKey(val tableName: String, val key: List<Any>)
+
+class ReadCache {
+    private val map: MutableMap<ReadCacheKey, Any> = mutableMapOf()
+
+    fun <T:Any>read(table: Persister.Table<T>, key: List<Any>): T {
+//        return table.readMultipleUseHashCode(key)!!
+        val readCacheKey = ReadCacheKey(table.tableName, key)
+        val got = map[readCacheKey]
+        return if (got == null) {
+            val read = table.readMultipleUseHashCode(key, this)
+                    ?: throw RuntimeException("did not find value for key $key")
+            map[readCacheKey] = read
+            read
+        } else {
+            got as T
+        }
+    }
+}
+
 //internal data class ReadMap(){
 //    private val map: MutableMap<InsertKey, Any> = mutableMapOf()
 //

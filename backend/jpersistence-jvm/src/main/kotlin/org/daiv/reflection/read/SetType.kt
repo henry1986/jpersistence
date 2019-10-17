@@ -25,10 +25,7 @@ package org.daiv.reflection.read
 
 import org.daiv.reflection.annotations.ManyList
 import org.daiv.reflection.common.*
-import org.daiv.reflection.persister.InsertKey
-import org.daiv.reflection.persister.InsertMap
-import org.daiv.reflection.persister.InsertRequest
-import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.persister.*
 import org.daiv.reflection.persister.Persister.HelperTable
 import kotlin.reflect.full.isSubclassOf
 
@@ -119,12 +116,12 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
 
 
     @Suppress("UNCHECKED_CAST")
-    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<Set<T>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<Set<T>> {
         if (key.isEmpty()) {
             throw NullPointerException("a List cannot be a key")
         }
         val fn = idField.autoIdFNEqualsValue(key, "AND")
-        val read = helperTable.readIntern(fn)
+        val read = helperTable.readIntern(fn, readCache)
         val ret = read
                 .map {
                     it[1].value as T

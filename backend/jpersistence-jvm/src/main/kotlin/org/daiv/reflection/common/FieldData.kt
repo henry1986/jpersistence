@@ -27,6 +27,7 @@ import org.daiv.reflection.isPrimitiveOrWrapperOrStringOrEnum
 import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.Persister.HelperTable
 import org.daiv.reflection.persister.Persister.Table
+import org.daiv.reflection.persister.ReadCache
 import org.daiv.reflection.read.InsertObject
 import org.daiv.reflection.read.KeyType
 import org.daiv.reflection.read.NextSize
@@ -87,7 +88,7 @@ internal interface FieldCollection<R : Any, S : Any, T : Any, X : Any> {
     fun toTableHead(): String?
 
     fun getColumnValue(readValue: ReadValue): Any
-    fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<X>
+    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<X>
     fun insertObject(o: T): List<InsertObject>
     fun underscoreName(): String?
 }
@@ -285,7 +286,7 @@ internal interface SimpleTypes<R : Any, T : Any> : NoList<R, T, T> {
     override fun storeManyToOneObject(t: List<T>) {}
 
     override fun persist() {}
-    override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1, propertyData.clazz as KClass<Any>)!!
+    override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1)!!
 
     override fun keySimpleType(r: R) = propertyData.getObject(r)
     override fun key() = prefixedName

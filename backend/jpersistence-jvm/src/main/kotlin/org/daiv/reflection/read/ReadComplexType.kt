@@ -26,10 +26,7 @@ package org.daiv.reflection.read
 import org.daiv.reflection.annotations.ManyToOne
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
-import org.daiv.reflection.persister.InsertKey
-import org.daiv.reflection.persister.InsertMap
-import org.daiv.reflection.persister.InsertRequest
-import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.persister.*
 
 internal class ReadComplexType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
                                                              val moreKeys: MoreKeys,
@@ -64,7 +61,7 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
     private fun <T : Any> T.checkDBValue(objectValue: T, key: List<Any>): T {
         if (this != objectValue) {
             val firstTryMsg = "values are not the same -> " +
-                    "databaseValue: $this vs manyToOne Value: $objectValue"
+                    "databaseValue:       $this \n vs manyToOne Value: $objectValue"
             val msg = if (firstTryMsg.length > 1000) {
                 "values of class ${this::class} are not fitting. Object is too big to print - key: $key"
             } else {
@@ -133,10 +130,11 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         return persisterData.key.copyTableName()
     }
 
-    override fun getValue(readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
-        val nextSize = persisterData.key.getValue(readValue, number, key)
-        val read = table.readMultipleUseHashCode(nextSize.t)
-                ?: throw RuntimeException("did not find value for key ${nextSize.t}")
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
+        val nextSize = persisterData.key.getValue(readCache, readValue, number, key)
+        val read = readCache.read(table, nextSize.t)
+//        val read = table.readMultipleUseHashCode(nextSize.t)
+//                ?: throw RuntimeException("did not find value for key ${nextSize.t}")
 
 //        val value = readValue.read(table, nextSize.t)
 //        val value = table.read(nextSize.t)!!
