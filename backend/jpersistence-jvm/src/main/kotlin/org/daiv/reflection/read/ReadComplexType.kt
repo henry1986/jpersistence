@@ -76,7 +76,7 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         objectValue.forEach {
             val obj = getObject(it)
             val key = persisterData.key.hashCodeXIfAutoKey(obj)
-            val read = table.readMultipleUseHashCode(key)
+            val read = insertMap.readCache.read(table, key)
             if (read != null) {
                 read.checkDBValue(obj, key)
                 val insertKey = InsertKey(table.tableName, key)
@@ -132,7 +132,7 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
 
     override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
         val nextSize = persisterData.key.getValue(readCache, readValue, number, key)
-        val read = readCache.read(table, nextSize.t)
+        val read = readCache.readNoNull(table, nextSize.t)
 //        val read = table.readMultipleUseHashCode(nextSize.t)
 //                ?: throw RuntimeException("did not find value for key ${nextSize.t}")
 
