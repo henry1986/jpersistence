@@ -18,10 +18,10 @@
         <Marker>DB_CLOSE</Marker>
         <onMatch>DENY</onMatch>
     </turboFilter>
-    <turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">
-        <Marker>CREATE</Marker>
-        <onMatch>DENY</onMatch>
-    </turboFilter>
+    <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
+        <!--<Marker>CREATE</Marker>-->
+        <!--<onMatch>DENY</onMatch>-->
+    <!--</turboFilter>-->
     <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
     <!--<Marker>BarTest.db</Marker>-->
     <!--<onMatch>DENY</onMatch>-->

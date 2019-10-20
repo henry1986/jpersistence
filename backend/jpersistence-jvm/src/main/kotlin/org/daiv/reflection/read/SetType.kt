@@ -49,7 +49,7 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
 
     override fun onIdField(idField: KeyType) {
         this.idField = idField
-        helper = persister.HelperTable(listOf(idField, valueField) as List<FieldData<Any, Any, Any, Any>>, helperTableName, 2)
+        helper = persister.HelperTable(listOf(idField, valueField) as List<FieldData<Any, Any, Any, Any>>, {helperTableName}, 2)
     }
 
     override fun isType(a: Any): Boolean {

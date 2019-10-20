@@ -174,13 +174,23 @@ internal interface InternalRPD<R : Any, T : Any> {
 
     fun namesToList() = names().map { it.value }
 
-    fun copyTable(otherNames: Map<String, String>): String {
-        val names = namesToList()
-        return "(${names.joinToString(", ")}) select ${names.map { otherNames[it] }.joinToString(", ")}"
+    private fun mapOtherNames(otherNames: Map<String, String>, name: String, request: (String) -> String): String? {
+        val ret = otherNames[name]
+        return if (ret == "#addKeyColumn") {
+            request(name)
+        } else {
+            ret
+        }
+
     }
 
-    fun copyHelperTable(map: Map<String, Map<String, String>>) {
-        fields.forEach { f -> map[f.prefixedName]?.let { f.copyData(it) } }
+    fun copyTable(otherNames: Map<String, String>, request: (String) -> String): String {
+        val names = namesToList()
+        return "(${names.joinToString(", ")}) select ${names.map { mapOtherNames(otherNames, it, request) }.joinToString(", ")}"
+    }
+
+    fun copyHelperTable(map: Map<String, Map<String, String>>, request: (String, String) -> String) {
+        fields.forEach { f -> map[f.prefixedName]?.let { f.copyData(it, request) } }
     }
 
     fun clearLists() {

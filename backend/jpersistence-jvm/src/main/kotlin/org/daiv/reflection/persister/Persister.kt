@@ -136,8 +136,8 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         fun namesToMap() = readPersisterData.names()
 
-        fun copyData(newVariables: Map<String, String>, oldTableName: String, newTableName: String) {
-            val command = this.readPersisterData.copyTable(this.namesToMap() + newVariables)
+        fun copyData(newVariables: Map<String, String>, oldTableName: String, newTableName: String, request: (String) -> String) {
+            val command = this.readPersisterData.copyTable(this.namesToMap() + newVariables, request)
             persister.write("INSERT INTO $newTableName $command from $oldTableName;")
         }
 
@@ -199,7 +199,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
     }
 
     internal inner class HelperTable constructor(val fields: List<FieldData<Any, Any, Any, Any>>,
-                                                 override val tableName: String,
+                                                 val tableNameGetter: () -> String,
                                                  numberOfKeyFields: Int = 1) :
             InternalTable, PersisterListener by internalReadCache {
 
@@ -207,7 +207,10 @@ class Persister(private val databaseInterface: DatabaseInterface,
             override val fields: List<FieldData<Any, Any, Any, Any>> = this@HelperTable.fields
             override val key: KeyType = KeyType(fields.take(numberOfKeyFields))
         }
-        override val _tableName: String = tableName
+        override val tableName: String
+            get() = tableNameGetter()
+        override val _tableName: String
+            get() = tableName
         override val persister: Persister = this@Persister
     }
 
@@ -264,7 +267,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
                                                         newVariables: Map<String, String> = mapOf(),
                                                         creator: (String) -> S): S {
             next.persist()
-            next.copyData(newVariables, tableName, next.tableName)
+            next.copyData(newVariables, tableName, next.tableName) { it }
             onlyDropMaster()
             next.rename(next.tableName, _tableName)
             persisterProvider.rename(next.clazz, _tableName)
@@ -278,8 +281,14 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return change(next, newVariables) { Table(next.readPersisterData, clazz) }
         }
 
-        fun copyHelperTable(map: Map<String, Map<String, String>>): Table<R> {
-            readPersisterData.copyHelperTable(map)
+        private fun toKeyNames(helperTableName: String) = readPersisterData.key.fields.map { "$tableName.${it.name} = $helperTableName.${it.name}" }
+                .joinToString(" $and ")
+
+        fun copyHelperTable(map: Map<String, Map<String, String>>, oldTable: Table<out Any>? = null): Table<R> {
+            val request: (String, String) -> String = { helperTableName, variable ->
+                "(select $variable from $tableName where ${oldTable?.toKeyNames(helperTableName)})"
+            }
+            readPersisterData.copyHelperTable(map, request)
             return this
         }
 

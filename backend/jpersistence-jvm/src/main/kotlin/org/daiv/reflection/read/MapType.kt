@@ -119,7 +119,8 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
     private lateinit var idField: KeyType
     private lateinit var helper: HelperTable
 
-    private val helperTableName = "${persisterProvider[parrentClass]}_${propertyData.receiverType.simpleName}_$name"
+    private val helperTableName
+        get() = "${persisterProvider[parrentClass]}_${propertyData.receiverType.simpleName}_$name"
 
     private val keyField = propertyData.keyClazz.toFieldData(persisterProvider, KeyAnnotation(propertyData.property),
                                                              "key",
@@ -153,7 +154,7 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
         this.idField = idField
         val fields3 = listOf(idField, keyField, valueField) as List<FieldData<Any, Any, Any, Any>>
         helper = persister.HelperTable(fields3,
-                                       helperTableName,
+                                       { helperTableName },
                                        idField.numberOfKeyFields() + keyField.numberOfKeyFields() + valueField.numberOfKeyFields())
     }
 

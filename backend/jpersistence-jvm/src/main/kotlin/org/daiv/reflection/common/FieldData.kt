@@ -24,6 +24,7 @@
 package org.daiv.reflection.common
 
 import org.daiv.reflection.persister.InsertMap
+import org.daiv.reflection.persister.InsertRequest
 import org.daiv.reflection.persister.Persister.HelperTable
 import org.daiv.reflection.persister.ReadCache
 import org.daiv.reflection.read.InsertObject
@@ -162,7 +163,7 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
     fun size() = 1
 
     fun copyTableName(): Map<String, String>
-    fun copyData(map: Map<String, String>)
+    fun copyData(map: Map<String, String>, request: (String, String) -> String)
 
     fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects>
     fun toStoreData(insertMap: InsertMap, objectValue: List<R>)
@@ -183,7 +184,7 @@ internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
     override fun deleteLists(key: List<Any>) {}
     override fun clearLists() {}
     override fun copyTableName() = mapOf(prefixedName to prefixedName)
-    override fun copyData(map: Map<String, String>) {}
+    override fun copyData(map: Map<String, String>, request: (String, String) -> String) {}
     override fun onIdField(idField: KeyType) {}
     override fun dropHelper() {}
 }
@@ -215,18 +216,18 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Fie
     override fun persist() {}
     override fun copyTableName() = emptyMap<String, String>()
 
-    override fun copyData(map: Map<String, String>) {
+    override fun copyData(map: Map<String, String>, request: (String, String) -> String) {
         val nextName = map["&newTableName"] ?: helperTable.tableName
         val currentName = map["&oldTableName"] ?: helperTable.tableName
         if (nextName == currentName) {
             val tmpName = "tmp_$currentName"
             helperTable.persistWithName(tmpName)
-            helperTable.copyData(map, currentName, tmpName)
+            helperTable.copyData(map, currentName, tmpName) { request(currentName, it) }
             helperTable.onlyDropMaster(currentName)
             helperTable.rename(tmpName, currentName)
-
         } else {
-            helperTable.copyData(map, currentName, nextName)
+            helperTable.persistWithName(nextName)
+            helperTable.copyData(map, currentName, nextName) { request(currentName, it) }
             helperTable.onlyDropMaster(currentName)
         }
     }
