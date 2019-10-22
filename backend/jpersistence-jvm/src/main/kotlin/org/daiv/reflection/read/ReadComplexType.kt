@@ -72,12 +72,18 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         objectValue.forEach {
             val obj = getObject(it)
             val key = persisterData.key.hashCodeXIfAutoKey(obj)
-            val read = insertMap.readCache.read(table, key)
-            if (read != null) {
-                read.checkDBValue(obj, key)
+            if (insertMap.insertCachePreference.checkCacheOnly) {
+                if (insertMap.readCache.isInCache(table, key)) {
+                    return
+                }
             } else {
-                table.readPersisterData.putInsertRequests(table._tableName, insertMap, listOf(obj))
+                val read = insertMap.readCache.read(table, key)
+                if (read != null) {
+                    read.checkDBValue(obj, key)
+                    return
+                }
             }
+            table.readPersisterData.putInsertRequests(table._tableName, insertMap, listOf(obj))
         }
     }
 

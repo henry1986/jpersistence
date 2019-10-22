@@ -15,21 +15,25 @@ class AlterTableTest :
         Spek({
                  data class Before(val x: Int, val y: String)
                  data class After(val x: Int, val y: String, val z: Double)
+
                  @MoreKeys(2)
                  data class After2(val x: Int, val z: Double, val y: String)
 
                  data class BeforeComplex(val x: Int, @ManyToOne("After") val y: Before)
+
                  @MoreKeys(2)
                  data class AfterComplex(val x: Int, val y: After, val z: Double)
 
                  data class BeforeList(val x: Int, val y: List<Before>)
+
                  @MoreKeys(2)
                  data class AfterList(val x: Int, val z: Int, val y: List<After2>)
 
-                 data class NextBeforeList(val x: Int, val z: Int, val y: List<Before>)
-
                  @MoreKeys(2)
-                 data class NextAfterList(val x: Int, val z: Int, val y: List<Before>)
+                 data class NextBeforeList(val x: Int, val b: Before, val b2: Before, val z: Int, val y: List<Before>)
+
+                 @MoreKeys(3)
+                 data class NextAfterList(val x: Int, val b: Before, val b2: Before, val z: Int, val y: List<Before>)
 
                  val logger = KotlinLogging.logger { }
                  val database = DatabaseWrapper.create("AlterTableTest.db")
@@ -103,20 +107,23 @@ class AlterTableTest :
                          it("to After") {
                              val table = persister.Table(NextBeforeList::class, "NextAfterList")
                              table.persist()
-                             val assert1 = NextBeforeList(1, 2, listOf(Before(1, "hello"), Before(4, "wow")))
-                             val assert2 = NextBeforeList(2, 2, listOf(Before(2, "2hello"), Before(8, "8wow")))
-                             val assert3 = NextBeforeList(3, 3, listOf(Before(3, "3hello"), Before(5, "5wow")))
+                             val b = Before(1, "hello")
+                             val b3 = Before(15, "hello")
+                             val b2 = Before(9, "9hello")
+                             val assert1 = NextBeforeList(1, b, b2, 2, listOf(b, Before(4, "wow")))
+                             val assert2 = NextBeforeList(2, b3, b2, 2, listOf(Before(2, "2hello"), Before(8, "8wow")))
+                             val assert3 = NextBeforeList(3, b, b2, 3, listOf(Before(3, "3hello"), Before(5, "5wow")))
                              val assert = listOf(assert1, assert2, assert3)
                              table.insert(assert)
                              val changed = table.change(NextAfterList::class)
                                      .copyHelperTable(mapOf("y" to mapOf(
                                              "&oldTableName" to "NextAfterList_NextBeforeList_y",
                                              "&newTableName" to "NextAfterList_NextAfterList_y",
-                                             "z" to "#addKeyColumn")), table)
+                                             "b2_x" to "#addKeyColumn")), table)
                              val read = changed.readAll()
-                             val rassert1 = NextAfterList(1, 2, listOf(Before(1, "hello"), Before(4, "wow")))
-                             val rassert2 = NextAfterList(2, 2, listOf(Before(2, "2hello"), Before(8, "8wow")))
-                             val rassert3 = NextAfterList(3, 3, listOf(Before(3, "3hello"), Before(5, "5wow")))
+                             val rassert1 = NextAfterList(1, b, b2, 2, listOf(Before(1, "hello"), Before(4, "wow")))
+                             val rassert2 = NextAfterList(2, b3, b2, 2, listOf(Before(2, "2hello"), Before(8, "8wow")))
+                             val rassert3 = NextAfterList(3, b, b2, 3, listOf(Before(3, "3hello"), Before(5, "5wow")))
                              val rassert = listOf(rassert1, rassert2, rassert3)
                              assertEquals(rassert, read)
                          }

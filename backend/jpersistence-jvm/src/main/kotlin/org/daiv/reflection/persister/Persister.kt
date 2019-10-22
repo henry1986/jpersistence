@@ -28,10 +28,12 @@ import org.daiv.reflection.common.*
 import org.daiv.reflection.database.DatabaseHandler
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
-import org.daiv.reflection.read.*
+import org.daiv.reflection.read.InternalRPD
+import org.daiv.reflection.read.KeyType
+import org.daiv.reflection.read.ReadFieldValue
+import org.daiv.reflection.read.ReadPersisterData
 import org.daiv.util.DefaultRegisterer
 import org.daiv.util.Registerer
-import org.slf4j.Marker
 import org.slf4j.MarkerFactory
 import java.sql.ResultSet
 import java.sql.SQLException
@@ -117,6 +119,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     internal interface InternalTable : PersisterListener {
         val readPersisterData: InternalRPD<out Any, Any>
+        val innerTableName: String
         val tableName: String
         val _tableName: String
         val persister: Persister
@@ -169,15 +172,6 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return persister.read(req) { it.getList { readPersisterData.readWOObject(ReadValue(this), readCache) } }
         }
 
-        fun insertListBy(insertObjects: List<List<InsertObject>>) {
-            if (insertObjects.isEmpty()) {
-                return
-            }
-            persister.write("INSERT INTO $tableName ${readPersisterData.insertListBy(insertObjects)}")
-//            readPersisterData.insertListBy(insertObjects)
-            persister.event()
-        }
-
         fun clear() {
             persister.write("DELETE from $tableName;")
             readPersisterData.clearLists()
@@ -199,6 +193,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
     }
 
     internal inner class HelperTable constructor(val fields: List<FieldData<Any, Any, Any, Any>>,
+                                                 val innerTableNameGetter: () -> String,
                                                  val tableNameGetter: () -> String,
                                                  numberOfKeyFields: Int = 1) :
             InternalTable, PersisterListener by internalReadCache {
@@ -207,6 +202,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
             override val fields: List<FieldData<Any, Any, Any, Any>> = this@HelperTable.fields
             override val key: KeyType = KeyType(fields.take(numberOfKeyFields))
         }
+
+        override val innerTableName: String
+            get() = innerTableNameGetter()
         override val tableName: String
             get() = tableNameGetter()
         override val _tableName: String
@@ -226,6 +224,8 @@ class Persister(private val databaseInterface: DatabaseInterface,
     inner class Table<R : Any> internal constructor(override val readPersisterData: ReadPersisterData<R, Any>,
                                                     val clazz: KClass<R>) :
             InternalTable, Registerer<DBChangeListener> by registerer, PersisterListener by internalReadCache {
+        override val innerTableName: String
+            get() = readPersisterData.persisterProvider.innerTableName(clazz)
         override val _tableName
             get() = readPersisterData.persisterProvider[clazz]
         override val tableName
@@ -266,22 +266,23 @@ class Persister(private val databaseInterface: DatabaseInterface,
         private fun <T : Any, S : InternalTable> change(next: Table<T>,
                                                         newVariables: Map<String, String> = mapOf(),
                                                         creator: (String) -> S): S {
-            next.persist()
+            persister.justPersist(next._tableName, next.readPersisterData)
+//            next.persist()
             next.copyData(newVariables, tableName, next.tableName) { it }
             onlyDropMaster()
             next.rename(next.tableName, _tableName)
-            persisterProvider.rename(next.clazz, _tableName)
+            persisterProvider.rename(next.clazz, innerTableName)
             return creator(_tableName)
         }
 
         fun <T : Any> change(clazz: KClass<T>, newVariables: Map<String, String> = mapOf()): Table<T> {
-            val tName = "${_tableName}_temp"
+            val tName = "${innerTableName}_temp"
             persisterProvider.rename(clazz, tName)
             val next = persister.Table(clazz, persisterProvider)
             return change(next, newVariables) { Table(next.readPersisterData, clazz) }
         }
 
-        private fun toKeyNames(helperTableName: String) = readPersisterData.key.fields.map { "$tableName.${it.name} = $helperTableName.${it.name}" }
+        private fun toKeyNames(helperTableName: String) = readPersisterData.key.fields.map { "$tableName.${it.key()} = $helperTableName.${it.key()}" }
                 .joinToString(" $and ")
 
         fun copyHelperTable(map: Map<String, Map<String, String>>, oldTable: Table<out Any>? = null): Table<R> {
@@ -356,11 +357,28 @@ class Persister(private val databaseInterface: DatabaseInterface,
             insert(listOf(o))
         }
 
-        fun insert(o: List<R>) {
+        private fun innerCachePreference() = InsertCachePreference(false)
+
+        inner class InsertCache(val insertCachePreference: InsertCachePreference = innerCachePreference()) {
+            private val map = InsertMap(persister, insertCachePreference, readCache())
+            fun insert(o: List<R>) {
+                if (o.isEmpty()) {
+                    return
+                }
+                readPersisterData.putInsertRequests(_tableName, map, o)
+            }
+
+            fun commit() {
+                map.insertAll()
+                tableEvent()
+            }
+        }
+
+        fun insert(o: List<R>, innerCachePreference: InsertCachePreference = innerCachePreference()) {
             if (o.isEmpty()) {
                 return
             }
-            val map = InsertMap(persister, readCache())
+            val map = InsertMap(persister, innerCachePreference, readCache())
             readPersisterData.putInsertRequests(_tableName, map, o)
             map.insertAll()
 //            write("INSERT INTO $tableName ${readPersisterData.insertList(o)}")
@@ -477,7 +495,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
          * returns all keys from the current Table [clazz]
          */
         fun <T : Any> readAllKeys(): List<T> {
-            return readColumn(idName) { "SELECT $selectKeyHeader from $tableName;" }
+            return readColumn(readPersisterData.keyColumnName()) { "SELECT $selectKeyHeader from $tableName;" }
         }
 
 //        fun tableData(): TableData {

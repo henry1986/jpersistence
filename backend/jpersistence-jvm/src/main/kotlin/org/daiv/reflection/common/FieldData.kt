@@ -128,8 +128,6 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
 //        return property.findAnnotation<ManyToOne>()?.let(onManyToOne) ?: run(noManyToOne)
 //    }
 
-    fun innerGetObject(o: R) = propertyData.getObject(o)
-
     /**
      * gets the [propertyData] value of [o]
      */
@@ -217,8 +215,8 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Fie
     override fun copyTableName() = emptyMap<String, String>()
 
     override fun copyData(map: Map<String, String>, request: (String, String) -> String) {
-        val nextName = map["&newTableName"] ?: helperTable.tableName
-        val currentName = map["&oldTableName"] ?: helperTable.tableName
+        val nextName = map["&newTableName"] ?: helperTable._tableName
+        val currentName = map["&oldTableName"] ?: helperTable._tableName
         if (nextName == currentName) {
             val tmpName = "tmp_$currentName"
             helperTable.persistWithName(tmpName)

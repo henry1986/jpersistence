@@ -12,6 +12,7 @@ internal data class ProviderValue(val readPersisterData: ReadPersisterData<*, *>
 internal interface PersisterProvider {
     fun readPersisterData(providerKey: ProviderKey): ReadPersisterData<*, *>
     fun register(providerKey: ProviderKey)
+    fun innerTableName(clazz: KClass<out Any>): String
     fun tableName(clazz: KClass<out Any>): String
     operator fun get(clazz: KClass<out Any>): String {
         return tableName(clazz)
@@ -39,8 +40,12 @@ internal class PersisterProviderImpl(val persister: Persister,
         return map[providerKey]!!.readPersisterData
     }
 
+    override fun innerTableName(clazz: KClass<out Any>): String {
+        return tableNames[clazz.java.name] ?: clazz.simpleName!!
+    }
+
     override fun tableName(clazz: KClass<out Any>): String {
-        val mapName = tableNames[clazz.java.name] ?: clazz.simpleName!!
+        val mapName = innerTableName(clazz)
         return tableNamePrefix?.let { "${it}_$mapName" } ?: mapName
     }
 

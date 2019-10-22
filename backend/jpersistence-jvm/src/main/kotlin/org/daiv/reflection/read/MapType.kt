@@ -119,6 +119,8 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
     private lateinit var idField: KeyType
     private lateinit var helper: HelperTable
 
+    val innerTableName: String = "${persisterProvider.innerTableName(parrentClass)}_${propertyData.receiverType.simpleName}_$name"
+
     private val helperTableName
         get() = "${persisterProvider[parrentClass]}_${propertyData.receiverType.simpleName}_$name"
 
@@ -154,8 +156,10 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
         this.idField = idField
         val fields3 = listOf(idField, keyField, valueField) as List<FieldData<Any, Any, Any, Any>>
         helper = persister.HelperTable(fields3,
+                                       { innerTableName },
                                        { helperTableName },
-                                       idField.numberOfKeyFields() + keyField.numberOfKeyFields() + valueField.numberOfKeyFields())
+//                                       idField.numberOfKeyFields() + keyField.numberOfKeyFields()
+                                       2)
     }
 
     fun fNEqualsValue(o: Map<M, T>, sep: String): String {

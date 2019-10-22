@@ -9,7 +9,15 @@ internal data class InsertKey constructor(val tableName: String, val key: List<A
 
 internal data class InsertRequest(val insertObjects: List<InsertObject>)
 
-internal data class InsertMap constructor(val persister: Persister, val readCache: ReadCache) {
+/**
+ * if [checkCacheOnly] is activated, before inserting it is only checked, if the value is already in the readCache.
+ * if not, the database is read
+ */
+data class InsertCachePreference(val checkCacheOnly: Boolean)
+
+internal data class InsertMap constructor(val persister: Persister,
+                                          val insertCachePreference: InsertCachePreference,
+                                          val readCache: ReadCache) {
     private val map: MutableMap<InsertKey, InsertRequest> = mutableMapOf()
 
     private fun insertListBy(insertObjects: List<List<InsertObject>>): String {
@@ -36,7 +44,7 @@ internal data class InsertMap constructor(val persister: Persister, val readCach
         val res = group.map { it.key to it.value.map { it.value.insertObjects }.filter { it.isNotEmpty() } }
                 .filter { !it.second.isEmpty() }
                 .toMap()
-        res.map { persister.write("INSERT INTO ${it.key} ${insertListBy(it.value)} ") }
+        res.map { persister.write("INSERT INTO `${it.key}` ${insertListBy(it.value)} ") }
     }
 }
 
@@ -57,7 +65,7 @@ internal class ReadCache(val persisterPreference: PersisterPreference) : Persist
     private val map: MutableMap<InsertKey, Any> = mutableMapOf()
 
     fun <T : Any> read(table: Persister.Table<T>, key: List<Any>): T? {
-        val readCacheKey = InsertKey(table._tableName, key)
+        val readCacheKey = InsertKey(table.tableName, key)
         val got = map[readCacheKey]
         return if (got == null) {
             val read = table.innerReadMultipleUseHashCode(key, this)
@@ -72,6 +80,11 @@ internal class ReadCache(val persisterPreference: PersisterPreference) : Persist
         } else {
             got as T
         }
+    }
+
+    fun <T : Any> isInCache(table: Persister.Table<T>, key: List<Any>): Boolean {
+        val readCacheKey = InsertKey(table.tableName, key)
+        return map.containsKey(readCacheKey)
     }
 
     operator fun set(insertKey: InsertKey, obj: Any) {
