@@ -20,7 +20,10 @@ internal interface PersisterProvider {
 
     fun table(providerKey: ProviderKey): Persister.Table<*>
 
+    fun tableNamesIncludingPrefix(): List<String>
+
     fun rename(clazz: KClass<out Any>, newTableName: String)
+    fun registerHelperTableName(helperTableName: String)
 
     operator fun set(clazz: KClass<out Any>, newTableName: String) {
         rename(clazz, newTableName)
@@ -35,6 +38,11 @@ internal class PersisterProviderImpl(val persister: Persister,
     private val tableNames: MutableMap<String, String> = _tableNames.map { it.key.java.name to it.value }
             .toMap()
             .toMutableMap()
+    private val helperTableNames = mutableSetOf<String>()
+
+    override fun registerHelperTableName(helperTableName: String) {
+        helperTableNames.add(helperTableName)
+    }
 
     override fun readPersisterData(providerKey: ProviderKey): ReadPersisterData<*, *> {
         return map[providerKey]!!.readPersisterData
@@ -44,9 +52,15 @@ internal class PersisterProviderImpl(val persister: Persister,
         return tableNames[clazz.java.name] ?: clazz.simpleName!!
     }
 
+    private fun toPrefixedName(tableName: String) = tableNamePrefix?.let { "${it}_$tableName" } ?: tableName
+
+    override fun tableNamesIncludingPrefix(): List<String> {
+        return tableNames.map { toPrefixedName(it.value) } + helperTableNames
+    }
+
     override fun tableName(clazz: KClass<out Any>): String {
         val mapName = innerTableName(clazz)
-        return tableNamePrefix?.let { "${it}_$mapName" } ?: mapName
+        return toPrefixedName(mapName)
     }
 
     override fun rename(clazz: KClass<out Any>, newTableName: String) {
@@ -62,6 +76,7 @@ internal class PersisterProviderImpl(val persister: Persister,
                                                 prefix = providerKey.prefixedName)
             val table = persister.Table(providerKey.propertyData.clazz, this)
             map[providerKey] = ProviderValue(r, table)
+            tableNames[providerKey.propertyData.clazz.java.name] = providerKey.propertyData.clazz.simpleName!!
         }
     }
 

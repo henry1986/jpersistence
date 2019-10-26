@@ -54,36 +54,13 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
 
     override fun numberOfKeyFields(): Int = moreKeys.amount
 
-    private fun <T : Any> T.checkDBValue(objectValue: T, key: List<Any>): T {
-        if (this != objectValue) {
-            val firstTryMsg = "values are not the same -> " +
-                    "databaseValue:       $this \n vs manyToOne Value: $objectValue"
-            val msg = if (firstTryMsg.length > 1000) {
-                "values of class ${this::class} are not fitting. Object is too big to print - key: $key"
-            } else {
-                firstTryMsg
-            }
-            throw RuntimeException(msg)
-        }
-        return objectValue
-    }
-
-    override fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {
+    override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {
         objectValue.forEach {
             val obj = getObject(it)
             val key = persisterData.key.hashCodeXIfAutoKey(obj)
-            if (insertMap.insertCachePreference.checkCacheOnly) {
-                if (insertMap.readCache.isInCache(table, key)) {
-                    return
-                }
-            } else {
-                val read = insertMap.readCache.read(table, key)
-                if (read != null) {
-                    read.checkDBValue(obj, key)
-                    return
-                }
+            insertMap.nextTask(table, key, obj) {
+                table.readPersisterData.putInsertRequests(table._tableName, insertMap, listOf(obj))
             }
-            table.readPersisterData.putInsertRequests(table._tableName, insertMap, listOf(obj))
         }
     }
 

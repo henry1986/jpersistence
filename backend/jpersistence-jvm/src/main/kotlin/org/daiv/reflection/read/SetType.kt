@@ -31,7 +31,7 @@ import kotlin.reflect.full.isSubclassOf
 
 
 internal class SetType<R : Any, T : Any> constructor(override val propertyData: SetProperty<R, T>,
-                                                     persisterProvider: PersisterProvider,
+                                                     val persisterProvider: PersisterProvider,
                                                      private val many: ManyList,
                                                      val persister: Persister,
                                                      override val prefix: String?) :
@@ -53,13 +53,14 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
                                        { helperTableName },
                                        { helperTableName },
                                        2)
+        persisterProvider.registerHelperTableName(helperTableName)
     }
 
     override fun isType(a: Any): Boolean {
         return a::class.isSubclassOf(Set::class)
     }
 
-    override fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {
+    override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {
         val b = objectValue.flatMap { key ->
             val p = getObject(key).toList()
             p.map { key to it }
@@ -69,13 +70,21 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
             val id = idField.getObject(it.first)
             val value = it.second
             val insertKey = InsertKey(helperTableName, listOf(id, value))
-            if (!insertMap.exists(insertKey)) {
+            insertMap.toBuild(insertKey, toBuild = {
                 val x = idField.insertObject(id)
                         .first()
                 val y = valueField.insertObject(value)
                         .first()
-                insertMap.put(insertKey, InsertRequest(listOf(x, y)))
-            }
+                InsertRequest(listOf(x, y))
+            }) { }
+//            if (!insertMap.exists(insertKey)) {
+//
+//                val x = idField.insertObject(id)
+//                        .first()
+//                val y = valueField.insertObject(value)
+//                        .first()
+//                insertMap.put(insertKey, InsertRequest(listOf(x, y)))
+//            }
         }
     }
 

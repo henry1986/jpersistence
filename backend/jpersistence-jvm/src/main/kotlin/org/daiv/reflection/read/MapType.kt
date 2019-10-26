@@ -98,7 +98,7 @@ internal interface MapEngineInterface<R : Any, M : Any, T : Any> {
     val helperTable: HelperTable
 
     fun onIdField(idField: KeyType)
-    fun toStoreData(insertMap: InsertMap, objectValue: List<R>)
+    suspend fun toStoreData(insertMap: InsertMap, objectValue: List<R>)
 
     fun createTableForeign(tableNames: Set<String>): Set<String>
 
@@ -130,7 +130,7 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
     private val valueField = propertyData.clazz.toFieldData(persisterProvider, KeyAnnotation(propertyData.property), "value", persister)
 
 
-    override fun toStoreData(insertMap: InsertMap, r: List<R>) {
+    override suspend fun toStoreData(insertMap: InsertMap, r: List<R>) {
         val b = r.flatMap { key ->
             val p = getObjectMethod(key)
             p.map { key to it }
@@ -140,13 +140,19 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
             val id1 = idField.hashCodeXIfAutoKey(it.first)
             val key = keyField.getObject(it.second.key)
             val insertKey = InsertKey(helperTableName, listOf(id1, key))
-            if (!insertMap.exists(insertKey)) {
+            insertMap.toBuild(insertKey, toBuild = {
                 val x = idField.insertObject(id1)
                 val y = keyField.insertObject(key)
                 val z = valueField.insertObject(it.second.value)
-                val insertRequest = InsertRequest(x + y + z)
-                insertMap.put(insertKey, insertRequest)
-            }
+                InsertRequest(x + y + z)
+            }) {}
+//            if (!insertMap.exists(insertKey)) {
+//                val x = idField.insertObject(id1)
+//                val y = keyField.insertObject(key)
+//                val z = valueField.insertObject(it.second.value)
+//                val insertRequest = InsertRequest(x + y + z)
+//                insertMap.put(insertKey, insertRequest)
+//            }
         }
         valueField.toStoreData(insertMap, b.map { it.second.value })
     }
@@ -160,6 +166,7 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
                                        { helperTableName },
 //                                       idField.numberOfKeyFields() + keyField.numberOfKeyFields()
                                        2)
+        persisterProvider.registerHelperTableName(helperTableName)
     }
 
     fun fNEqualsValue(o: Map<M, T>, sep: String): String {

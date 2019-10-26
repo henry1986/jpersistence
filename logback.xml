@@ -18,29 +18,29 @@
         <Marker>DB_CLOSE</Marker>
         <onMatch>DENY</onMatch>
     </turboFilter>
-    <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
-        <!--<Marker>CREATE</Marker>-->
-        <!--<onMatch>DENY</onMatch>-->
-    <!--</turboFilter>-->
+    <turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">
+        <Marker>CREATE</Marker>
+        <onMatch>DENY</onMatch>
+    </turboFilter>
     <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
     <!--<Marker>BarTest.db</Marker>-->
     <!--<onMatch>DENY</onMatch>-->
     <!--</turboFilter>-->
-    <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
-    <!--<Marker>READ</Marker>-->
-    <!--<onMatch>DENY</onMatch>-->
-    <!--</turboFilter>-->
-    <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
-    <!--<Marker>WRITE</Marker>-->
-    <!--<onMatch>DENY</onMatch>-->
-    <!--</turboFilter>-->
+    <turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">
+        <Marker>READ</Marker>
+        <onMatch>DENY</onMatch>
+    </turboFilter>
+    <turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">
+        <Marker>WRITE</Marker>
+        <onMatch>DENY</onMatch>
+    </turboFilter>
     <!--<turboFilter class="ch.qos.logback.classic.turbo.MarkerFilter">-->
     <!--<Marker>Persister</Marker>-->
     <!--<onMatch>DENY</onMatch>-->
     <!--</turboFilter>-->
     <!-- switch the log level between error and trace -> with error, much fewer log messages will appear-->
 
-    <!--<logger name="org.daiv.reflection.persister.Persister" level="TRACE"/>-->
+    <!--<logger name="org.daiv.reflection.persister.Persister" level="ERROR"/>-->
     <logger name="org.daiv.reflection.persister.Persister" level="TRACE"/>
     <!--<logger additivity="false" level="DEBUG">-->
     <!--<appender-ref ref="STDOUT"/>-->

@@ -23,6 +23,7 @@
 
 package org.daiv.reflection.persister
 
+import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.daiv.reflection.common.*
 import org.daiv.reflection.database.DatabaseHandler
@@ -252,7 +253,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         private val idName = readPersisterData.getIdName()
 
-        private fun tableEvent() {
+        internal fun tableEvent() {
             registerer.forEach(DBChangeListener::onChange)
             event()
         }
@@ -358,38 +359,45 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
 
         private fun innerCachePreference() = InsertCachePreference(false)
-
-        inner class InsertCache(val insertCachePreference: InsertCachePreference = innerCachePreference()) {
-            private val map = InsertMap(persister, insertCachePreference, readCache())
-            fun insert(o: List<R>) {
-                if (o.isEmpty()) {
-                    return
-                }
-                readPersisterData.putInsertRequests(_tableName, map, o)
-            }
-
-            fun commit() {
-                map.insertAll()
-                tableEvent()
-            }
+        private fun CoroutineScope.actors(requestScope: CoroutineScope,
+                                          completable: Boolean) = persisterProvider.tableNamesIncludingPrefix().map {
+            val actorHandler = ActorHandler(this, requestScope, readCache().readTableCache(it))
+            it to if (!completable) InsertActor(actorHandler) else InsertCompletableActor(actorHandler)
         }
+                .toMap()
+
+        private fun tableHandlers() = persisterProvider.tableNamesIncludingPrefix().map {
+            it to SequentialTableHandler(readCache().readTableCache(it))
+        }
+                .toMap()
+
+
+        inner class InsertCacheParallel(val coroutineScope: CoroutineScope, val requestScope: CoroutineScope, completable: Boolean,
+                                        val insertCachePreference: InsertCachePreference = innerCachePreference()) :
+                InsertCache<R> by InsertCacheHandler(InsertMap(persister,
+                                                               insertCachePreference,
+                                                               coroutineScope.actors(requestScope, completable),
+                                                               readCache()), readPersisterData, this, true)
+
+        inner class InsertCacheSeriell(val insertCachePreference: InsertCachePreference = innerCachePreference()) :
+                InsertCache<R> by InsertCacheHandler(InsertMap(persister, insertCachePreference, tableHandlers(), readCache()),
+                                                     readPersisterData, this, false)
 
         fun insert(o: List<R>, innerCachePreference: InsertCachePreference = innerCachePreference()) {
             if (o.isEmpty()) {
                 return
             }
-            val map = InsertMap(persister, innerCachePreference, readCache())
-            readPersisterData.putInsertRequests(_tableName, map, o)
-            map.insertAll()
-//            write("INSERT INTO $tableName ${readPersisterData.insertList(o)}")
-//            readPersisterData.insertLists(o)
+
+            runBlocking {
+                val map = InsertMap(persister, innerCachePreference, tableHandlers(), readCache())
+                readPersisterData.putInsertRequests(_tableName, map, o)
+                map.insertAll()
+            }
             tableEvent()
         }
 
         fun exists(fieldName: String, id: Any): Boolean {
-            return this@Persister.read("SELECT EXISTS( SELECT $selectHeader ${fromWhere(fieldName,
-                                                                                        id,
-                                                                                        comma)});") { it.getInt(1) != 0 }
+            return this@Persister.read("SELECT EXISTS( SELECT $selectHeader ${fromWhere(fieldName, id, comma)});") { it.getInt(1) != 0 }
         }
 
         fun exists(id: Any): Boolean {

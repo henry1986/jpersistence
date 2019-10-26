@@ -37,6 +37,7 @@ import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.primaryConstructor
+import kotlin.reflect.jvm.isAccessible
 
 interface CheckAnnotation {
     fun manyToOne(): ManyToOne
@@ -98,6 +99,7 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
             if (i < constructor.parameters.size) {
                 val parameter = constructor.parameters[i]
                 val y = clazz.declaredMemberProperties.find { it.name == parameter.name } as KProperty1<R, out Any>
+                y.isAccessible = true
                 val c: FieldData<R, *, *, *>
                 val keyField: FieldData<R, *, *, *>?
                 when {

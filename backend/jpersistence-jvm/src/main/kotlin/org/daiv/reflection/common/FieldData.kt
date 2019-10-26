@@ -94,6 +94,8 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
 
     fun forwardedName() = prefixedName
 
+//    fun tableName(): List<String> = emptyList()
+
     fun numberOfKeyFields(): Int
 
     fun isType(a: Any): Boolean {
@@ -164,7 +166,7 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
     fun copyData(map: Map<String, String>, request: (String, String) -> String)
 
     fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects>
-    fun toStoreData(insertMap: InsertMap, objectValue: List<R>)
+    suspend fun toStoreData(insertMap: InsertMap, objectValue: List<R>)
     fun persist()
     fun subFields(): List<FieldData<Any, Any, Any, Any>>
 
@@ -235,8 +237,7 @@ internal interface SimpleTypes<R : Any, T : Any> : NoList<R, T, T> {
     override fun numberOfKeyFields(): Int = 1
 
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
-    override fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {
-    }
+    override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {}
 
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
 

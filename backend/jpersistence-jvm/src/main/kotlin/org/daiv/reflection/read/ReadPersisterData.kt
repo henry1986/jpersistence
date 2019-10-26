@@ -23,6 +23,9 @@
 
 package org.daiv.reflection.read
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.*
@@ -30,6 +33,7 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.primaryConstructor
+import kotlin.reflect.jvm.isAccessible
 
 internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any, Any, Any, Any>)
 private class Reader<R : Any, T : Any>(val readCache: ReadCache,
@@ -292,13 +296,37 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
 //        x.forEach { t, u -> t.storeManyToOneObject(u as List<T>) }
 //    }
 
-    fun putInsertRequests(tableName: String, insertMap: InsertMap, o: List<R>) {
+    suspend fun trueInsert(tableName: String, insertMap: InsertMap, it: R) {
+        val insertKey = InsertKey(tableName, key.hashCodeXIfAutoKey(it))
+        val request = RequestTask(insertKey, it, { InsertRequest(insertObject(it)) }) {
+            fields.forEach { f -> f.toStoreData(insertMap, listOf(it)) }
+        }
+        insertMap.toBuild(request)
+    }
+
+    suspend fun putInsertRequests(tableName: String, insertMap: InsertMap, o: List<R>) {
+//        for (it in o){
+//            withContext(Dispatchers.Default) {
+//                launch(Dispatchers.Default) {
+//                    val insertKey = InsertKey(tableName, key.hashCodeXIfAutoKey(it))
+//                    insertMap.toBuild(insertKey, it, { InsertRequest(insertObject(it)) }) {
+//                        fields.forEach { f -> f.toStoreData(insertMap, listOf(it)) }
+//                    }
+//                }
+//            }
+//        }
         o.map {
-            val insertKey = InsertKey(tableName, key.hashCodeXIfAutoKey(it))
-            if (!insertMap.exists(insertKey)) {
-                insertMap.put(insertKey, InsertRequest(insertObject(it)), it)
-                fields.forEach { f -> f.toStoreData(insertMap, listOf(it)) }
+            //            if (insertMap.insertCachePreference.multiThreading) {
+//                insertMap.actors.values.first()
+//                        .requestScope.launch {
+//                    trueInsert(tableName, insertMap, it)
+//                }
+//            } else {
+            insertMap.actors.values.first().launch {
+                trueInsert(tableName, insertMap, it)
             }
+//            }
+
         }
     }
 
@@ -323,6 +351,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
         fun <T : Any> readValue(clazz: KClass<T>): (List<ReadFieldValue>) -> T {
             return { values ->
                 val primaryConstructor = clazz.primaryConstructor!!
+                primaryConstructor.isAccessible = true
                 primaryConstructor.callBy(
                         try {
                             primaryConstructor.parameters.map { it to values.first { v -> v.fieldData.name == it.name }.value }

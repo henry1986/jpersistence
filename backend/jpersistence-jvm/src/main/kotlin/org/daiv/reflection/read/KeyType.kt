@@ -24,7 +24,7 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
 
     override fun numberOfKeyFields(): Int = fields.size
 
-    override fun toStoreData(insertMap: InsertMap, objectValue: List<Any>) {
+    override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<Any>) {
     }
 
     override fun keySimpleType(r: Any): Any {
