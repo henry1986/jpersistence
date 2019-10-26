@@ -12,8 +12,8 @@ import org.daiv.reflection.persister.PersisterPreference
 import kotlin.reflect.KClass
 
 
-const val numberOfWP = 100
-const val sequential: Boolean = false
+const val numberOfWP = 1000
+const val sequential: Boolean = true
 const val completable: Boolean = true
 const val numberOfCollectors = 50
 //const val sequential: Boolean = true

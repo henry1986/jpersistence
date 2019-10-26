@@ -5,10 +5,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.actor
 import kotlinx.coroutines.launch
 import mu.KotlinLogging
-import org.daiv.reflection.read.ReadPersisterData
 
 internal interface ActorHandlerInterface {
-    val map: Map<InsertKey, () -> InsertRequest>
+    val map: Map<InsertKey, () -> List<InsertRequest>>
     suspend fun launch(block: suspend () -> Unit)
 
 }
@@ -18,14 +17,11 @@ internal interface TableHandler : ActorHandlerInterface {
 }
 
 internal class SequentialTableHandler(val readTableCache: ReadTableCache) : TableHandler {
-    override val map: MutableMap<InsertKey, () -> InsertRequest> = mutableMapOf()
+    override val map: MutableMap<InsertKey, () -> List<InsertRequest>> = mutableMapOf()
 
     override suspend fun send(requestTask: RequestTask) {
-        if (!map.containsKey(requestTask.insertKey)) {
-            requestTask.put(map, readTableCache)
+        if (requestTask.put(map, readTableCache)) {
             requestTask.toDo()
-        } else{
-//            println("insereted")
         }
     }
 
@@ -41,21 +37,14 @@ internal class ActorHandler(val actorScope: CoroutineScope,
                             private val requestScope: CoroutineScope,
                             private val readTableCache: ReadTableCache) : ActorHandlerInterface {
     val logger = KotlinLogging.logger {}
-//    private val existingSet: MutableSet<List<Any>> = mutableSetOf()
-    override val map: Map<InsertKey, () -> InsertRequest>
+    override val map: Map<InsertKey, () -> List<InsertRequest>>
         get() = internalMap
 
-    private val internalMap: MutableMap<InsertKey, () -> InsertRequest> = mutableMapOf()
+    private val internalMap: MutableMap<InsertKey, () -> List<InsertRequest>> = mutableMapOf()
 
     fun check(requestTask: RequestTask) {
-        if (!map.containsKey(requestTask.insertKey)) {
-//            existingSet.add(requestTask.insertKey.key)
-            requestTask.put(internalMap, readTableCache)
-
-//            requestTask.toDo()
+        if (requestTask.put(internalMap, readTableCache)) {
             requestScope.launch { requestTask.toDo() }
-        } else {
-//            logger.info { "already insert" }
         }
     }
 
@@ -94,41 +83,46 @@ internal class InsertActor(private val actorHandler: ActorHandler) :
     }
 }
 
+//internal interface RequestTask {
+//    fun put(map: MutableMap<InsertKey, () -> InsertRequest>, readTableCache: ReadTableCache): Boolean
+//    val toDo: suspend () -> Unit
+//}
+
 internal class RequestTask(val insertKey: InsertKey,
-                           val obj: Any? = null,
-                           val toBuild: () -> InsertRequest,
-                           val toDo: suspend () -> Unit) {
-    constructor(insertKey: InsertKey, toBuild: () -> InsertRequest, toDo: suspend () -> Unit) :
+                                  val obj: Any? = null,
+                                  val toBuild: () -> List<InsertRequest>,
+                                  val toDo: suspend () -> Unit)  {
+    constructor(insertKey: InsertKey, toBuild: () -> List<InsertRequest>, toDo: suspend () -> Unit) :
             this(insertKey, null, toBuild, toDo)
 
-    fun put(map: MutableMap<InsertKey, () -> InsertRequest>, readTableCache: ReadTableCache) {
-        map[insertKey] = toBuild
-        obj?.let {
-            readTableCache[insertKey] = it
+    fun put(map: MutableMap<InsertKey, () -> List<InsertRequest>>, readTableCache: ReadTableCache): Boolean {
+        if (!map.containsKey(insertKey)) {
+            map[insertKey] = toBuild
+            obj?.let {
+                readTableCache[insertKey] = it
+            }
+            return true
         }
-    }
-}
-
-class InsertCacheHandler<R : Any> internal constructor(internal val map: InsertMap,
-                                                       internal val readPersisterData: ReadPersisterData<R, Any>,
-                                                       val table: Persister.Table<R>,
-                                                       override val isParallel: Boolean) : InsertCache<R> {
-    override suspend fun insert(o: List<R>) {
-        if (o.isEmpty()) {
-            return
-        }
-        readPersisterData.putInsertRequests(table._tableName, map, o)
+        return false
     }
 
-    override fun commit() {
-        map.insertAll()
-        table.tableEvent()
-    }
 }
 
-
-interface InsertCache<R : Any> {
-    val isParallel: Boolean
-    suspend fun insert(o: List<R>)
-    fun commit()
-}
+//internal class ListRequestTask(val insertKey: InsertKey,
+//                               val referenceObjectKey: List<Any>,
+//                               val obj: Any? = null,
+//                               val toBuild: () -> InsertRequest,
+//                               override val toDo: suspend () -> Unit) : RequestTask {
+//
+//    override fun put(map: MutableMap<InsertKey, () -> InsertRequest>, readTableCache: ReadTableCache): Boolean {
+//        if (!map.containsKey(insertKey)) {
+//            map[insertKey] = toBuild
+//            obj?.let {
+//                readTableCache[insertKey] = it
+//            }
+//            return true
+//        }
+//        return false
+//    }
+//
+//}

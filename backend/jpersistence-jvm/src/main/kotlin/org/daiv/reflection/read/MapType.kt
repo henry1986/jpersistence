@@ -131,30 +131,41 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
 
 
     override suspend fun toStoreData(insertMap: InsertMap, r: List<R>) {
-        val b = r.flatMap { key ->
-            val p = getObjectMethod(key)
-            p.map { key to it }
+        val p = r.map { key -> key to getObjectMethod(key) }
+        p.forEach { x ->
+            val id1 = idField.hashCodeXIfAutoKey(x.first)
+            insertMap.toBuild(RequestTask(InsertKey(helperTableName, id1), {
+                x.second.map { entry ->
+                    val key = keyField.getObject(entry.key)
+
+                    val x = idField.insertObject(id1)
+                    val y = keyField.insertObject(key)
+                    val z = valueField.insertObject(entry.value)
+                    InsertRequest(x + y + z)
+                }
+            }) {
+                keyField.toStoreData(insertMap, x.second.map { it.key } )
+                valueField.toStoreData(insertMap, x.second.map { it.value })
+            })
+
         }
-        keyField.toStoreData(insertMap, b.map { it.second.key })
-        b.forEach {
-            val id1 = idField.hashCodeXIfAutoKey(it.first)
-            val key = keyField.getObject(it.second.key)
-            val insertKey = InsertKey(helperTableName, listOf(id1, key))
-            insertMap.toBuild(insertKey, toBuild = {
-                val x = idField.insertObject(id1)
-                val y = keyField.insertObject(key)
-                val z = valueField.insertObject(it.second.value)
-                InsertRequest(x + y + z)
-            }) {}
-//            if (!insertMap.exists(insertKey)) {
+//        val b = r.flatMap { key ->
+//            val p = getObjectMethod(key)
+//            p.map { key to it }
+//        }
+//        keyField.toStoreData(insertMap, b.map { it.second.key })
+//        b.forEach {
+//            val id1 = idField.hashCodeXIfAutoKey(it.first)
+//            val key = keyField.getObject(it.second.key)
+//            val insertKey = InsertKey(helperTableName, listOf(id1, key))
+//            insertMap.toBuild(insertKey, toBuild = {
 //                val x = idField.insertObject(id1)
 //                val y = keyField.insertObject(key)
 //                val z = valueField.insertObject(it.second.value)
-//                val insertRequest = InsertRequest(x + y + z)
-//                insertMap.put(insertKey, insertRequest)
-//            }
-        }
-        valueField.toStoreData(insertMap, b.map { it.second.value })
+//                InsertRequest(x + y + z)
+//            }) {}
+//        }
+//        valueField.toStoreData(insertMap, b.map { it.second.value })
     }
 
 

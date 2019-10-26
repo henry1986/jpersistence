@@ -298,7 +298,7 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
 
     suspend fun trueInsert(tableName: String, insertMap: InsertMap, it: R) {
         val insertKey = InsertKey(tableName, key.hashCodeXIfAutoKey(it))
-        val request = RequestTask(insertKey, it, { InsertRequest(insertObject(it)) }) {
+        val request = RequestTask(insertKey, it, { listOf(InsertRequest(insertObject(it))) }) {
             fields.forEach { f -> f.toStoreData(insertMap, listOf(it)) }
         }
         insertMap.toBuild(request)

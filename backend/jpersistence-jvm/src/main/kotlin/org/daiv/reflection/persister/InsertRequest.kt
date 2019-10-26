@@ -21,10 +21,10 @@ internal data class InsertMap constructor(val persister: Persister,
                                           val readCache: ReadCache) {
     private val logger = KotlinLogging.logger {}
 
-    private fun insertListBy(insertObjects: List<List<InsertObject>>): String {
-        val headString = insertObjects.first()
+    private fun insertListBy(insertObjects: List<List<List<InsertObject>>>): String {
+        val headString = insertObjects.first().first()
                 .insertHeadString()
-        val valueString = insertObjects.joinToString(separator = "), (") { it.insertValueString() }
+        val valueString = insertObjects.flatten().joinToString(separator = "), (") { it.insertValueString() }
         return "($headString ) VALUES ($valueString);"
     }
 
@@ -60,7 +60,7 @@ internal data class InsertMap constructor(val persister: Persister,
 
     suspend fun toBuild(insertKey: InsertKey,
                         obj: Any? = null,
-                        toBuild: () -> InsertRequest,
+                        toBuild: () -> List<InsertRequest>,
                         toDo: suspend () -> Unit) {
         toBuild(RequestTask(insertKey, obj, toBuild, toDo))
     }
@@ -78,7 +78,7 @@ internal data class InsertMap constructor(val persister: Persister,
         logger.info { "size of maps: ${actors.map { it.key to it.value.map.size }}" }
 //        val group = map.map { it }
 //                .groupBy { it.key.tableName }
-        val res = x.map { it.first to it.second.map { it.value().insertObjects }.filter { it.isNotEmpty() } }
+        val res = x.map { it.first to it.second.map { it.value().map { it.insertObjects} }.filter { it.isNotEmpty() } }
                 .filter { !it.second.isEmpty() }.map { "INSERT INTO `${it.first}` ${insertListBy(it.second)} " }
 
 //                .toMap()

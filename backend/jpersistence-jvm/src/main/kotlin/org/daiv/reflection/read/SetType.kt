@@ -75,7 +75,7 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
                         .first()
                 val y = valueField.insertObject(value)
                         .first()
-                InsertRequest(listOf(x, y))
+                listOf(InsertRequest(listOf(x, y)))
             }) { }
 //            if (!insertMap.exists(insertKey)) {
 //
