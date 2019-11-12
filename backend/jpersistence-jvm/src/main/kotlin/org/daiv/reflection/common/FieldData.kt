@@ -27,6 +27,7 @@ import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.InsertRequest
 import org.daiv.reflection.persister.Persister.HelperTable
 import org.daiv.reflection.persister.ReadCache
+import org.daiv.reflection.plain.SimpleReadObject
 import org.daiv.reflection.read.InsertObject
 import org.daiv.reflection.read.KeyType
 import org.daiv.reflection.read.NextSize
@@ -61,6 +62,8 @@ internal interface FieldCollection<R : Any, S : Any, T : Any, X : Any> {
      */
     fun toTableHead(): String?
 
+    fun plainType(name: String): SimpleReadObject?
+
     fun getColumnValue(readValue: ReadValue): Any
     fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<X>
     fun insertObject(o: T): List<InsertObject>
@@ -91,8 +94,6 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
     val prefix: String?
     val prefixedName
         get() = name(prefix)
-
-    fun forwardedName() = prefixedName
 
 //    fun tableName(): List<String> = emptyList()
 
@@ -195,6 +196,9 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Fie
     override fun dropHelper() {
         helperTable.dropTable()
     }
+
+    override fun plainType(name: String): SimpleReadObject? = null
+
 
     override fun numberOfKeyFields() = 0
 

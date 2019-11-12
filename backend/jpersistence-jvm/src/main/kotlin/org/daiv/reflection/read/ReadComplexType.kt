@@ -23,10 +23,12 @@
 
 package org.daiv.reflection.read
 
-import org.daiv.reflection.annotations.ManyToOne
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
-import org.daiv.reflection.persister.*
+import org.daiv.reflection.persister.InsertMap
+import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.persister.ReadCache
+import org.daiv.reflection.plain.SimpleReadObject
 
 internal class ReadComplexType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
                                                              val moreKeys: MoreKeys,
@@ -62,6 +64,14 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
                 table.readPersisterData.putInsertRequests(table._tableName, insertMap, listOf(obj))
             }
         }
+    }
+
+    override fun plainType(name: String): SimpleReadObject? {
+        return persisterData.fields.asSequence()
+                .map { it.plainType(name) }
+                .dropWhile { it == null }
+                .takeWhile { it != null }
+                .lastOrNull()
     }
 
     override fun persist() {}

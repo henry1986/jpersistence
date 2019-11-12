@@ -27,6 +27,8 @@ import org.daiv.reflection.common.PropertyData
 import org.daiv.reflection.common.ReadValue
 import org.daiv.reflection.common.SimpleTypes
 import org.daiv.reflection.persister.ReadCache
+import org.daiv.reflection.plain.PlainEnumObject
+import org.daiv.reflection.plain.SimpleReadObject
 import java.sql.SQLException
 import kotlin.reflect.KClass
 
@@ -39,11 +41,17 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
 
     override fun toTableHead() = "${prefixedName} Text NOT NULL"
 
+    override fun plainType(name: String): SimpleReadObject? {
+        if (name == prefixedName) {
+            return PlainEnumObject(name, propertyData.clazz as KClass<Enum<*>>)
+        }
+        return null
+    }
 
     override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
         try {
             val any = readValue.getObject(number) as String
-            return NextSize(getEnumValue(propertyData.clazz.qualifiedName!!, any), number + 1)
+            return NextSize(getEnumValue(propertyData.clazz.java, any), number + 1)
         } catch (e: SQLException) {
             throw RuntimeException(e)
         }
@@ -54,14 +62,17 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
     }
 
     companion object {
-        internal fun <T : Any> getEnumValue(clazzName: String, s: String): T {
-            return Class.forName(clazzName).enumConstants.filterIsInstance(Enum::class.java).first { it.name == s } as T
+        internal fun <T : Any> getEnumValue(clazz: Class<T>, s: String): T {
+            return clazz.enumConstants.filterIsInstance(Enum::class.java).first { it.name == s } as T
         }
     }
 }
 
-internal class AutoKeyType(override val propertyData: PropertyData<Any,Any,Any>, override val prefix: String?) : SimpleTypes<Any, Any> {
+internal class AutoKeyType(override val propertyData: PropertyData<Any, Any, Any>, override val prefix: String?) : SimpleTypes<Any, Any> {
     override fun toTableHead() = "$prefixedName Int NOT NULL"
+    override fun plainType(name: String): SimpleReadObject? {
+        return null
+    }
 
     override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<Any> {
         val any = readValue.getObject(number)

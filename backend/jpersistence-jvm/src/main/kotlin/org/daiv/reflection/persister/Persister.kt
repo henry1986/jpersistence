@@ -23,12 +23,16 @@
 
 package org.daiv.reflection.persister
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.daiv.reflection.common.*
 import org.daiv.reflection.database.DatabaseHandler
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
+import org.daiv.reflection.plain.RequestBuilder
+import org.daiv.reflection.plain.SimpleReadObject
+import org.daiv.reflection.plain.readPlainMapper
 import org.daiv.reflection.read.InternalRPD
 import org.daiv.reflection.read.KeyType
 import org.daiv.reflection.read.ReadFieldValue
@@ -229,6 +233,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
             get() = readPersisterData.persisterProvider.innerTableName(clazz)
         override val _tableName
             get() = readPersisterData.persisterProvider[clazz]
+        /**
+         * same as [_tableName] with backticks
+         */
         override val tableName
             get() = "`$_tableName`"
         override val persister = this@Persister
@@ -504,6 +511,28 @@ class Persister(private val databaseInterface: DatabaseInterface,
          */
         fun <T : Any> readAllKeys(): List<T> {
             return readColumn(readPersisterData.keyColumnName()) { "SELECT $selectKeyHeader from $tableName;" }
+        }
+
+        private fun <X : Any> innerReadPlain(readHeader: String = "*", func: (ResultSet) -> X): X {
+            return persister.read("Select $readHeader from $tableName;", func)
+        }
+
+        internal fun <X : Any> readPlain(list: List<SimpleReadObject>, listener: (List<Any>) -> X): List<X> {
+            return innerReadPlain(list.joinToString(", ") { it.name }, readPlainMapper(list, listener))
+        }
+
+        fun <X : Any> requestBuilder(list: List<String>, listener: (List<Any>) -> X): RequestBuilder<X> {
+            val res = list.map { name ->
+                readPersisterData.fields.asSequence().map { it.plainType(name) }.dropWhile { it == null }.takeWhile { it != null }
+                        .lastOrNull() ?: throw RuntimeException("there was no field with name $name found")
+            }
+            return RequestBuilder(res.toMutableList(), this, listener)
+        }
+
+        fun <X : Any> requestBuilder(string: String, listener: (List<Any>) -> X): RequestBuilder<X> {
+            val list = string.split(",")
+                    .map { it.trim() }
+            return requestBuilder(list, listener)
         }
 
 //        fun tableData(): TableData {

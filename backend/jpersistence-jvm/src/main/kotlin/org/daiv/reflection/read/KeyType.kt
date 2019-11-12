@@ -3,6 +3,7 @@ package org.daiv.reflection.read
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.ReadCache
+import org.daiv.reflection.plain.SimpleReadObject
 
 /**
  * in case, this is an auto idField, [idFieldIfAuto] is the older idField without [key]
@@ -13,6 +14,8 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
     override val propertyData: PropertyData<Any, List<Any>, Any> = KeyTypeProperty(fields)
 
     fun isAuto() = key != null
+
+    override fun plainType(name: String): SimpleReadObject? = null
 
     override val prefix: String?
         get() = fields.first().prefix
@@ -81,7 +84,7 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
         return fields.flatMap { it.subFields() }
     }
 
-    private fun read(i: Int, readCache: ReadCache,readValue: ReadValue, number: Int, ret: NextSize<List<Any>>): NextSize<List<Any>> {
+    private fun read(i: Int, readCache: ReadCache, readValue: ReadValue, number: Int, ret: NextSize<List<Any>>): NextSize<List<Any>> {
         if (i < fields.size) {
             val read = fields[i].getValue(readCache, readValue, number, emptyList())
             return read(i + 1, readCache, readValue, read.i, NextSize(ret.t + read.t, read.i))

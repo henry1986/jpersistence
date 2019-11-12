@@ -74,15 +74,15 @@ internal data class InsertMap constructor(val persister: Persister,
     fun insertAll() {
 //        val map = mutableMapOf<InsertKey, InsertRequest>()
         val x = actors.map { it.key to it.value.map.map { it } }
-        logger.info { "size of map: ${actors.map { it.value.map.size }.sum()}" }
-        logger.info { "size of maps: ${actors.map { it.key to it.value.map.size }}" }
+        logger.trace { "size of map: ${actors.map { it.value.map.size }.sum()}" }
+        logger.trace { "size of maps: ${actors.map { it.key to it.value.map.size }}" }
 //        val group = map.map { it }
 //                .groupBy { it.key.tableName }
         val res = x.map { it.first to it.second.map { it.value().map { it.insertObjects} }.filter { it.isNotEmpty() } }
                 .filter { !it.second.isEmpty() }.map { "INSERT INTO `${it.first}` ${insertListBy(it.second)} " }
 
 //                .toMap()
-        logger.info { "done converting" }
+        logger.trace { "done converting" }
         res.map { persister.write(it) }
     }
 }
