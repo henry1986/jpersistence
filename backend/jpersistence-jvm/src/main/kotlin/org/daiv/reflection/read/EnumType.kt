@@ -24,6 +24,7 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.common.PropertyData
+import org.daiv.reflection.common.ReadAnswer
 import org.daiv.reflection.common.ReadValue
 import org.daiv.reflection.common.SimpleTypes
 import org.daiv.reflection.persister.ReadCache
@@ -38,8 +39,7 @@ import kotlin.reflect.KClass
 internal class EnumType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
         SimpleTypes<R, T> {
 
-
-    override fun toTableHead() = "${prefixedName} Text NOT NULL"
+    override val typeName = "TEXT"
 
     override fun plainType(name: String): SimpleReadObject? {
         if (name == prefixedName) {
@@ -48,10 +48,10 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
         return null
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<T>> {
         try {
             val any = readValue.getObject(number) as String
-            return NextSize(getEnumValue(propertyData.clazz.java, any), number + 1)
+            return NextSize(ReadAnswer(getEnumValue(propertyData.clazz.java, any)), number + 1)
         } catch (e: SQLException) {
             throw RuntimeException(e)
         }
@@ -69,14 +69,15 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
 }
 
 internal class AutoKeyType(override val propertyData: PropertyData<Any, Any, Any>, override val prefix: String?) : SimpleTypes<Any, Any> {
-    override fun toTableHead() = "$prefixedName Int NOT NULL"
+    override val typeName = "Int"
+
     override fun plainType(name: String): SimpleReadObject? {
         return null
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<Any> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
         val any = readValue.getObject(number)
-        return NextSize(any as Int, number + 1)
+        return NextSize(ReadAnswer(any), number + 1)
     }
 
     override fun makeString(t: Any): String {

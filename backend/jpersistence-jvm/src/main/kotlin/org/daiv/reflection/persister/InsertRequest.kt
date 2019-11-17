@@ -1,6 +1,7 @@
 package org.daiv.reflection.persister
 
 import mu.KotlinLogging
+import org.daiv.reflection.common.ReadAnswer
 import org.daiv.reflection.read.InsertObject
 import org.daiv.reflection.read.insertHeadString
 import org.daiv.reflection.read.insertValueString
@@ -22,9 +23,11 @@ internal data class InsertMap constructor(val persister: Persister,
     private val logger = KotlinLogging.logger {}
 
     private fun insertListBy(insertObjects: List<List<List<InsertObject>>>): String {
-        val headString = insertObjects.first().first()
+        val headString = insertObjects.first()
+                .first()
                 .insertHeadString()
-        val valueString = insertObjects.flatten().joinToString(separator = "), (") { it.insertValueString() }
+        val valueString = insertObjects.flatten()
+                .joinToString(separator = "), (") { it.insertValueString() }
         return "($headString ) VALUES ($valueString);"
     }
 
@@ -78,8 +81,14 @@ internal data class InsertMap constructor(val persister: Persister,
         logger.trace { "size of maps: ${actors.map { it.key to it.value.map.size }}" }
 //        val group = map.map { it }
 //                .groupBy { it.key.tableName }
-        val res = x.map { it.first to it.second.map { it.value().map { it.insertObjects} }.filter { it.isNotEmpty() } }
-                .filter { !it.second.isEmpty() }.map { "INSERT INTO `${it.first}` ${insertListBy(it.second)} " }
+        val res = x.map {
+            it.first to it.second.map {
+                it.value()
+                        .map { it.insertObjects }
+            }.filter { it.isNotEmpty() }
+        }
+                .filter { !it.second.isEmpty() }
+                .map { "INSERT INTO `${it.first}` ${insertListBy(it.second)} " }
 
 //                .toMap()
         logger.trace { "done converting" }
@@ -101,6 +110,10 @@ internal interface PersisterListener {
 
 internal class ReadTableCache(val tableName: String) {
     private val map: MutableMap<List<Any>, Any> = mutableMapOf()
+    fun containsKey(insertKey: InsertKey): Boolean {
+        return map.containsKey(insertKey.key)
+    }
+
     operator fun get(insertKey: InsertKey): Any? {
         return map[insertKey.key]
     }
@@ -110,32 +123,33 @@ internal class ReadTableCache(val tableName: String) {
     }
 }
 
+
 internal class ReadCache(val persisterPreference: PersisterPreference) : PersisterListener {
     private val logger = KotlinLogging.logger {}
     private val map: MutableMap<String, ReadTableCache> = mutableMapOf()
 
     fun <T : Any> read(table: Persister.Table<T>, key: List<Any>): T? {
         val readCacheKey = InsertKey(table.tableName, key)
-        val got = map[readCacheKey.tableName]?.get(readCacheKey)
-        return if (got == null) {
+        val tableCache = if (!map.containsKey(readCacheKey.tableName)) {
+            val tableCache = ReadTableCache(readCacheKey.tableName)
+            map[readCacheKey.tableName] = tableCache
+            tableCache
+        } else {
+            map[readCacheKey.tableName]!!
+        }
+        if (!tableCache.containsKey(readCacheKey)) {
             val read = table.innerReadMultipleUseHashCode(key, this)
             if (read != null) {
                 if (persisterPreference.useCache && map.size > persisterPreference.clearCacheAfterNumberOfStoredObjects) {
                     logger.info { "clearing cache, because more than ${persisterPreference.clearCacheAfterNumberOfStoredObjects} are stored (${map.size}" }
                     map.clear()
                 }
-                if (!map.containsKey(readCacheKey.tableName)) {
-                    val tableCache = ReadTableCache(readCacheKey.tableName)
-                    map[readCacheKey.tableName] = tableCache
-                    tableCache[readCacheKey] = read
-                } else {
-                    map[readCacheKey.tableName]!![readCacheKey] = read
-
-                }
+                return read
+            } else {
+                return null
             }
-            read
         } else {
-            got as T
+            return tableCache[readCacheKey]!! as T
         }
     }
 

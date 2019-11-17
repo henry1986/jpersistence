@@ -26,6 +26,7 @@ package org.daiv.reflection.common
 import org.daiv.reflection.annotations.ManyList
 import org.daiv.reflection.annotations.ManyToOne
 import org.daiv.reflection.annotations.MoreKeys
+import org.daiv.reflection.getKClass
 import org.daiv.reflection.isEnum
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.persister.Persister
@@ -151,6 +152,7 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
                 property.toKClass().isEnum() -> EnumType(DefProperty(property as KProperty1<R, Enum<*>>,
                                                                      clazz), prefix)
                 (property.returnType.classifier as KClass<out Any>).isNoMapAndNoListAndNoSet() ->
+
                     ReadComplexType(DefProperty(property, clazz), moreKeys, persisterProvider, persister, prefix)
                 else -> {
                     null

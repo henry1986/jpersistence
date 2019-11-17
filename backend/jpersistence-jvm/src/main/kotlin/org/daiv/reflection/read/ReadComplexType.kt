@@ -59,6 +59,9 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
     override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {
         objectValue.forEach {
             val obj = getObject(it)
+            if (propertyData.isNullable && obj == null) {
+                return
+            }
             val key = persisterData.key.hashCodeXIfAutoKey(obj)
             insertMap.nextTask(table, key, obj) {
                 table.readPersisterData.putInsertRequests(table._tableName, insertMap, listOf(obj))
@@ -107,31 +110,37 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         return persisterData.key.keyString()//persisterData.createTableKeyData(prefixedName)
     }
 
-    override fun toTableHead(): String? {
-        return persisterData.key.toTableHead()
+    override fun toTableHead(nullable: Boolean): String? {
+        return persisterData.key.toTableHead(propertyData.isNullable)
     }
 
     override fun copyTableName(): Map<String, String> {
         return persisterData.key.copyTableName()
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<T>> {
         val nextSize = persisterData.key.getValue(readCache, readValue, number, key)
-        val read = readCache.readNoNull(table, nextSize.t)
+        if (propertyData.isNullable && nextSize.t.t == null) {
+            return NextSize(ReadAnswer(null) as ReadAnswer<T>, nextSize.i)
+        }
+        val read = readCache.readNoNull(table, nextSize.t.t!!)
 //        val read = table.readMultipleUseHashCode(nextSize.t)
 //                ?: throw RuntimeException("did not find value for key ${nextSize.t}")
 
 //        val value = readValue.read(table, nextSize.t)
 //        val value = table.read(nextSize.t)!!
-        return NextSize(read, nextSize.i)
+        return NextSize(ReadAnswer(read), nextSize.i)
     }
 
     override fun fNEqualsValue(objectValue: T, sep: String): String {
         return persisterData.key.fNEqualsValue(persisterData.key.hashCodeXIfAutoKey(objectValue), sep)
     }
 
-    override fun insertObject(objectValue: T): List<InsertObject> {
-        return persisterData.key.insertObject(persisterData.key.hashCodeXIfAutoKey(objectValue))
+    override fun insertObject(objectValue: T?): List<InsertObject> {
+        if (propertyData.isNullable && objectValue == null) {
+            return persisterData.key.insertObject(null)
+        }
+        return persisterData.key.insertObject(persisterData.key.hashCodeXIfAutoKey(objectValue!!))
     }
 
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> {

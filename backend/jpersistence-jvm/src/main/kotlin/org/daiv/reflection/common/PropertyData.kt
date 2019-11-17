@@ -37,7 +37,8 @@ internal interface PropertyData<R : Any, S : Any, T : Any> : FieldReadable<R, S>
     val clazz: KClass<T>
     val receiverType: KClass<R>?
     val name: String
-
+    val isNullable: Boolean
+        get() = false
 }
 
 private fun <R : Any, T : Any> KProperty1<R, T>.getObject(r: R): T {
@@ -71,7 +72,7 @@ data class DefProperty<R : Any, T : Any>(override val property: KProperty1<R, T>
                                          override val name: String = property.name) :
         PropertyReader<R, T>, PropertyData<R, T, T> {
     override val clazz: KClass<T> = property.returnType.classifier as KClass<T>
-
+    override val isNullable = property.returnType.isMarkedNullable
 }
 
 internal class AutoKeyProperty(val key: KeyHashCodeable) : PropertyData<Any, Any, Any> {

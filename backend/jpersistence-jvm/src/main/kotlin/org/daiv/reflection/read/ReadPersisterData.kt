@@ -23,19 +23,13 @@
 
 package org.daiv.reflection.read
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.*
 import kotlin.reflect.KClass
-import kotlin.reflect.KFunction
-import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.isAccessible
 
-internal data class ReadFieldValue(val value: Any, val fieldData: FieldData<Any, Any, Any, Any>)
+internal data class ReadFieldValue(val value: Any?, val fieldData: FieldData<Any, Any, Any, Any>)
 private class Reader<R : Any, T : Any>(val readCache: ReadCache,
                                        val fields: List<FieldData<R, Any, T, Any>>,
                                        val key: List<Any>,
@@ -44,7 +38,7 @@ private class Reader<R : Any, T : Any>(val readCache: ReadCache,
         if (i < fields.size) {
             val field = fields[i]
             val (value, nextCounter) = field.getValue(readCache, readValue, counter, key)
-            val readFieldValue = ReadFieldValue(value, field as FieldData<Any, Any, Any, Any>)
+            val readFieldValue = ReadFieldValue(value.t, field as FieldData<Any, Any, Any, Any>)
             return read(nextCounter, i + 1, list + readFieldValue)
         }
         return NextSize(list, counter)
@@ -146,11 +140,11 @@ internal interface InternalRPD<R : Any, T : Any> {
 
     fun innerRead(readValue: ReadValue, counter: Int = 1, readCache: ReadCache): NextSize<List<ReadFieldValue>> {
         val x = key.getValue(readCache, readValue, counter, emptyList())
-        return Reader(readCache, fields.drop(key.fields.size), x.t, readValue).read(x.i,
-                                                                                    list = x.t.mapIndexed { i, e ->
-                                                                                        ReadFieldValue(e,
-                                                                                                       key.fields[i])
-                                                                                    })
+        return Reader(readCache, fields.drop(key.fields.size), x.t.t!!, readValue).read(x.i,
+                                                                                      list = x.t.t!!.mapIndexed { i, e ->
+                                                                                          ReadFieldValue(e,
+                                                                                                         key.fields[i])
+                                                                                      })
     }
 
     /**
@@ -322,9 +316,10 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
 //                    trueInsert(tableName, insertMap, it)
 //                }
 //            } else {
-            insertMap.actors.values.first().launch {
-                trueInsert(tableName, insertMap, it)
-            }
+            insertMap.actors.values.first()
+                    .launch {
+                        trueInsert(tableName, insertMap, it)
+                    }
 //            }
 
         }
@@ -343,7 +338,10 @@ internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyTyp
     }
 
     private fun insertObject(o: R): List<InsertObject> {
-        return fields.flatMap { it.insertObject(it.hashCodeXIfAutoKey(o) as T) }
+        return fields.flatMap {
+            val x = it.hashCodeXIfAutoKey(o)
+            it.insertObject(x as T?)
+        }
     }
 
     companion object {

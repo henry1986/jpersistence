@@ -33,8 +33,14 @@ import kotlin.reflect.KClass
 
 internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
         SimpleTypes<R, T> {
+    companion object {
+        private val valueMappingJavaSQL = mapOf("long" to "bigInt", "String" to "Text")
+    }
 
-    override fun toTableHead() = toTableHead(propertyData.clazz, prefixedName)
+    override val typeName by lazy {
+        val simpleName = propertyData.clazz.simpleName!!
+        valueMappingJavaSQL[simpleName] ?: simpleName
+    }
 
     override fun plainType(name: String) = when {
         name != prefixedName -> null
@@ -43,7 +49,7 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
         else -> PlainObject(name)
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<T> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<T>> {
         try {
             val any = if (propertyData.clazz == Long::class) {
                 readValue.resultSet.getLong(number)
@@ -55,7 +61,7 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
             else
                 any
             @Suppress("UNCHECKED_CAST")
-            return NextSize(x as T, number + 1)
+            return NextSize(ReadAnswer(x as T?), number + 1)
         } catch (e: SQLException) {
             throw RuntimeException(e)
         }
@@ -68,16 +74,6 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
             any::class == Boolean::class -> if (s.toBoolean()) "1" else "0"
 //            any::class.isEnum() -> "\"${(any as Enum<*>).name}\""
             else -> s
-        }
-    }
-
-    companion object {
-        private val valueMappingJavaSQL = mapOf("long" to "bigInt", "String" to "Text")
-
-        internal fun <T : Any> toTableHead(clazz: KClass<T>, name: String): String {
-            val simpleName = clazz.simpleName
-            val typeName = valueMappingJavaSQL[simpleName] ?: simpleName
-            return "$name $typeName${" NOT NULL"}"
         }
     }
 }

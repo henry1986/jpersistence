@@ -51,7 +51,7 @@ internal class MapType<R : Any, T : Any, M : Any> constructor(override val prope
         return mapEngine.fNEqualsValue(o, sep)
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<Map<M, T>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Map<M, T>>> {
         return mapEngine.getValue(readCache, readValue, number, key)
     }
 }
@@ -74,10 +74,10 @@ internal class ListType<R : Any, T : Any>(override val propertyData: ListMapProp
                                           }) : CollectionFieldData<R, List<T>, T, List<T>>,
                                                MapEngineInterface<R, Int, T> by mapEngine {
 
-    val converter: (Map<Int, T>) -> List<T> = {
-        it.toList()
-                .sortedBy { it.first }
-                .map { it.second }
+    val converter: (ReadAnswer<Map<Int, T>>) -> ReadAnswer<List<T>> = {
+        ReadAnswer(it.t!!.toList()
+                           .sortedBy { it.first }
+                           .map { it.second }, true)
     }
 
     override fun isType(a: Any): Boolean {
@@ -88,7 +88,7 @@ internal class ListType<R : Any, T : Any>(override val propertyData: ListMapProp
         return mapEngine.fNEqualsValue(converterToMap(o), sep)
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<List<T>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<List<T>>> {
         val ret = mapEngine.getValue(readCache, readValue, number, key)
         return NextSize(converter(ret.t), ret.i)
     }
@@ -144,7 +144,7 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
                     InsertRequest(x + y + z)
                 }
             }) {
-                keyField.toStoreData(insertMap, x.second.map { it.key } )
+                keyField.toStoreData(insertMap, x.second.map { it.key })
                 valueField.toStoreData(insertMap, x.second.map { it.value })
             })
 
@@ -194,7 +194,7 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
         helperTable.deleteBy(idField.name, key)
     }
 
-    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<Map<M, T>> {
+    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Map<M, T>>> {
         if (key.isEmpty()) {
             throw NullPointerException("a List cannot be a key")
         }
@@ -203,7 +203,7 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
         val map = read.map { it[1].value as M to it[2].value as T }
                 .toMap()
 
-        return NextSize(map, number)
+        return NextSize(ReadAnswer(map), number)
     }
 
     override fun clearLists() {

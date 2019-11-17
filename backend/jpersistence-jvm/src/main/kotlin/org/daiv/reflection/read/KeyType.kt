@@ -84,16 +84,21 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
         return fields.flatMap { it.subFields() }
     }
 
-    private fun read(i: Int, readCache: ReadCache, readValue: ReadValue, number: Int, ret: NextSize<List<Any>>): NextSize<List<Any>> {
+    private fun read(i: Int,
+                     readCache: ReadCache,
+                     readValue: ReadValue,
+                     number: Int,
+                     ret: NextSize<ReadAnswer<List<Any>>>): NextSize<ReadAnswer<List<Any>>> {
         if (i < fields.size) {
             val read = fields[i].getValue(readCache, readValue, number, emptyList())
-            return read(i + 1, readCache, readValue, read.i, NextSize(ret.t + read.t, read.i))
+            val x = ReadAnswer(read.t.t?.let { ret.t.t!! + read.t.t })
+            return read(i + 1, readCache, readValue, read.i, NextSize(x, read.i))
         }
         return ret
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<List<Any>> {
-        return read(0, readCache, readValue, number, NextSize(emptyList(), number))
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<List<Any>>> {
+        return read(0, readCache, readValue, number, NextSize(ReadAnswer(emptyList()), number))
 //        return fields.first()
 //                .getValue(readValue, number, key)
     }
@@ -130,8 +135,8 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
 //                .getObject(o)
 //    }
 
-    override fun toTableHead(): String? {
-        return fields.map { it.toTableHead() }
+    override fun toTableHead(nullable: Boolean): String? {
+        return fields.map { it.toTableHead(nullable) }
                 .joinToString(", ")
     }
 
@@ -144,9 +149,13 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
                 .toMap()
     }
 
-    override fun insertObject(o: Any): List<InsertObject> {
+    override fun insertObject(o: Any?): List<InsertObject> {
         try {
-            val x = o as List<Any>
+            if (o == null) {
+                return fields.map { it.insertObject(null) }
+                        .flatten()
+            }
+            val x = o as List<Any?>
             return fields.mapIndexed { i, e -> e.insertObject(x[i]) }
                     .flatten()
         } catch (t: Throwable) {

@@ -109,7 +109,7 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
 
 
     @Suppress("UNCHECKED_CAST")
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<Set<T>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Set<T>>> {
         if (key.isEmpty()) {
             throw NullPointerException("a List cannot be a key")
         }
@@ -120,6 +120,6 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
                     it[1].value as T
                 }
                 .toSet()
-        return NextSize(ret, number)
+        return NextSize(ReadAnswer(ret), number)
     }
 }

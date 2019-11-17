@@ -307,11 +307,11 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
 
         fun read(fieldName: String, id: Any, orderOrder: String = ""): List<R> {
-            return read(fieldName, id, readCache(), orderOrder)
+            return read(fieldName, id, readCache(), orderOrder).map { it }
         }
 
         fun readOrdered(fieldName: String, id: Any): List<R> {
-            return read(fieldName, id, readCache(), orderOrder = "ORDER BY ${readPersisterData.keyName()}")
+            return read(fieldName, id, readCache(), orderOrder = "ORDER BY ${readPersisterData.keyName()}").map { it }
         }
 
         private fun Any.toList(): List<Any> {

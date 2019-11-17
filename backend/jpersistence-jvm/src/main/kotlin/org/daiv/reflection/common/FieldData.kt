@@ -41,6 +41,8 @@ private fun <T : Any> T.checkDBValue(objectValue: T): T {
     return objectValue
 }
 
+internal data class ReadAnswer<T : Any?>(val t: T?, val exists: Boolean = true)
+
 internal interface FieldCollection<R : Any, S : Any, T : Any, X : Any> {
     /**
      * returns "[fieldName] = [id]" for primitive Types, or the complex variant
@@ -52,21 +54,11 @@ internal interface FieldCollection<R : Any, S : Any, T : Any, X : Any> {
         return "WHERE ${fNEqualsValue(id, sep)}"
     }
 
-    /**
-     * this method creates the string for the sql command "CREATE TABLE".
-     *
-     * @param prefix
-     * a possible prefix for the variables name. Null, if no prefix
-     * is wanted.
-     * @return the string for the "CREATE TABLE" command or null, if not needed
-     */
-    fun toTableHead(): String?
-
     fun plainType(name: String): SimpleReadObject?
 
     fun getColumnValue(readValue: ReadValue): Any
-    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<X>
-    fun insertObject(o: T): List<InsertObject>
+    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<X>>
+    fun insertObject(o: T?): List<InsertObject>
     fun underscoreName(): String?
 }
 
@@ -102,6 +94,16 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
     fun isType(a: Any): Boolean {
         return propertyData.clazz == a::class
     }
+
+    /**
+     * this method creates the string for the sql command "CREATE TABLE".
+     *
+     * @param prefix
+     * a possible prefix for the variables name. Null, if no prefix
+     * is wanted.
+     * @return the string for the "CREATE TABLE" command or null, if not needed
+     */
+    fun toTableHead(nullable: Boolean = propertyData.isNullable): String?
 
     fun keyValue(o: R) = propertyData.getObject(o)
 
@@ -205,10 +207,10 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Fie
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
     override fun keySimpleType(r: R) = throw RuntimeException("a collection cannot be a key")
     override fun key() = throw RuntimeException("a collection cannot be a key")
-    override fun toTableHead() = null
+    override fun toTableHead(nullable: Boolean) = null
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
 
-    override fun insertObject(o: T): List<InsertObject> = listOf()
+    override fun insertObject(o: T?): List<InsertObject> = listOf()
     //    override fun foreignKey() = null
 //    override fun joinNames(clazzSimpleName: String, keyName: String): List<FieldData.JoinName> =
 //            emptyList()
@@ -238,6 +240,13 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Fie
 }
 
 internal interface SimpleTypes<R : Any, T : Any> : NoList<R, T, T> {
+    override fun toTableHead(nullable: Boolean): String {
+        val notNull = if (nullable) "" else " NOT NULL"
+        return "$prefixedName $typeName$notNull"
+    }
+
+    val typeName: String
+
     override fun numberOfKeyFields(): Int = 1
 
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
@@ -254,10 +263,10 @@ internal interface SimpleTypes<R : Any, T : Any> : NoList<R, T, T> {
 
     override fun underscoreName() = name(prefix)
 
-    override fun insertObject(t: T): List<InsertObject> {
+    override fun insertObject(t: T?): List<InsertObject> {
         return listOf(object : InsertObject {
             override fun insertValue(): String {
-                return makeString(t)
+                return t?.let { makeString(it) } ?: "null"
             }
 
             override fun insertHead(): String {
