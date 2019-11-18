@@ -38,6 +38,9 @@ annotation class ManyList(val tableName: String = "")
 annotation class ManyMap(val tableNameKey: String = "", val tableNameValue: String = "")
 
 annotation class MoreKeys(val amount: Int = 1, val auto: Boolean = false)
+
+annotation class Including(val include: Boolean = true)
+
 @Serializable
 data class TableData(val tableName: String, val db: String, val header: List<String>, val values: List<List<String>>) {
 

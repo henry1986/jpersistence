@@ -23,17 +23,19 @@
 
 package org.daiv.reflection.read
 
+import org.daiv.reflection.annotations.Including
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.ReadCache
 import org.daiv.reflection.plain.SimpleReadObject
+import kotlin.reflect.KClass
 
 internal class ReadComplexType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
                                                              val moreKeys: MoreKeys,
+                                                             val including: Including,
                                                              val persisterProvider: PersisterProvider,
-                                                             private val persister: Persister,
                                                              override val prefix: String?) : NoList<R, T, T> {
     val providerKey = ProviderKey(propertyData, prefixedName)
 
@@ -62,6 +64,9 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
             if (propertyData.isNullable && obj == null) {
                 return
             }
+            if (including.include) {
+                return
+            }
             val key = persisterData.key.hashCodeXIfAutoKey(obj)
             insertMap.nextTask(table, key, obj) {
                 table.readPersisterData.putInsertRequests(table._tableName, insertMap, listOf(obj))
@@ -80,6 +85,9 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
     override fun persist() {}
 
     override fun createTableForeign(tableNames: Set<String>): Set<String> {
+        if (including.include) {
+            return tableNames
+        }
         if (!tableNames.contains(this.table._tableName)) {
             return table.persistWithName(checkName = tableNames)
         }
@@ -122,6 +130,13 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         val nextSize = persisterData.key.getValue(readCache, readValue, number, key)
         if (propertyData.isNullable && nextSize.t.t == null) {
             return NextSize(ReadAnswer(null) as ReadAnswer<T>, nextSize.i)
+        }
+        if (including.include) {
+            val x = nextSize.t.t!!
+            val list = table.readPersisterData.fields.mapIndexed { i, e -> ReadFieldValue(x[i], e as FieldData<Any, Any, Any, Any>) }
+            val n = NextSize(list, nextSize.i)
+            val r = ReadPersisterData.readValue(clazz)
+            return n.transform { b -> ReadAnswer(r(b)) }
         }
         val read = readCache.readNoNull(table, nextSize.t.t!!)
 //        val read = table.readMultipleUseHashCode(nextSize.t)

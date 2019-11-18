@@ -141,10 +141,10 @@ internal interface InternalRPD<R : Any, T : Any> {
     fun innerRead(readValue: ReadValue, counter: Int = 1, readCache: ReadCache): NextSize<List<ReadFieldValue>> {
         val x = key.getValue(readCache, readValue, counter, emptyList())
         return Reader(readCache, fields.drop(key.fields.size), x.t.t!!, readValue).read(x.i,
-                                                                                      list = x.t.t!!.mapIndexed { i, e ->
-                                                                                          ReadFieldValue(e,
-                                                                                                         key.fields[i])
-                                                                                      })
+                                                                                        list = x.t.t!!.mapIndexed { i, e ->
+                                                                                            ReadFieldValue(e,
+                                                                                                           key.fields[i])
+                                                                                        })
     }
 
     /**
@@ -213,11 +213,11 @@ internal interface InternalRPD<R : Any, T : Any> {
     }
 }
 
-internal data class ReadPersisterData<R : Any, T : Any>(override val key: KeyType,
-                                                        val persisterProvider: PersisterProvider,
-                                                        override val fields: List<FieldData<R, Any, T, Any>>,
-                                                        private val className: String = "no name",
-                                                        private val method: (List<ReadFieldValue>) -> R) : InternalRPD<R, T> {
+internal data class ReadPersisterData<R : Any, T : Any> constructor(override val key: KeyType,
+                                                                    val persisterProvider: PersisterProvider,
+                                                                    override val fields: List<FieldData<R, Any, T, Any>>,
+                                                                    private val className: String = "no name",
+                                                                    private val method: (List<ReadFieldValue>) -> R) : InternalRPD<R, T> {
 
     private constructor(builder: FieldDataFactory<R>.Builder,
                         persisterProvider: PersisterProvider,

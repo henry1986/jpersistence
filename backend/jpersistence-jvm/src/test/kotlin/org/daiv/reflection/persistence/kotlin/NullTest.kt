@@ -1,6 +1,7 @@
 package org.daiv.reflection.persistence.kotlin
 
 import mu.KotlinLogging
+import org.daiv.reflection.annotations.Including
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.persister.Persister
 import org.jetbrains.spek.api.Spek
@@ -14,6 +15,12 @@ class NullTest : Spek({
                           data class ComplexClass(val x: Int, val y: SimpleClass?, val z: SimpleClass?)
                           @MoreKeys(2)
                           data class SimpleClass2(val x: Int, val y: Int, val s: String)
+
+                          @Including
+                          data class IncludingSimple(val x: Int, val y: String)
+
+                          data class IncludingComplex(val id: Int, val includingSimple: IncludingSimple)
+                          data class IncludingListComplex(val id: Int, val includingSimple: List<IncludingSimple>)
 
                           data class ComplexClass2(val x: Int, val y: SimpleClass2?, val z: SimpleClass2?)
 
@@ -57,6 +64,32 @@ class NullTest : Spek({
 //                                      val all = table.readAll()
 //                                      assertEquals(list, all)
 //                                  }
+                              }
+
+                              on("test including") {
+                                  it("test Including simple") {
+                                      val table = persister.Table(IncludingComplex::class)
+                                      table.persist()
+                                      val list = listOf(IncludingComplex(2, IncludingSimple(4, "Hello")),
+                                                        IncludingComplex(3, IncludingSimple(4, "Now")))
+                                      table.insert(list)
+                                      val all = table.readAll()
+                                      assertEquals(list, all)
+                                  }
+                                  it("test Including list") {
+                                      val table = persister.Table(IncludingListComplex::class)
+                                      table.persist()
+                                      val list = listOf(IncludingListComplex(2,
+                                                                             listOf(IncludingSimple(4, "Hello"),
+                                                                                    IncludingSimple(4, "World"))),
+                                                        IncludingListComplex(3,
+                                                                             listOf(IncludingSimple(4, "Now"),
+                                                                                    IncludingSimple(4, "Hello World"),
+                                                                                    IncludingSimple(4, "World"))))
+                                      table.insert(list)
+                                      val all = table.readAll()
+                                      assertEquals(list, all)
+                                  }
                               }
                               afterGroup { persister.delete() }
                           }
