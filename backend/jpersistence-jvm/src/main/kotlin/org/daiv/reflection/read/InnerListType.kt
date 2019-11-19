@@ -51,6 +51,10 @@ internal class InnerMapType constructor(override val propertyData: MapProperty,
     private val keyField = propertyData.keyClazz.toLowField(persisterProvider, depth + 1, fieldName("key"))
     private val valueField = propertyData.subType.toLowField(persisterProvider, depth + 1, fieldName("value"))
 
+    override fun copyTableName(): Map<String, String> {
+        return keyField.copyTableName() + valueField.copyTableName()
+    }
+
     override fun additionalKeyFields(): List<FieldData> {
         return listOf(keyField) + valueField.additionalKeyFields()
     }
@@ -112,13 +116,24 @@ internal class InnerMapType constructor(override val propertyData: MapProperty,
     override fun dropHelper() {
     }
 
-    override fun readFromList(list: List<ReadFieldValue>): Any {
-        return list.first().value to valueField.readFromList(list.drop(1))
+    override fun readFromList(list: List<List<ReadFieldValue>>): Any {
+        val group = list.groupBy {
+            it.first()
+                    .value
+        }
+                .map { it.key to valueField.readFromList(it.value.map { it.drop(1) }) }.toMap()
+        return group
+//        return list.map {
+//            it.first().value to it[1].value
+//        }
+//                .toMap()
+//        return list.first().value to valueField.readFromList(list.drop(1))
     }
 
     override fun buildPair(any: List<Any>): Any {
-        val pairs = any as List<Pair<ReadFieldValue, Any>>
-        return pairs.map { it.first to it.second }
-                .toMap()
+        return any.first()
+//        val pairs = any as List<Pair<ReadFieldValue, Any>>
+//        return pairs.map { it.first to it.second }
+//                .toMap()
     }
 }

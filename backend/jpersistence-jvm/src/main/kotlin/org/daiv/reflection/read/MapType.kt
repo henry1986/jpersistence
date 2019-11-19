@@ -191,14 +191,15 @@ internal class MapEngine(val propertyData: MapProperty,
         }
         val fn = idField.autoIdFNEqualsValue(key, " AND ")
         val read = helperTable.readIntern(fn, readCache)
-        val list = read.map { valueField.readFromList(it.drop(1)) as Pair<Any, Any> }
-//        val list = read.map { it[1].value as M to valueField.readFromList(it.drop(2)) as T }
-        val blub = list.map { it.first to it.second }.toMap()
-//        val ret = list.groupBy { it.first }
-//                .map { it.key to it.value.map { it.second } }
-//        val x = ret.map { it.first to valueField.buildPair(it.second) }
-//        val map = x.toMap()
-        return NextSize(ReadAnswer(blub), number) as NextSize<ReadAnswer<Any>>
+        return NextSize(ReadAnswer(valueField.readFromList(read.map { it.drop(1) })), number)
+//        val list = read.map { valueField.readFromList(it.drop(1)) as Pair<Any, Any> }
+////        val list = read.map { it[1].value as M to valueField.readFromList(it.drop(2)) as T }
+//        val blub = list.map { it.first to valueField.buildPair(listOf(it.second)) }.toMap()
+////        val ret = list.groupBy { it.first }
+////                .map { it.key to it.value.map { it.second } }
+////        val x = ret.map { it.first to valueField.buildPair(it.second) }
+////        val map = x.toMap()
+//        return NextSize(ReadAnswer(blub), number) as NextSize<ReadAnswer<Any>>
     }
 
     override fun clearLists() {
