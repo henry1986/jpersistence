@@ -51,7 +51,7 @@ internal class ReadValue constructor(val resultSet: ResultSet) {
 
 internal fun KType.toLowField(persisterProvider: PersisterProvider,
                               depth: Int,
-                              prefix: String?): FieldData<Any, Any, Any, Any> {
+                              prefix: String?): FieldData {
     val clazz = this.classifier as KClass<Any>
     return when {
         clazz.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(clazz,
@@ -63,13 +63,8 @@ internal fun KType.toLowField(persisterProvider: PersisterProvider,
                                                             clazz.including(),
                                                             persisterProvider,
                                                             prefix)
-//        this == List::class -> listOf(ReadSimpleType(SimpleTypeProperty(this,
-//                                                                        this.simpleName!!),
-//                                                     prefix) as FieldData<Any, Any, T, Any>)
-        clazz == Map::class -> InnerMapType(SimpleMapTypeProperty<Any, Any, Any>(this),
-                                            depth,
-                                            persisterProvider,
-                                            prefix) as FieldData<Any, Any, Any, Any>
+        clazz == List::class -> InnerMapType(SimpleListTypeProperty(this), depth, persisterProvider, prefix)
+        clazz == Map::class -> InnerMapType(SimpleMapTypeProperty(this), depth, persisterProvider, prefix)
         else -> {
             throw RuntimeException("this: $this not possible")
         }

@@ -44,30 +44,30 @@ private fun <T : Any> T.checkDBValue(objectValue: T): T {
 
 internal data class ReadAnswer<T : Any?>(val t: T?, val exists: Boolean = true)
 
-internal interface FieldCollection<R : Any, S : Any, T : Any, X : Any> {
+internal interface FieldCollection {
     /**
      * returns "[fieldName] = [id]" for primitive Types, or the complex variant
      * for complex types, the [sep] is needed
      */
-    fun fNEqualsValue(o: S, sep: String): String
+    fun fNEqualsValue(o: Any, sep: String): String
 
-    fun whereClause(id: S, sep: String): String {
+    fun whereClause(id: Any, sep: String): String {
         return "WHERE ${fNEqualsValue(id, sep)}"
     }
 
     fun plainType(name: String): SimpleReadObject?
 
     fun getColumnValue(readValue: ReadValue): Any
-    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<X>>
-    fun insertObject(o: T?): List<InsertObject>
+    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>>
+    fun insertObject(o: Any?): List<InsertObject>
     fun underscoreName(): String?
 }
 
-internal interface FieldReadable<R : Any, S : Any> {
-    fun getObject(o: R): S
+internal interface FieldReadable {
+    fun getObject(o: Any): Any
 }
 
-internal interface HashCodeable<S : Any> : FieldReadable<Any, S> {
+internal interface HashCodeable : FieldReadable {
     fun hashCodeX(t: Any): Int
     fun plainHashCodeX(t: Any): Int
 }
@@ -80,8 +80,8 @@ fun toPrefixedName(prefix: String?, name: String) = prefix?.let { "${it}_$name" 
  * [S] is the type of the value returned by the getObject method
  * [X] is the transformed value of [S] -> necessary for example with the map to list converter
  */
-internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollection<R, S, T, X>, FieldReadable<R, S> {
-    val propertyData: PropertyData<R, S, T>
+internal interface FieldData : FieldCollection, FieldReadable {
+    val propertyData: PropertyData
 
     val name get() = propertyData.name
     val prefix: String?
@@ -104,9 +104,9 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
      */
     fun toTableHead(nullable: Boolean = propertyData.isNullable): String?
 
-    fun keyValue(o: R) = propertyData.getObject(o)
+    fun keyValue(o: Any) = propertyData.getObject(o)
 
-    fun keySimpleType(r: R): Any
+    fun keySimpleType(r: Any): Any
 
     fun collectionElementName(prefix: String?, i: Int): String {
         val indexedName = "${name}_$i"
@@ -135,7 +135,7 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
     /**
      * gets the [propertyData] value of [o]
      */
-    override fun getObject(o: R): S {
+    override fun getObject(o: Any): Any {
         try {
             val x = propertyData.getObject(o)
             return x
@@ -148,11 +148,11 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
     /**
      * returns hashcodeX if this is a autoKey, [getObject] of [t] else
      */
-    fun hashCodeXIfAutoKey(t: R): S {
+    fun hashCodeXIfAutoKey(t: Any): Any {
         return getObject(t)
     }
 
-    fun plainHashCodeXIfAutoKey(t: T): T {
+    fun plainHashCodeXIfAutoKey(t: Any): Any {
         return t
     }
 
@@ -167,29 +167,29 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
     fun copyTableName(): Map<String, String>
     fun copyData(map: Map<String, String>, request: (String, String) -> String)
 
-    fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects>
-    suspend fun toStoreData(insertMap: InsertMap, objectValue: List<R>)
+    fun toStoreObjects(objectValue: Any): List<ToStoreManyToOneObjects>
+    suspend fun toStoreData(insertMap: InsertMap, objectValue: List<Any>)
     fun persist()
-    fun subFields(): List<FieldData<Any, Any, Any, Any>>
+    fun subFields(): List<FieldData>
 
     fun onIdField(idField: KeyType)
 
     fun dropHelper()
 
-    fun additionalKeyFields(): List<FieldData<Any, Any, Any, Any>> {
+    fun additionalKeyFields(): List<FieldData> {
         return emptyList()
     }
 
-    fun insertObjects(o: T): List<List<InsertObject>> = listOf(insertObject(o))
+    fun insertObjects(o: Any): List<List<InsertObject>> = listOf(insertObject(o))
     fun readFromList(list: List<ReadFieldValue>): Any? = list.first().value
     fun buildPair(any: List<Any>): Any = any.first()
 
 //    fun makeString(any: R): String
 }
 
-internal data class ToStoreManyToOneObjects(val field: FieldData<*, *, *, *>, val any: Any)
+internal data class ToStoreManyToOneObjects(val field: FieldData, val any: Any)
 
-internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
+internal interface NoList : FieldData {
     override fun createTableForeign(tableName: Set<String>) = tableName
     override fun deleteLists(key: List<Any>) {}
     override fun clearLists() {}
@@ -199,13 +199,13 @@ internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
     override fun dropHelper() {}
 }
 
-internal interface SimpleCollectionFieldData<R : Any, S : Any, T : Any, X : Any> : FieldData<R, S, T, X> {
+internal interface SimpleCollectionFieldData : FieldData {
     override fun plainType(name: String): SimpleReadObject? = null
-    override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
-    override fun keySimpleType(r: R) = throw RuntimeException("a collection cannot be a key")
+    override fun subFields(): List<FieldData> = emptyList()
+    override fun keySimpleType(r: Any) = throw RuntimeException("a collection cannot be a key")
     override fun key() = throw RuntimeException("a collection cannot be a key")
     override fun toTableHead(nullable: Boolean): String? = null
-    override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
+    override fun toStoreObjects(objectValue: Any): List<ToStoreManyToOneObjects> = emptyList()
     override fun getColumnValue(readValue: ReadValue) = throw RuntimeException("a collection cannot be a key")
 
     override fun underscoreName() = null
@@ -214,10 +214,10 @@ internal interface SimpleCollectionFieldData<R : Any, S : Any, T : Any, X : Any>
     override fun copyTableName() = emptyMap<String, String>()
 
 
-    override fun insertObject(o: T?): List<InsertObject> = listOf()
+    override fun insertObject(o: Any?): List<InsertObject> = listOf()
 }
 
-internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : SimpleCollectionFieldData<R, S, T, X> {
+internal interface CollectionFieldData : SimpleCollectionFieldData {
     val helperTable: HelperTable
 
     override fun dropHelper() {
@@ -241,7 +241,7 @@ internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : Sim
     }
 }
 
-internal interface SimpleTypes<R : Any, T : Any> : NoList<R, T, T> {
+internal interface SimpleTypes : NoList {
     override fun toTableHead(nullable: Boolean): String {
         val notNull = if (nullable) "" else " NOT NULL"
         return "$prefixedName $typeName$notNull"
@@ -249,21 +249,21 @@ internal interface SimpleTypes<R : Any, T : Any> : NoList<R, T, T> {
 
     val typeName: String
 
-    override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
-    override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {}
+    override fun toStoreObjects(objectValue: Any): List<ToStoreManyToOneObjects> = emptyList()
+    override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<Any>) {}
 
-    override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
+    override fun subFields(): List<FieldData> = emptyList()
 
     override fun persist() {}
     override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1)!!
 
-    override fun keySimpleType(r: R) = propertyData.getObject(r)
+    override fun keySimpleType(r: Any) = propertyData.getObject(r)
     override fun key() = prefixedName
 
 
     override fun underscoreName() = name(prefix)
 
-    override fun insertObject(t: T?): List<InsertObject> {
+    override fun insertObject(t: Any?): List<InsertObject> {
         return listOf(object : InsertObject {
             override fun insertValue(): String {
                 return t?.let { makeString(it) } ?: "null"
@@ -275,10 +275,10 @@ internal interface SimpleTypes<R : Any, T : Any> : NoList<R, T, T> {
         })
     }
 
-    fun makeString(t: T): String
-    fun makeStringOnEqualsValue(t: T): String = makeString(t)
+    fun makeString(t: Any): String
+    fun makeStringOnEqualsValue(t: Any): String = makeString(t)
 
-    override fun fNEqualsValue(o: T, sep: String): String {
+    override fun fNEqualsValue(o: Any, sep: String): String {
         return "$prefixedName = ${makeStringOnEqualsValue(o)}"
 //        return "$prefixedName = ${makeString(o)}"
     }

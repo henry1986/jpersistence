@@ -31,11 +31,11 @@ import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.ReadCache
 import org.daiv.reflection.plain.SimpleReadObject
 
-internal class ReadComplexType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
+internal class ReadComplexType constructor(override val propertyData: PropertyData,
                                                              val moreKeys: MoreKeys,
                                                              val including: Including,
                                                              val persisterProvider: PersisterProvider,
-                                                             override val prefix: String?) : NoList<R, T, T> {
+                                                             override val prefix: String?) : NoList {
     val providerKey = ProviderKey(propertyData, prefixedName)
 
     //    private val persisterData: ReadPersisterData<T, Any> = ReadPersisterData(propertyData.clazz,
@@ -48,14 +48,14 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
     }
 
     private val persisterData
-        get() = persisterProvider.readPersisterData(providerKey) as ReadPersisterData<T, Any>
+        get() = persisterProvider.readPersisterData(providerKey)
 
     private val table
-        get() = persisterProvider.table(providerKey) as Persister.Table<T>
+        get() = persisterProvider.table(providerKey) as Persister.Table<Any>
 
-    override fun subFields(): List<FieldData<Any, Any, Any, Any>> = persisterData.fields as List<FieldData<Any, Any, Any, Any>>
+    override fun subFields(): List<FieldData> = persisterData.fields
 
-    override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {
+    override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<Any>) {
         objectValue.forEach {
             val obj = getObject(it)
             if (propertyData.isNullable && obj == null) {
@@ -101,7 +101,7 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
 //                .flatMap { it }
 //    }
 
-    override fun keySimpleType(r: R) = persisterData.keySimpleType(propertyData.getObject(r))
+    override fun keySimpleType(r: Any) = persisterData.keySimpleType(propertyData.getObject(r))
 
 //    override fun foreignKey(): ForeignKey {
 //        return ForeignKey(name, "${clazz.simpleName}(${persisterData.keyName()})")
@@ -123,19 +123,19 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         return persisterData.key.copyTableName()
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<T>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
         val nextSize = persisterData.key.getValue(readCache, readValue, number, key)
         if (propertyData.isNullable && nextSize.t.t == null) {
-            return NextSize(ReadAnswer(null) as ReadAnswer<T>, nextSize.i)
+            return NextSize(ReadAnswer(null) as ReadAnswer<Any>, nextSize.i)
         }
         if (including.include) {
-            val x = nextSize.t.t!!
-            val list = table.readPersisterData.fields.mapIndexed { i, e -> ReadFieldValue(x[i], e as FieldData<Any, Any, Any, Any>) }
+            val x = nextSize.t.t as List<Any>
+            val list = table.readPersisterData.fields.mapIndexed { i, e -> ReadFieldValue(x[i], e) }
             val n = NextSize(list, nextSize.i)
             val r = ReadPersisterData.readValue(clazz)
             return n.transform { b -> ReadAnswer(r(b)) }
         }
-        val read = readCache.readNoNull(table, nextSize.t.t!!)
+        val read = readCache.readNoNull(table, nextSize.t.t as List<Any>)
 //        val read = table.readMultipleUseHashCode(nextSize.t)
 //                ?: throw RuntimeException("did not find value for key ${nextSize.t}")
 
@@ -144,18 +144,18 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         return NextSize(ReadAnswer(read), nextSize.i)
     }
 
-    override fun fNEqualsValue(objectValue: T, sep: String): String {
+    override fun fNEqualsValue(objectValue: Any, sep: String): String {
         return persisterData.key.fNEqualsValue(persisterData.key.hashCodeXIfAutoKey(objectValue), sep)
     }
 
-    override fun insertObject(objectValue: T?): List<InsertObject> {
+    override fun insertObject(objectValue: Any?): List<InsertObject> {
         if (propertyData.isNullable && objectValue == null) {
             return persisterData.key.insertObject(null)
         }
         return persisterData.key.insertObject(persisterData.key.hashCodeXIfAutoKey(objectValue!!))
     }
 
-    override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> {
+    override fun toStoreObjects(objectValue: Any): List<ToStoreManyToOneObjects> {
         return listOf(ToStoreManyToOneObjects(this, objectValue))
     }
 

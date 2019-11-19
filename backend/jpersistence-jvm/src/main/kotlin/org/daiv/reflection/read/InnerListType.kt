@@ -4,15 +4,15 @@ import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.ReadCache
 
-//internal class InnerListType<T : Any>(override val propertyData: PropertyData<Any, List<T>, T>,
-//                                      override val prefix: String?,
-//                                      val persisterProvider: PersisterProvider) :
-//        SimpleCollectionFieldData<Any, List<T>, T, List<T>> {
-//    override fun fNEqualsValue(o: List<T>, sep: String): String {
+//internal class InnerListType(override val propertyData: PropertyData,
+//                             override val prefix: String?,
+//                             val persisterProvider: PersisterProvider) : SimpleCollectionFieldData {
+//    override fun fNEqualsValue(o: Any, sep: String): String {
 //        throw UnsupportedOperationException("no support yet")
 //    }
 //
-//    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<List<T>>> {
+//    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
+//
 //    }
 //
 //    override fun deleteLists(key: List<Any>) {
@@ -41,17 +41,17 @@ import org.daiv.reflection.persister.ReadCache
 //}
 
 
-internal class InnerMapType<R : Any, T : Any, M : Any> constructor(override val propertyData: RealMapProperty<R, T, M>,
-                                                                   val depth: Int,
-                                                                   val persisterProvider: PersisterProvider,
-                                                                   override val prefix: String?) :
-        SimpleCollectionFieldData<R, Map<M, T>, T, Map<M, T>> {
+internal class InnerMapType constructor(override val propertyData: MapProperty,
+                                        val depth: Int,
+                                        val persisterProvider: PersisterProvider,
+                                        override val prefix: String?) :
+        SimpleCollectionFieldData {
 
     private fun fieldName(name: String) = if (depth == 0) name else "$name$depth"
     private val keyField = propertyData.keyClazz.toLowField(persisterProvider, depth + 1, fieldName("key"))
     private val valueField = propertyData.subType.toLowField(persisterProvider, depth + 1, fieldName("value"))
 
-    override fun additionalKeyFields(): List<FieldData<Any, Any, Any, Any>> {
+    override fun additionalKeyFields(): List<FieldData> {
         return listOf(keyField) + valueField.additionalKeyFields()
     }
 
@@ -59,12 +59,12 @@ internal class InnerMapType<R : Any, T : Any, M : Any> constructor(override val 
         return "${keyField.toTableHead(nullable)} , ${valueField.toTableHead(nullable)}"
     }
 
-    override fun insertObject(o: T?): List<InsertObject> {
+    override fun insertObject(o: Any?): List<InsertObject> {
         throw RuntimeException("this must not be called")
     }
 
-    override fun insertObjects(o: T): List<List<InsertObject>> {
-        val x = o as Map<M, T>
+    override fun insertObjects(o: Any): List<List<InsertObject>> {
+        val x = o as Map<Any, Any>
         return x.flatMap { entry ->
             valueField.insertObjects(entry.value)
                     .map {
@@ -73,15 +73,16 @@ internal class InnerMapType<R : Any, T : Any, M : Any> constructor(override val 
         }
     }
 
-    override fun fNEqualsValue(o: Map<M, T>, sep: String): String {
+    override fun fNEqualsValue(o: Any, sep: String): String {
+        o as Map<Any, Any>
         return sequenceOf(o.values.map { valueField.fNEqualsValue(it, sep) },
                           o.keys.map { keyField.fNEqualsValue(it, sep) })
                 .joinToString(", ")
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Map<M, T>>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
         val x = valueField.getValue(readCache, readValue, number, key)
-        return NextSize(ReadAnswer(x.t.t), number) as NextSize<ReadAnswer<Map<M, T>>>
+        return NextSize(ReadAnswer(x.t.t), number)
     }
 
     override fun deleteLists(key: List<Any>) {
@@ -97,7 +98,7 @@ internal class InnerMapType<R : Any, T : Any, M : Any> constructor(override val 
     override fun copyData(map: Map<String, String>, request: (String, String) -> String) {
     }
 
-    override suspend fun toStoreData(insertMap: InsertMap, r: List<R>) {
+    override suspend fun toStoreData(insertMap: InsertMap, r: List<Any>) {
         val o = r as List<Map<Any, Any>>
         r.forEach { x ->
             keyField.toStoreData(insertMap, x.map { it.key })

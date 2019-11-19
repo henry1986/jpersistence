@@ -86,7 +86,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     private fun readCache() = if (persisterPreference.useCache) internalReadCache else ReadCache(persisterPreference)
 
-    internal fun justPersist(tableName: String, readPersisterData: InternalRPD<*, *>) {
+    internal fun justPersist(tableName: String, readPersisterData: InternalRPD) {
         write("$createTable $tableName ${readPersisterData.createTable()}")
     }
 
@@ -123,7 +123,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
     private fun getTableName(tableName: String, clazz: KClass<*>) = if (tableName == "") clazz.tableName() else tableName
 
     internal interface InternalTable : PersisterListener {
-        val readPersisterData: InternalRPD<out Any, Any>
+        val readPersisterData: InternalRPD
         val innerTableName: String
         val tableName: String
         val _tableName: String
@@ -197,17 +197,17 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     }
 
-    internal inner class HelperTable constructor(val keyFields: List<FieldData<Any, Any, Any, Any>>,
-                                                 val fields: List<FieldData<Any, Any, Any, Any>>,
-                                                 val noKeyFields: List<FieldData<Any, Any, Any, Any>>,
+    internal inner class HelperTable constructor(val keyFields: List<FieldData>,
+                                                 val fields: List<FieldData>,
+                                                 val noKeyFields: List<FieldData>,
                                                  val innerTableNameGetter: () -> String,
                                                  val tableNameGetter: () -> String) :
             InternalTable, PersisterListener by internalReadCache {
 
-        override val readPersisterData: InternalRPD<out Any, Any> = object : InternalRPD<Any, Any> {
-            override val fields: List<FieldData<Any, Any, Any, Any>> = this@HelperTable.fields
+        override val readPersisterData: InternalRPD = object : InternalRPD {
+            override val fields: List<FieldData> = this@HelperTable.fields
             override val key: KeyType = KeyType(keyFields)
-            override val noKeyFields: List<FieldData<Any, Any, Any, Any>> = this@HelperTable.noKeyFields
+            override val noKeyFields: List<FieldData> = this@HelperTable.noKeyFields
         }
 
         override val innerTableName: String
@@ -228,7 +228,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         return persisterProvider
     }
 
-    inner class Table<R : Any> internal constructor(override val readPersisterData: ReadPersisterData<R, Any>,
+    inner class Table<R : Any> internal constructor(override val readPersisterData: ReadPersisterData,
                                                     val clazz: KClass<R>) :
             InternalTable, Registerer<DBChangeListener> by registerer, PersisterListener by internalReadCache {
         override val innerTableName: String
@@ -253,7 +253,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
                 : this(clazz, createPersisterProvider(clazz, tableName, tableNames, tableNamePrefix))
 
         internal constructor(clazz: KClass<R>, persisterProvider: PersisterProvider)
-                : this(ReadPersisterData(clazz, this@Persister, persisterProvider), clazz)
+                : this(ReadPersisterData(clazz as KClass<Any>, this@Persister, persisterProvider), clazz)
 
         private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()
 
@@ -305,7 +305,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         internal fun read(fieldName: String, id: Any, readCache: ReadCache, orderOrder: String = ""): List<R> {
             val req = "SELECT * ${fromWhere(fieldName, id, and)} $orderOrder;"
-            return this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this), readCache) } }
+            return this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this), readCache) } } as List<R>
         }
 
         fun read(fieldName: String, id: Any, orderOrder: String = ""): List<R> {
@@ -473,7 +473,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
                     it.getList { clazz.cast(getObject(1)) }
                 }
             } else {
-                val readPersisterData = ReadPersisterData<T, Any>(clazz, this@Persister, readPersisterData.persisterProvider)
+                val readPersisterData = ReadPersisterData(clazz as KClass<Any>, this@Persister, readPersisterData.persisterProvider)
                 val key = readPersisterData.createTableKeyData()
 //                val key = readPersisterData.createTableKeyData(fieldName)
                 this@Persister.read(cmd(key)) { it.getList { readPersisterData.readKey(ReadValue(this)) } as List<T> }
@@ -493,7 +493,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         private fun internReadAll(orderOrder: String = ""): List<R> {
             return this@Persister.read("SELECT * from $tableName $orderOrder;") {
-                it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) }
+                it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) } as List<R>
             }
         }
 
@@ -553,7 +553,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         private fun timespread(whereClause: String): List<R> {
             return this@Persister.read("select * from $tableName where ${readPersisterData.keyName()} $whereClause") {
-                it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) }
+                it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) } as List<R>
             }
         }
 
@@ -571,7 +571,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         fun <K : Comparable<K>> readLastBefore(last: Long, before: K): List<R> {
             val keyColumnName = readPersisterData.keyColumnName()
             return this@Persister.read("SELECT * FROM ( select * from $tableName where $keyColumnName < $before ORDER BY $keyColumnName DESC LIMIT $last ) X ORDER BY $keyColumnName ASC") {
-                it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) }
+                it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) } as List<R>
             }
         }
 
@@ -586,13 +586,13 @@ class Persister(private val databaseInterface: DatabaseInterface,
             val keyColumnName = readPersisterData.keyColumnName()
             val req = "SELECT * FROM $tableName WHERE $keyColumnName = (SELECT max($keyColumnName) from $tableName);"
             val x = this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) } }
-            return x.firstOrNull()
+            return x.firstOrNull() as R?
         }
 
         fun first(): R? {
             val req = "SELECT * FROM $tableName LIMIT 1;"
             val x = this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) } }
-            return x.firstOrNull()
+            return x.firstOrNull() as R?
         }
 
         fun size(): Int {

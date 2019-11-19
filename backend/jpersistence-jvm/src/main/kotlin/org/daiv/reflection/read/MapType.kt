@@ -31,51 +31,51 @@ import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
 
 
-internal class MapType<R : Any, T : Any, M : Any> constructor(override val propertyData: DefaultMapProperty<R, T, M>,
-                                                              val persisterProvider: PersisterProvider,
-                                                              override val prefix: String?,
-                                                              val persister: Persister,
-                                                              val parentClass: KClass<R>,
-                                                              val mapEngine: MapEngine<R, M, T> = MapEngine(propertyData,
-                                                                                                            persisterProvider,
-                                                                                                            persister,
-                                                                                                            parentClass) {
-                                                                  propertyData.getObject(it)
-                                                              }) :
-        CollectionFieldData<R, Map<M, T>, T, Map<M, T>>, MapEngineInterface<R, M, T> by mapEngine {
+internal class MapType constructor(override val propertyData: DefaultMapProperty,
+                                   val persisterProvider: PersisterProvider,
+                                   override val prefix: String?,
+                                   val persister: Persister,
+                                   val parentClass: KClass<Any>,
+                                   val mapEngine: MapEngine = MapEngine(propertyData,
+                                                                        persisterProvider,
+                                                                        persister,
+                                                                        parentClass) {
+                                       propertyData.getObject(it) as Map<Any, Any>
+                                   }) :
+        CollectionFieldData, MapEngineInterface by mapEngine {
 
     override fun isType(a: Any): Boolean {
         return a::class.isSubclassOf(Map::class)
     }
 
-    override fun fNEqualsValue(o: Map<M, T>, sep: String): String {
+    override fun fNEqualsValue(o: Any, sep: String): String {
         return mapEngine.fNEqualsValue(o, sep)
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Map<M, T>>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
         return mapEngine.getValue(readCache, readValue, number, key)
     }
 }
 
 
-internal class ListType<R : Any, T : Any> constructor(override val propertyData: ListMapProperty<R, T>,
-                                                      val persisterProvider: PersisterProvider,
-                                                      override val prefix: String?,
-                                                      val persister: Persister,
-                                                      val parentClass: KClass<R>,
-                                                      val converterToMap: (List<T>) -> Map<Int, T> = {
-                                                          it.mapIndexed { index, t -> index to t }
-                                                                  .toMap()
-                                                      },
-                                                      val mapEngine: MapEngine<R, Int, T> = MapEngine(propertyData,
-                                                                                                      persisterProvider,
-                                                                                                      persister,
-                                                                                                      parentClass) {
-                                                          converterToMap(propertyData.getObject(it))
-                                                      }) : CollectionFieldData<R, List<T>, T, List<T>>,
-                                                           MapEngineInterface<R, Int, T> by mapEngine {
+internal class ListType constructor(override val propertyData: ListMapProperty,
+                                    val persisterProvider: PersisterProvider,
+                                    override val prefix: String?,
+                                    val persister: Persister,
+                                    val parentClass: KClass<Any>,
+                                    val converterToMap: (List<Any>) -> Map<Int, Any> = {
+                                        it.mapIndexed { index, t -> index to t }
+                                                .toMap()
+                                    },
+                                    val mapEngine: MapEngine = MapEngine(propertyData,
+                                                                         persisterProvider,
+                                                                         persister,
+                                                                         parentClass) {
+                                        converterToMap(propertyData.getObject(it) as List<Any>) as Map<Any, Any>
+                                    }) : CollectionFieldData,
+                                         MapEngineInterface by mapEngine {
 
-    val converter: (ReadAnswer<Map<Int, T>>) -> ReadAnswer<List<T>> = {
+    val converter: (ReadAnswer<Map<Int, Any>>) -> ReadAnswer<List<Any>> = {
         ReadAnswer(it.t!!.toList()
                            .sortedBy { it.first }
                            .map { it.second }, true)
@@ -85,21 +85,21 @@ internal class ListType<R : Any, T : Any> constructor(override val propertyData:
         return a::class.isSubclassOf(List::class)
     }
 
-    override fun fNEqualsValue(o: List<T>, sep: String): String {
-        return mapEngine.fNEqualsValue(converterToMap(o), sep)
+    override fun fNEqualsValue(o: Any, sep: String): String {
+        return mapEngine.fNEqualsValue(converterToMap(o as List<Any>), sep)
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<List<T>>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
         val ret = mapEngine.getValue(readCache, readValue, number, key)
-        return NextSize(converter(ret.t), ret.i)
+        return NextSize(converter(ret.t as ReadAnswer<Map<Int, Any>>), ret.i) as NextSize<ReadAnswer<Any>>
     }
 }
 
-internal interface MapEngineInterface<R : Any, M : Any, T : Any> {
+internal interface MapEngineInterface {
     val helperTable: HelperTable
 
     fun onIdField(idField: KeyType)
-    suspend fun toStoreData(insertMap: InsertMap, objectValue: List<R>)
+    suspend fun toStoreData(insertMap: InsertMap, objectValue: List<Any>)
 
     fun createTableForeign(tableNames: Set<String>): Set<String>
 
@@ -108,11 +108,11 @@ internal interface MapEngineInterface<R : Any, M : Any, T : Any> {
     fun clearLists()
 }
 
-internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapProperty<*, *, T, *>,
-                                                    val persisterProvider: PersisterProvider,
-                                                    val persister: Persister,
-                                                    val parrentClass: KClass<R>,
-                                                    val getObjectMethod: (R) -> Map<M, T>) : MapEngineInterface<R, M, T> {
+internal class MapEngine(val propertyData: MapProperty,
+                         val persisterProvider: PersisterProvider,
+                         val persister: Persister,
+                         val parrentClass: KClass<Any>,
+                         val getObjectMethod: (Any) -> Map<Any, Any>) : MapEngineInterface {
     override val helperTable: HelperTable
         get() = helper
 
@@ -129,7 +129,7 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
     private val valueField = propertyData.type.toLowField(persisterProvider, 0, "value")
 
 
-    override suspend fun toStoreData(insertMap: InsertMap, r: List<R>) {
+    override suspend fun toStoreData(insertMap: InsertMap, r: List<Any>) {
         val p = r.map { key -> key to getObjectMethod(key) }
         p.forEach { x ->
             val id1 = idField.hashCodeXIfAutoKey(x.first)
@@ -161,8 +161,8 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
 
     override fun onIdField(idField: KeyType) {
         this.idField = idField
-        val fields3 = listOf(idField, valueField) as List<FieldData<Any, Any, Any, Any>>
-        val keyFields = (listOf(idField) + valueField.additionalKeyFields()) as List<FieldData<Any, Any, Any, Any>>
+        val fields3 = listOf(idField, valueField)
+        val keyFields = (listOf(idField) + valueField.additionalKeyFields())
         helper = persister.HelperTable(keyFields,
                                        fields3,
                                        listOf(valueField),
@@ -171,7 +171,8 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
         persisterProvider.registerHelperTableName(helperTableName)
     }
 
-    fun fNEqualsValue(o: Map<M, T>, sep: String): String {
+    fun fNEqualsValue(o: Any, sep: String): String {
+        o as Map<Any, Any>
         return sequenceOf(o.values.map { valueField.fNEqualsValue(it, sep) })
                 .joinToString(", ")
     }
@@ -184,19 +185,20 @@ internal class MapEngine<R : Any, M : Any, T : Any>(val propertyData: MapPropert
         helperTable.deleteBy(idField.name, key)
     }
 
-    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Map<M, T>>> {
+    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
         if (key.isEmpty()) {
             throw NullPointerException("a List cannot be a key")
         }
         val fn = idField.autoIdFNEqualsValue(key, " AND ")
         val read = helperTable.readIntern(fn, readCache)
-        val list = read.map { valueField.readFromList(it.drop(1)) as Pair<M, T> }
+        val list = read.map { valueField.readFromList(it.drop(1)) as Pair<Any, Any> }
 //        val list = read.map { it[1].value as M to valueField.readFromList(it.drop(2)) as T }
-        val ret = list.groupBy { it.first }
-                .map { it.key to it.value.map { it.second } }
-        val x = ret.map { it.first to valueField.buildPair(it.second) as T }
-        val map = x.toMap()
-        return NextSize(ReadAnswer(map), number)
+        val blub = list.map { it.first to it.second }.toMap()
+//        val ret = list.groupBy { it.first }
+//                .map { it.key to it.value.map { it.second } }
+//        val x = ret.map { it.first to valueField.buildPair(it.second) }
+//        val map = x.toMap()
+        return NextSize(ReadAnswer(blub), number) as NextSize<ReadAnswer<Any>>
     }
 
     override fun clearLists() {

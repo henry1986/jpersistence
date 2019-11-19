@@ -5,12 +5,12 @@ import org.daiv.reflection.read.KeyHashCodeable
 import org.daiv.reflection.read.ReadPersisterData
 import kotlin.reflect.KClass
 
-internal data class ProviderKey(val propertyData: PropertyData<*, *, *>, val prefixedName: String)
-internal data class ProviderValue(val readPersisterData: ReadPersisterData<*, *>, val table: Persister.Table<*>)
+internal data class ProviderKey(val propertyData: PropertyData, val prefixedName: String)
+internal data class ProviderValue(val readPersisterData: ReadPersisterData, val table: Persister.Table<*>)
 
 
 internal interface PersisterProvider {
-    fun readPersisterData(providerKey: ProviderKey): ReadPersisterData<*, *>
+    fun readPersisterData(providerKey: ProviderKey): ReadPersisterData
     fun register(providerKey: ProviderKey)
     fun innerTableName(clazz: KClass<out Any>): String
     fun tableName(clazz: KClass<out Any>): String
@@ -44,7 +44,7 @@ internal class PersisterProviderImpl(val persister: Persister,
         helperTableNames.add(helperTableName)
     }
 
-    override fun readPersisterData(providerKey: ProviderKey): ReadPersisterData<*, *> {
+    override fun readPersisterData(providerKey: ProviderKey): ReadPersisterData {
         return map[providerKey]!!.readPersisterData
     }
 
@@ -70,10 +70,10 @@ internal class PersisterProviderImpl(val persister: Persister,
     override fun register(providerKey: ProviderKey) {
         if (!registeredSet.contains(providerKey)) {
             registeredSet.add(providerKey)
-            val r = ReadPersisterData<Any, Any>(providerKey.propertyData.clazz as KClass<Any>,
-                                                persister,
-                                                this,
-                                                prefix = providerKey.prefixedName)
+            val r = ReadPersisterData(providerKey.propertyData.clazz,
+                                      persister,
+                                      this,
+                                      prefix = providerKey.prefixedName)
             val table = persister.Table(providerKey.propertyData.clazz, this)
             map[providerKey] = ProviderValue(r, table)
             tableNames[providerKey.propertyData.clazz.java.name] = providerKey.propertyData.clazz.simpleName!!

@@ -31,8 +31,8 @@ import org.daiv.reflection.plain.PlainObject
 import java.sql.SQLException
 import kotlin.reflect.KClass
 
-internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
-        SimpleTypes<R, T> {
+internal class ReadSimpleType(override val propertyData: PropertyData, override val prefix: String?) :
+        SimpleTypes {
     companion object {
         private val valueMappingJavaSQL = mapOf("long" to "bigInt", "String" to "Text")
     }
@@ -49,7 +49,7 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
         else -> PlainObject(name)
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<T>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
         try {
             val any = if (propertyData.clazz == Long::class) {
                 readValue.resultSet.getLong(number)
@@ -61,13 +61,13 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
             else
                 any
             @Suppress("UNCHECKED_CAST")
-            return NextSize(ReadAnswer(x as T?), number + 1)
+            return NextSize(ReadAnswer(x), number + 1)
         } catch (e: SQLException) {
             throw RuntimeException(e)
         }
     }
 
-    override fun makeString(any: T): String {
+    override fun makeString(any: Any): String {
         val s = any.toString()
         return when {
             any::class == String::class -> "\"" + s + "\""
@@ -79,8 +79,8 @@ internal class ReadSimpleType<R : Any, T : Any>(override val propertyData: Prope
 }
 
 
-internal data class SimpleHashCodeable(val fieldReadable: FieldReadable<Any, Any>) : HashCodeable<Any>,
-                                                                                     FieldReadable<Any, Any> by fieldReadable {
+internal data class SimpleHashCodeable(val fieldReadable: FieldReadable) : HashCodeable,
+                                                                           FieldReadable by fieldReadable {
     override fun plainHashCodeX(o: Any): Int {
         return when (o::class) {
             Int::class -> {
@@ -112,7 +112,7 @@ internal data class SimpleHashCodeable(val fieldReadable: FieldReadable<Any, Any
     }
 }
 
-object EnumHashCodeable : HashCodeable<Any> {
+object EnumHashCodeable : HashCodeable {
     override fun plainHashCodeX(t: Any): Int {
         return t.toString()
                 .hashCodeX()
@@ -125,13 +125,12 @@ object EnumHashCodeable : HashCodeable<Any> {
     override fun getObject(o: Any) = o
 }
 
-internal class MapHashCodeable<M : Any, T : Any> constructor(val keyHashCodeable: KeyHashCodeable,
+internal class MapHashCodeable constructor(val keyHashCodeable: KeyHashCodeable,
                                                              val valueHashCodeable: KeyHashCodeable,
-                                                             val readable: MapReadable<Any, M, T>) : HashCodeable<Map<M, T>>,
-                                                                                                     FieldReadable<Any, Map<M, T>> by readable {
+                                                             val readable: MapReadable) : HashCodeable, FieldReadable by readable {
     override fun plainHashCodeX(t: Any): Int {
         try {
-            t as Map<M, T>
+            t as Map<Any, Any>
         } catch (t: Throwable) {
             throw t
         }
@@ -139,12 +138,12 @@ internal class MapHashCodeable<M : Any, T : Any> constructor(val keyHashCodeable
                 .hashCodeX { keyHashCodeable.hashCodeX(this.key) xor valueHashCodeable.hashCodeX(this.value) }
     }
 
-    override fun hashCodeX(t: Any) = getObject(t).iterator()
+    override fun hashCodeX(t: Any) = (getObject(t) as Map<Any, Any>).iterator()
             .hashCodeX { keyHashCodeable.hashCodeX(this.key) xor valueHashCodeable.hashCodeX(this.value) }
 }
 
-internal class ListHashCodeable<T : Any> constructor(val valueHashCodeable: HashCodeable<Any>, listReadable: ListReadable<T>) :
-        HashCodeable<List<T>>, FieldReadable<Any, List<T>> by listReadable {
+internal class ListHashCodeable<T : Any> constructor(val valueHashCodeable: HashCodeable, listReadable: ListReadable<T>) :
+        HashCodeable, FieldReadable by listReadable {
     override fun plainHashCodeX(t: Any): Int {
         try {
             t as List<Any>
@@ -157,13 +156,14 @@ internal class ListHashCodeable<T : Any> constructor(val valueHashCodeable: Hash
 
     override fun hashCodeX(r: Any): Int {
         val t = getObject(r)
+        t as List<Any>
         return t.iterator()
                 .hashCodeX { valueHashCodeable.hashCodeX(this) }
     }
 }
 
-internal class SetHashCodeable(val valueHashCodeable: HashCodeable<Any>, setReadable: PropertyReader<Any, Set<Any>>) :
-        HashCodeable<Set<Any>>, FieldReadable<Any, Set<Any>> by setReadable {
+internal class SetHashCodeable(val valueHashCodeable: HashCodeable, setReadable: PropertyReader) :
+        HashCodeable, FieldReadable by setReadable {
     override fun plainHashCodeX(t: Any): Int {
         try {
             t as Set<Any>
@@ -174,14 +174,17 @@ internal class SetHashCodeable(val valueHashCodeable: HashCodeable<Any>, setRead
                 .hashCodeX { valueHashCodeable.hashCodeX(this) }
     }
 
-    override fun hashCodeX(t: Any) = getObject(t).iterator().hashCodeX { valueHashCodeable.hashCodeX(this) }
+    override fun hashCodeX(t: Any): Int {
+        val x = getObject(t)
+        x as Set<Any>
+        return x.iterator()
+                .hashCodeX { valueHashCodeable.hashCodeX(this) }
+    }
 }
 
 internal class ComplexHashCodeable(val clazz: KClass<Any>,
                                    val provider: HashCodeableProvider,
-                                   val complexReadable: FieldReadable<Any, Any>) :
-        HashCodeable<Any>,
-        FieldReadable<Any, Any> {
+                                   val complexReadable: FieldReadable) : HashCodeable, FieldReadable {
 
     init {
         provider.register(clazz)
@@ -203,7 +206,7 @@ internal class ComplexHashCodeable(val clazz: KClass<Any>,
     }
 }
 
-internal class KeyHashCodeable constructor(val list: List<HashCodeable<out Any>>) : HashCodeable<List<Any>> {
+internal class KeyHashCodeable constructor(val list: List<HashCodeable>) : HashCodeable {
     override fun getObject(o: Any): List<Any> {
         return list.map { it.getObject(o) }
     }

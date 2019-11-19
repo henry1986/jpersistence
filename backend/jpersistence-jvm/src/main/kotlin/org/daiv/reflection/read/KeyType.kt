@@ -8,10 +8,10 @@ import org.daiv.reflection.plain.SimpleReadObject
 /**
  * in case, this is an auto idField, [idFieldIfAuto] is the older idField without [key]
  */
-internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any>>,
+internal class KeyType constructor(val fields: List<FieldData>,
                                    val key: KeyHashCodeable? = null,
-                                   val idFieldIfAuto: KeyType? = null) : NoList<Any, List<Any>, Any> {
-    override val propertyData: PropertyData<Any, List<Any>, Any> = KeyTypeProperty(fields)
+                                   val idFieldIfAuto: KeyType? = null) : NoList {
+    override val propertyData: PropertyData = KeyTypeProperty(fields)
 
     fun isAuto() = key != null
 
@@ -56,14 +56,14 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
      */
     override fun hashCodeXIfAutoKey(t: Any): List<Any> {
         val obj = getObject(t)
-        return key?.plainHashCodeX(obj)?.asList() ?: obj
+        return key?.plainHashCodeX(obj)?.asList() ?: obj as List<Any>
     }
 
     override fun plainHashCodeXIfAutoKey(t: Any): Any {
         return key?.plainHashCodeX(t) ?: t
     }
 
-    override fun getObject(o: Any): List<Any> {
+    override fun getObject(o: Any): Any {
         if (idFieldIfAuto != null) {
             return idFieldIfAuto.getObject(o)
         }
@@ -78,7 +78,7 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
         fields.forEach { it.persist() }
     }
 
-    override fun subFields(): List<FieldData<Any, Any, Any, Any>> {
+    override fun subFields(): List<FieldData> {
         return fields.flatMap { it.subFields() }
     }
 
@@ -95,13 +95,14 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
         return ret
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<List<Any>>> {
-        return read(0, readCache, readValue, number, NextSize(ReadAnswer(emptyList()), number))
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
+        return read(0, readCache, readValue, number, NextSize(ReadAnswer(emptyList()), number)) as NextSize<ReadAnswer<Any>>
 //        return fields.first()
 //                .getValue(readValue, number, key)
     }
 
-    override fun fNEqualsValue(o: List<Any>, sep: String): String {
+    override fun fNEqualsValue(o: Any, sep: String): String {
+        o as List<Any>
         return fields.mapIndexed { i, e ->
             val obj = o[i]
 //            if(e is AutoKeyType){
@@ -178,7 +179,7 @@ internal class KeyType constructor(val fields: List<FieldData<Any, Any, Any, Any
 
     fun columnName() = fields.first().prefixedName
 
-    fun <X> onKey(f: FieldData<Any, Any, Any, Any>.() -> X): X {
+    fun <X> onKey(f: FieldData.() -> X): X {
         return (fields.first())
                 .f()
     }

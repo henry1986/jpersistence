@@ -4,7 +4,7 @@ import org.daiv.reflection.read.ReadPersisterData
 
 
 class InsertCacheHandler<R : Any> internal constructor(internal val map: InsertMap,
-                                                       internal val readPersisterData: ReadPersisterData<R, Any>,
+                                                       internal val readPersisterData: ReadPersisterData,
                                                        val table: Persister.Table<R>,
                                                        override val isParallel: Boolean) : InsertCache<R> {
     override suspend fun insert(o: List<R>) {

@@ -70,18 +70,18 @@ internal class KeyAnnotation(private val property: KProperty1<*, *>) : CheckAnno
 
 internal fun <T : Any> KClass<T>.isNoMapAndNoListAndNoSet() = this != List::class && this != Map::class && this != Set::class
 
-internal fun <T : Any> KClass<T>.toFieldData(persisterProvider: PersisterProvider,
-                                             prefix: String?): FieldData<Any, Any, T, Any> {
+internal fun KClass<Any>.toFieldData(persisterProvider: PersisterProvider,
+                                     prefix: String?): FieldData {
     return when {
         this.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(this,
                                                                                       this.simpleName!!),
-                                                                   prefix) as FieldData<Any, Any, T, Any>
-        this.isEnum() -> EnumType(SimpleTypeProperty(this, this.simpleName!!), prefix) as FieldData<Any, Any, T, Any>
+                                                                   prefix)
+        this.isEnum() -> EnumType(SimpleTypeProperty(this, this.simpleName!!), prefix)
         this.isNoMapAndNoListAndNoSet() -> ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
                                                            moreKeys(),
                                                            including(),
                                                            persisterProvider,
-                                                           prefix) as FieldData<Any, Any, T, Any>
+                                                           prefix)
 //        this == List::class -> ListType(SimpleTypeProperty(this, this.simpleName!!), persisterProvider,)
         else -> {
             throw RuntimeException("this: $this not possible")
@@ -89,51 +89,51 @@ internal fun <T : Any> KClass<T>.toFieldData(persisterProvider: PersisterProvide
     }
 }
 
-internal fun <T : Any> KClass<T>.toKeyFieldDatas(persisterProvider: PersisterProvider,
-                                                 prefix: String?): List<FieldData<Any, Any, T, Any>> {
+internal fun KClass<Any>.toKeyFieldDatas(persisterProvider: PersisterProvider,
+                                         prefix: String?): List<FieldData> {
     return when {
         this.java.isPrimitiveOrWrapperOrString() -> listOf(ReadSimpleType(SimpleTypeProperty(this,
                                                                                              this.simpleName!!),
-                                                                          prefix) as FieldData<Any, Any, T, Any>)
-        this.isEnum() -> listOf(EnumType(SimpleTypeProperty(this, this.simpleName!!), prefix) as FieldData<Any, Any, T, Any>)
+                                                                          prefix) as FieldData)
+        this.isEnum() -> listOf(EnumType(SimpleTypeProperty(this, this.simpleName!!), prefix) as FieldData)
         this.isNoMapAndNoListAndNoSet() -> listOf(ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
                                                                   moreKeys(),
                                                                   including(),
                                                                   persisterProvider,
-                                                                  prefix) as FieldData<Any, Any, T, Any>)
+                                                                  prefix) as FieldData)
 //        this == List::class -> listOf(ReadSimpleType(SimpleTypeProperty(this,
 //                                                                        this.simpleName!!),
-//                                                     prefix) as FieldData<Any, Any, T, Any>)
+//                                                     prefix) as FieldData)
 //        this == Map::class -> listOf(ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
 //                                                     moreKeys(),
 //                                                     including(),
 //                                                     persisterProvider,
-//                                                     prefix) as FieldData<Any, Any, T, Any>)
+//                                                     prefix) as FieldData)
         else -> {
             throw RuntimeException("this: $this not possible")
         }
     }
 }
 
-internal class FieldDataFactory<R : Any> constructor(val persisterProvider: PersisterProvider,
-                                                     val clazz: KClass<R>,
-                                                     val prefix: String?,
-                                                     val persister: Persister) {
+internal class FieldDataFactory constructor(val persisterProvider: PersisterProvider,
+                                            val clazz: KClass<Any>,
+                                            val prefix: String?,
+                                            val persister: Persister) {
     val including = clazz.including()
     val moreKeys = clazz.moreKeys()
 
     inner class Builder(val idField: KeyType?,
-                        val keyFields: List<FieldData<R, *, *, *>> = emptyList(),
-                        val fields: List<FieldData<R, *, *, *>> = emptyList()) {
+                        val keyFields: List<FieldData> = emptyList(),
+                        val fields: List<FieldData> = emptyList()) {
 
         fun Int.include() = this < moreKeys.amount || including.include
-        fun next(i: Int, constructor: KFunction<R>): Builder {
+        fun next(i: Int, constructor: KFunction<Any>): Builder {
             if (i < constructor.parameters.size) {
                 val parameter = constructor.parameters[i]
-                val y = clazz.declaredMemberProperties.find { it.name == parameter.name } as KProperty1<R, out Any>
+                val y = clazz.declaredMemberProperties.find { it.name == parameter.name } as KProperty1<Any, Any>
                 y.isAccessible = true
-                val c: FieldData<R, *, *, *>
-                val keyField: FieldData<R, *, *, *>?
+                val c: FieldData
+                val keyField: FieldData?
                 when {
                     i.include() && moreKeys.auto -> {
                         c = createKeyDependent(y)
@@ -154,7 +154,7 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
                 val fields = fields + c
                 val idField: KeyType? = when {
                     !including.include && (i == moreKeys.amount - 1 && idField == null) || (including.include && i + 1 == constructor.parameters.size) -> {
-                        KeyType(nextKeyFields as List<FieldData<Any, Any, Any, Any>>)
+                        KeyType(nextKeyFields)
                     }
                     i >= moreKeys.amount || idField != null -> idField
                     else -> null
@@ -165,9 +165,9 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
             return if (moreKeys.auto) {
                 val keyHashCodeable = clazz.createHashCodeableKey(HashCodeableProvider())
                 val autoIdField = KeyType(listOf(AutoKeyType(AutoKeyProperty(keyHashCodeable),
-                                                             prefix)) as List<FieldData<Any, Any, Any, Any>>)
+                                                             prefix)) as List<FieldData>)
                 val keyType = KeyType(autoIdField!!.fields, keyHashCodeable, idField)
-                val fields = (listOf(keyType) + fields) as List<FieldData<R, *, *, *>>
+                val fields = (listOf(keyType) + fields)
                 fields.forEach { it.onIdField(keyType) }
                 Builder(keyType, fields, fields)
             } else {
@@ -176,11 +176,11 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
             }
         }
 
-        fun create(property: KProperty1<R, out Any>): FieldData<R, *, *, *>? {
+        fun create(property: KProperty1<Any, Any>): FieldData? {
             return when {
                 property.toKClass().java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property,
                                                                                                       clazz), prefix)
-                property.toKClass().isEnum() -> EnumType(DefProperty(property as KProperty1<R, Enum<*>>,
+                property.toKClass().isEnum() -> EnumType(DefProperty(property as KProperty1<Any, Any>,
                                                                      clazz), prefix)
                 (property.returnType.classifier as KClass<out Any>).isNoMapAndNoListAndNoSet() -> {
                     val propertyData = DefProperty(property, clazz)
@@ -192,21 +192,21 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
             }
         }
 
-        fun createKeyDependent(property: KProperty1<R, out Any>): FieldData<R, *, *, *> {
+        fun createKeyDependent(property: KProperty1<Any, Any>): FieldData {
             val simple = create(property)
             if (simple != null) {
                 return simple
             }
             return when {
                 property.returnType.classifier as KClass<out Any> == Map::class -> {
-                    MapType(DefaultMapProperty(property as KProperty1<R, Map<Any, out Any>>, clazz),
+                    MapType(DefaultMapProperty(property, clazz),
                             persisterProvider,
                             prefix,
                             persister,
                             clazz)
                 }
                 property.returnType.classifier as KClass<out Any> == List::class -> {
-                    ListType(ListMapProperty(property as KProperty1<R, List<out Any>>, clazz),
+                    ListType(ListMapProperty(property, clazz),
                              persisterProvider,
                              prefix,
                              persister,
@@ -214,7 +214,7 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
                 }
 
                 property.returnType.classifier as KClass<out Any> == Set::class -> {
-                    SetType(SetProperty(property as KProperty1<R, Set<out Any>>, clazz),
+                    SetType(SetProperty(property, clazz),
                             persisterProvider,
                             property.findAnnotation() ?: ManyList::class.constructors.first().call(""),
                             persister,
@@ -227,15 +227,15 @@ internal class FieldDataFactory<R : Any> constructor(val persisterProvider: Pers
         }
     }
 
-    private fun MoreKeys.createAutoKey(constructor: KFunction<R>): Builder {
+    private fun MoreKeys.createAutoKey(constructor: KFunction<Any>): Builder {
         return Builder(null, emptyList()).next(0, constructor)
     }
 
     fun fieldsRead(): Builder {
         if (clazz.java.isPrimitiveOrWrapperOrString()) {
             val key = KeyType(listOf(ReadSimpleType(SimpleTypeProperty(clazz, clazz.tableName()),
-                                                    prefix)) as List<FieldData<Any, Any, Any, Any>>)
-            val fields = listOf(key) as List<FieldData<R, *, *, *>>
+                                                    prefix)) as List<FieldData>)
+            val fields = listOf(key) as List<FieldData>
             return Builder(key, fields, fields)
         }
         return clazz.findAnnotation<MoreKeys>()
@@ -252,7 +252,7 @@ internal fun KClass<out Any>.createHashCodeableKey(provider: HashCodeableProvide
                                                    moreKeys: MoreKeys = this.findAnnotation<MoreKeys>().default(1)) =
         createHashCodeables(provider, moreKeys, moreKeys.amount).key()
 
-internal class HashCodeableHandler(val moreKeys: MoreKeys, val list: List<HashCodeable<out Any>>) {
+internal class HashCodeableHandler(val moreKeys: MoreKeys, val list: List<HashCodeable>) {
     fun key() = KeyHashCodeable(list.take(moreKeys.amount))
 }
 
@@ -263,7 +263,7 @@ internal fun KClass<out Any>.createHashCodeables(provider: HashCodeableProvider,
                                                  constructor: KFunction<Any> = this.primaryConstructor ?: run {
                                                      throw RuntimeException("clazz $this has no primary constructor")
                                                  },
-                                                 ret: List<HashCodeable<out Any>> = emptyList()): HashCodeableHandler {
+                                                 ret: List<HashCodeable> = emptyList()): HashCodeableHandler {
     if (i < constructor.parameters.size && (maxSize != -1 || i < maxSize)) {
         val parameter = constructor.parameters[i]
         val property = this.declaredMemberProperties.find { it.name == parameter.name }
@@ -274,7 +274,7 @@ internal fun KClass<out Any>.createHashCodeables(provider: HashCodeableProvider,
 
 }
 
-internal fun KProperty1<*, *>.createHashCodeable(provider: HashCodeableProvider): HashCodeable<out Any> {
+internal fun KProperty1<*, *>.createHashCodeable(provider: HashCodeableProvider): HashCodeable {
     return when {
         this.toKClass().java.isPrimitiveOrWrapperOrString() -> SimpleHashCodeable(DefaultProperyReader(this as KProperty1<Any, Any>))
         this.toKClass().isEnum() -> EnumHashCodeable
@@ -300,7 +300,7 @@ internal fun KProperty1<*, *>.createHashCodeable(provider: HashCodeableProvider)
     }
 }
 
-internal fun KClass<Any>.createHashCodeable(provider: HashCodeableProvider): HashCodeable<out Any> {
+internal fun KClass<Any>.createHashCodeable(provider: HashCodeableProvider): HashCodeable {
     return when {
         this.java.isPrimitiveOrWrapperOrString() -> SimpleHashCodeable(SimpleTypeReadable)
         this.isEnum() -> EnumHashCodeable
@@ -325,7 +325,7 @@ internal fun KClass<Any>.createHashCodeable(provider: HashCodeableProvider): Has
     }
 }
 
-internal fun <R : Any, S : Any> KProperty1<R, S>.keyHashCodeable(provider: HashCodeableProvider): HashCodeable<Any> {
-    return (returnType.arguments.first().type!!.classifier as KClass<Any>).createHashCodeable(provider) as HashCodeable<Any>
+internal fun <R : Any, S : Any> KProperty1<R, S>.keyHashCodeable(provider: HashCodeableProvider): HashCodeable {
+    return (returnType.arguments.first().type!!.classifier as KClass<Any>).createHashCodeable(provider) as HashCodeable
 }
 

@@ -36,8 +36,8 @@ import kotlin.reflect.KClass
 /**
  * [T] is the enum Value
  */
-internal class EnumType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>, override val prefix: String?) :
-        SimpleTypes<R, T> {
+internal class EnumType constructor(override val propertyData: PropertyData, override val prefix: String?) :
+        SimpleTypes {
 
     override val typeName = "TEXT"
 
@@ -48,7 +48,7 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
         return null
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<T>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
         try {
             val any = readValue.getObject(number) as String
             return NextSize(ReadAnswer(getEnumValue(propertyData.clazz.java, any)), number + 1)
@@ -57,7 +57,7 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
         }
     }
 
-    override fun makeString(any: T): String {
+    override fun makeString(any: Any): String {
         return "\"${(any as Enum<*>).name}\""
     }
 
@@ -68,7 +68,7 @@ internal class EnumType<R : Any, T : Any> constructor(override val propertyData:
     }
 }
 
-internal class AutoKeyType(override val propertyData: PropertyData<Any, Any, Any>, override val prefix: String?) : SimpleTypes<Any, Any> {
+internal class AutoKeyType(override val propertyData: PropertyData, override val prefix: String?) : SimpleTypes {
     override val typeName = "Int"
 
     override fun plainType(name: String): SimpleReadObject? {

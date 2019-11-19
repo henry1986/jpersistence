@@ -30,12 +30,12 @@ import org.daiv.reflection.persister.Persister.HelperTable
 import kotlin.reflect.full.isSubclassOf
 
 
-internal class SetType<R : Any, T : Any> constructor(override val propertyData: SetProperty<R, T>,
-                                                     val persisterProvider: PersisterProvider,
-                                                     private val many: ManyList,
-                                                     val persister: Persister,
-                                                     override val prefix: String?) :
-        CollectionFieldData<R, Set<T>, T, Set<T>> {
+internal class SetType constructor(override val propertyData: SetProperty,
+                                   val persisterProvider: PersisterProvider,
+                                   private val many: ManyList,
+                                   val persister: Persister,
+                                   override val prefix: String?) :
+        CollectionFieldData {
     private val helperTableName = "${propertyData.receiverType.simpleName}_$name"
 
     private lateinit var idField: KeyType
@@ -49,8 +49,8 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
 
     override fun onIdField(idField: KeyType) {
         this.idField = idField
-        helper = persister.HelperTable(listOf(idField, valueField) as List<FieldData<Any, Any, Any, Any>>,
-                                       listOf(idField, valueField) as List<FieldData<Any, Any, Any, Any>>,
+        helper = persister.HelperTable(listOf(idField, valueField) as List<FieldData>,
+                                       listOf(idField, valueField) as List<FieldData>,
                                        emptyList(),
                                        { helperTableName },
                                        { helperTableName })
@@ -61,9 +61,11 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
         return a::class.isSubclassOf(Set::class)
     }
 
-    override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {
+    override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<Any>) {
         val b = objectValue.flatMap { key ->
-            val p = getObject(key).toList()
+            val x = getObject(key)
+            x as Set<Any>
+            val p = x.toList()
             p.map { key to it }
         }
         valueField.toStoreData(insertMap, b.map { it.second })
@@ -101,7 +103,8 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
         return valueField.createTableForeign(helperTable.persistWithName(checkName = tableNames))
     }
 
-    override fun fNEqualsValue(o: Set<T>, sep: String): String {
+    override fun fNEqualsValue(o: Any, sep: String): String {
+        o as Set<Any>
         return o.map {
             valueField.fNEqualsValue(valueField.getObject(it), sep)
         }
@@ -110,7 +113,7 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
 
 
     @Suppress("UNCHECKED_CAST")
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Set<T>>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
         if (key.isEmpty()) {
             throw NullPointerException("a List cannot be a key")
         }
@@ -118,9 +121,9 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
         val read = helperTable.readIntern(fn, readCache)
         val ret = read
                 .map {
-                    it[1].value as T
+                    it[1].value
                 }
                 .toSet()
-        return NextSize(ReadAnswer(ret), number)
+        return NextSize(ReadAnswer(ret), number) as NextSize<ReadAnswer<Any>>
     }
 }
