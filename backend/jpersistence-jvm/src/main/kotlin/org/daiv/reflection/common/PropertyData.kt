@@ -26,6 +26,8 @@ package org.daiv.reflection.common
 import org.daiv.reflection.read.KeyHashCodeable
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
+import kotlin.reflect.KType
+import kotlin.reflect.full.createType
 import kotlin.reflect.jvm.isAccessible
 
 /**
@@ -35,6 +37,7 @@ import kotlin.reflect.jvm.isAccessible
  */
 internal interface PropertyData<R : Any, S : Any, T : Any> : FieldReadable<R, S> {
     val clazz: KClass<T>
+    val type: KType
     val receiverType: KClass<R>?
     val name: String
     val isNullable: Boolean
@@ -56,9 +59,11 @@ object SimpleTypeReadable : FieldReadable<Any, Any> {
 
 data class SimpleTypeProperty<R : Any> constructor(override val clazz: KClass<R>, override val name: String) :
         PropertyData<R, R, R> {
+    override val type: KType = clazz.createType()
     override val receiverType: KClass<R>? = null
     override fun getObject(r: R) = r
 }
+
 
 internal interface PropertyReader<R : Any, S : Any> : FieldReadable<R, S> {
     val property: KProperty1<R, S>
@@ -71,11 +76,13 @@ data class DefProperty<R : Any, T : Any>(override val property: KProperty1<R, T>
                                          override val receiverType: KClass<R>,
                                          override val name: String = property.name) :
         PropertyReader<R, T>, PropertyData<R, T, T> {
-    override val clazz: KClass<T> = property.returnType.classifier as KClass<T>
+    override val type: KType = property.returnType
+    override val clazz: KClass<T> = type.classifier as KClass<T>
     override val isNullable = property.returnType.isMarkedNullable
 }
 
 internal class AutoKeyProperty(val key: KeyHashCodeable) : PropertyData<Any, Any, Any> {
+    override val type: KType = Any::class.createType()
     override val clazz: KClass<Any> = Any::class
     override val receiverType: KClass<Any>? = Any::class
     override val name: String = "autoID"
@@ -101,6 +108,7 @@ internal class AutoKeyProperty(val key: KeyHashCodeable) : PropertyData<Any, Any
 //}
 
 internal class KeyTypeProperty(val fields: List<FieldData<Any, Any, Any, Any>>) : PropertyData<Any, List<Any>, Any> {
+    override val type: KType = Any::class.createType()
     override val clazz = Any::class
     override val receiverType: KClass<Any>? = Any::class
     override val name: String = fields.joinToString("_") { it.name }
@@ -116,6 +124,7 @@ internal class KeyTypeProperty(val fields: List<FieldData<Any, Any, Any, Any>>) 
 data class SetProperty<R : Any, T : Any> constructor(override val property: KProperty1<R, Set<T>>,
                                                      override val receiverType: KClass<R>) :
         PropertyData<R, Set<T>, T>, PropertyReader<R, Set<T>> {
+    override val type: KType = property.returnType.arguments.first().type!!
     override val clazz: KClass<T> = property.returnType.arguments.first().type!!.classifier as KClass<T>
     override val name = property.name
 }
@@ -126,17 +135,46 @@ internal class MapReadable<R : Any, M : Any, T : Any>(override val property: KPr
 }
 
 internal interface MapProperty<R : Any, S : Any, T : Any, M : Any> : PropertyData<R, S, T> {
-    val keyClazz: KClass<M>
-    val property: KProperty1<R, S>
+    val keyClazz: KType
+    //    val property: KProperty1<R, S>
     override val receiverType: KClass<R>
+    val subType: KType
 }
+
+internal interface RealMapProperty<R : Any, T : Any, M : Any> : MapProperty<R, Map<M, T>, T, M>
 
 data class DefaultMapProperty<R : Any, T : Any, M : Any>(override val property: KProperty1<R, Map<M, T>>,
                                                          override val receiverType: KClass<R>) :
-        MapProperty<R, Map<M, T>, T, M>, PropertyReader<R, Map<M, T>> {
+        RealMapProperty<R, T, M>, PropertyReader<R, Map<M, T>> {
+    override val type: KType = property.returnType
+    override val subType: KType = property.returnType.arguments[1].type!!
     override val clazz: KClass<T> = property.returnType.arguments[1].type!!.classifier as KClass<T>
-    override val keyClazz: KClass<M> = property.returnType.arguments.first().type!!.classifier as KClass<M>
+    override val keyClazz: KType = property.returnType.arguments.first().type!!
     override val name = property.name
+}
+
+class SimpleMapTypeProperty<R : Any, T : Any, M : Any>(override val type: KType) : RealMapProperty<R, T, M> {
+    override val subType: KType = type.arguments[1].type!!
+    override val clazz: KClass<T> = subType.classifier as KClass<T>
+    override val name: String = ""
+    override val keyClazz = type.arguments[0].type!!
+    override val receiverType: KClass<R> = Any::class as KClass<R>
+
+    override fun getObject(o: R): Map<M, T> {
+        return o as Map<M, T>
+    }
+}
+
+class SimpleListTypeProperty<R : Any, T : Any>(override val type: KType) : MapProperty<R, List<T>, T, Int> {
+    override val subType: KType = type.arguments[0].type!!
+    override val clazz: KClass<T> = type.arguments[0].type!!.classifier as KClass<T>
+    override val name: String = throw RuntimeException("there is no property, so there is no name")
+    override val keyClazz = Int::class.createType()
+    override val receiverType: KClass<R> = Any::class as KClass<R>
+
+    override fun getObject(o: R): List<T> {
+        return o as List<T>
+    }
 }
 
 class ListReadable<T : Any>(val property: KProperty1<Any, List<T>>) : FieldReadable<Any, List<T>> {
@@ -145,10 +183,12 @@ class ListReadable<T : Any>(val property: KProperty1<Any, List<T>>) : FieldReada
     }
 }
 
-data class ListMapProperty<R : Any, T : Any>(override val property: KProperty1<R, List<T>>,
+data class ListMapProperty<R : Any, T : Any>(val property: KProperty1<R, List<T>>,
                                              override val receiverType: KClass<R>) : MapProperty<R, List<T>, T, Int> {
+    override val type: KType = property.returnType
+    override val subType: KType = property.returnType.arguments.first().type!!
     override val clazz: KClass<T> = property.returnType.arguments.first().type!!.classifier as KClass<T>
-    override val keyClazz: KClass<Int> = Int::class
+    override val keyClazz = Int::class.createType()
     override val name = property.name
     //    override fun getObject(r: R) = property.getObject(r).mapIndexed { index, t -> index to t }.toMap()
     override fun getObject(o: R) = property.getObject(o)

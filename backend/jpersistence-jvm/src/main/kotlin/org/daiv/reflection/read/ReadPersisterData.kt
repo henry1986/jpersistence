@@ -49,6 +49,7 @@ private class Reader<R : Any, T : Any>(val readCache: ReadCache,
 internal interface InternalRPD<R : Any, T : Any> {
     val key: KeyType
     val fields: List<FieldData<R, Any, T, Any>>
+    val noKeyFields: List<FieldData<R, Any, T, Any>>
     fun field(fieldName: String): FieldCollection<Any, Any, Any, Any> {
         return fields.find { it.name == fieldName } as FieldData<Any, Any, Any, Any>?
                 ?: fields.flatMap { it.subFields() }.find { it.name == fieldName } ?: throw RuntimeException(
@@ -114,18 +115,11 @@ internal interface InternalRPD<R : Any, T : Any> {
 //    internal fun foreignKey() = fields.map { it.foreignKey() }.filterNotNull().map { it.sqlMethod() }.joinToString(", ")
 
     fun createTable(): String {
-        val createTableInnerData = createTableInnerData(key.fields.size)
-//        val foreignKeys = fields.asSequence()
-//            .mapNotNull { it.foreignKey() }
-//            .map { it.sqlMethod() }
-//            .joinToString(", ")
-
+        val createTableInnerData = createTableInnerData(0)
+//${key.toTableHead()},
         val s = if (createTableInnerData == "") "" else "$createTableInnerData, "
         try {
-            return ("(${key.toTableHead()}, $s"
-                    + "PRIMARY KEY(${key.toPrimaryKey()})"
-//                + "${if (foreignKeys == "") "" else ", $foreignKeys"}"
-                    + ");")
+            return ("(${s}PRIMARY KEY(${key.toPrimaryKey()}));")
         } catch (t: Throwable) {
             throw t
         }
@@ -140,11 +134,17 @@ internal interface InternalRPD<R : Any, T : Any> {
 
     fun innerRead(readValue: ReadValue, counter: Int = 1, readCache: ReadCache): NextSize<List<ReadFieldValue>> {
         val x = key.getValue(readCache, readValue, counter, emptyList())
-        return Reader(readCache, fields.drop(key.fields.size), x.t.t!!, readValue).read(x.i,
+        return Reader(readCache, noKeyFields, x.t.t!!, readValue).read(x.i,
                                                                                         list = x.t.t!!.mapIndexed { i, e ->
                                                                                             ReadFieldValue(e,
                                                                                                            key.fields[i])
                                                                                         })
+//        val x = key.getValue(readCache, readValue, counter, emptyList())
+//        return Reader(readCache, fields.drop(key.fields.size), x.t.t!!, readValue).read(x.i,
+//                                                                                        list = x.t.t!!.mapIndexed { i, e ->
+//                                                                                            ReadFieldValue(e,
+//                                                                                                           key.fields[i])
+//                                                                                        })
     }
 
     /**
@@ -213,11 +213,13 @@ internal interface InternalRPD<R : Any, T : Any> {
     }
 }
 
-internal data class ReadPersisterData<R : Any, T : Any> constructor(override val key: KeyType,
-                                                                    val persisterProvider: PersisterProvider,
-                                                                    override val fields: List<FieldData<R, Any, T, Any>>,
-                                                                    private val className: String = "no name",
-                                                                    private val method: (List<ReadFieldValue>) -> R) : InternalRPD<R, T> {
+internal data class ReadPersisterData<R : Any, T : Any> private constructor(override val key: KeyType,
+                                                                            val persisterProvider: PersisterProvider,
+                                                                            override val fields: List<FieldData<R, Any, T, Any>>,
+                                                                            private val className: String = "no name",
+                                                                            private val method: (List<ReadFieldValue>) -> R,
+                                                                            override val noKeyFields: List<FieldData<R, Any, T, Any>> = fields.drop(
+                                                                                    key.fields.size)) : InternalRPD<R, T> {
 
     private constructor(builder: FieldDataFactory<R>.Builder,
                         persisterProvider: PersisterProvider,
@@ -236,6 +238,7 @@ internal data class ReadPersisterData<R : Any, T : Any> constructor(override val
                  persisterProvider,
                  clazz.simpleName ?: "no name",
                  readValue(clazz))
+
 
     init {
         if (fields.isEmpty()) {

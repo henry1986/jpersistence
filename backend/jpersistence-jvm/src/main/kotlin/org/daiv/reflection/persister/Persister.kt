@@ -197,15 +197,17 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     }
 
-    internal inner class HelperTable constructor(val fields: List<FieldData<Any, Any, Any, Any>>,
+    internal inner class HelperTable constructor(val keyFields: List<FieldData<Any, Any, Any, Any>>,
+                                                 val fields: List<FieldData<Any, Any, Any, Any>>,
+                                                 val noKeyFields: List<FieldData<Any, Any, Any, Any>>,
                                                  val innerTableNameGetter: () -> String,
-                                                 val tableNameGetter: () -> String,
-                                                 numberOfKeyFields: Int = 1) :
+                                                 val tableNameGetter: () -> String) :
             InternalTable, PersisterListener by internalReadCache {
 
         override val readPersisterData: InternalRPD<out Any, Any> = object : InternalRPD<Any, Any> {
             override val fields: List<FieldData<Any, Any, Any, Any>> = this@HelperTable.fields
-            override val key: KeyType = KeyType(fields.take(numberOfKeyFields))
+            override val key: KeyType = KeyType(keyFields)
+            override val noKeyFields: List<FieldData<Any, Any, Any, Any>> = this@HelperTable.noKeyFields
         }
 
         override val innerTableName: String

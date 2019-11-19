@@ -31,6 +31,7 @@ import org.daiv.reflection.plain.SimpleReadObject
 import org.daiv.reflection.read.InsertObject
 import org.daiv.reflection.read.KeyType
 import org.daiv.reflection.read.NextSize
+import org.daiv.reflection.read.ReadFieldValue
 
 private fun <T : Any> T.checkDBValue(objectValue: T): T {
     if (this != objectValue) {
@@ -89,8 +90,6 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
 
 //    fun tableName(): List<String> = emptyList()
 
-    fun numberOfKeyFields(): Int
-
     fun isType(a: Any): Boolean {
         return propertyData.clazz == a::class
     }
@@ -141,8 +140,8 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
             val x = propertyData.getObject(o)
             return x
         } catch (t: Throwable) {
-            throw RuntimeException("could not read property $propertyData ${propertyData.clazz} and receiverType: ${propertyData.receiverType} of $o",
-                                   t)
+            throw RuntimeException("could not read property $propertyData ${propertyData.clazz} " +
+                                           "and receiverType: ${propertyData.receiverType} of $o", t)
         }
     }
 
@@ -177,6 +176,14 @@ internal interface FieldData<R : Any, S : Any, T : Any, X : Any> : FieldCollecti
 
     fun dropHelper()
 
+    fun additionalKeyFields(): List<FieldData<Any, Any, Any, Any>> {
+        return emptyList()
+    }
+
+    fun insertObjects(o: T): List<List<InsertObject>> = listOf(insertObject(o))
+    fun readFromList(list: List<ReadFieldValue>): Any? = list.first().value
+    fun buildPair(any: List<Any>): Any = any.first()
+
 //    fun makeString(any: R): String
 }
 
@@ -192,35 +199,30 @@ internal interface NoList<R : Any, S : Any, T : Any> : FieldData<R, S, T, S> {
     override fun dropHelper() {}
 }
 
-internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : FieldData<R, S, T, X> {
-    val helperTable: HelperTable
-
-    override fun dropHelper() {
-        helperTable.dropTable()
-    }
-
+internal interface SimpleCollectionFieldData<R : Any, S : Any, T : Any, X : Any> : FieldData<R, S, T, X> {
     override fun plainType(name: String): SimpleReadObject? = null
-
-
-    override fun numberOfKeyFields() = 0
-
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = emptyList()
     override fun keySimpleType(r: R) = throw RuntimeException("a collection cannot be a key")
     override fun key() = throw RuntimeException("a collection cannot be a key")
-    override fun toTableHead(nullable: Boolean) = null
+    override fun toTableHead(nullable: Boolean): String? = null
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
-
-    override fun insertObject(o: T?): List<InsertObject> = listOf()
-    //    override fun foreignKey() = null
-//    override fun joinNames(clazzSimpleName: String, keyName: String): List<FieldData.JoinName> =
-//            emptyList()
-
     override fun getColumnValue(readValue: ReadValue) = throw RuntimeException("a collection cannot be a key")
 
     override fun underscoreName() = null
     override fun size() = 0
     override fun persist() {}
     override fun copyTableName() = emptyMap<String, String>()
+
+
+    override fun insertObject(o: T?): List<InsertObject> = listOf()
+}
+
+internal interface CollectionFieldData<R : Any, S : Any, T : Any, X : Any> : SimpleCollectionFieldData<R, S, T, X> {
+    val helperTable: HelperTable
+
+    override fun dropHelper() {
+        helperTable.dropTable()
+    }
 
     override fun copyData(map: Map<String, String>, request: (String, String) -> String) {
         val nextName = map["&newTableName"] ?: helperTable._tableName
@@ -246,8 +248,6 @@ internal interface SimpleTypes<R : Any, T : Any> : NoList<R, T, T> {
     }
 
     val typeName: String
-
-    override fun numberOfKeyFields(): Int = 1
 
     override fun toStoreObjects(objectValue: T): List<ToStoreManyToOneObjects> = emptyList()
     override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {}

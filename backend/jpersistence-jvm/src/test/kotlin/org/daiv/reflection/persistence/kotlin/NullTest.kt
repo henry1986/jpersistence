@@ -16,13 +16,25 @@ class NullTest : Spek({
                           @MoreKeys(2)
                           data class SimpleClass2(val x: Int, val y: Int, val s: String)
 
+                          data class ComplexClass2(val x: Int, val y: SimpleClass2?, val z: SimpleClass2?)
+
                           @Including
                           data class IncludingSimple(val x: Int, val y: String)
 
                           data class IncludingComplex(val id: Int, val includingSimple: IncludingSimple)
                           data class IncludingListComplex(val id: Int, val includingSimple: List<IncludingSimple>)
 
-                          data class ComplexClass2(val x: Int, val y: SimpleClass2?, val z: SimpleClass2?)
+                          @Including
+                          data class IncludingAComplex(val x: Int, val includingSimple: IncludingSimple)
+
+                          data class IncludingTheComplex(val id: Int, val includingAComplex: IncludingAComplex)
+                          data class IncludingTheComplexList(val id: Int, val includingAComplex: List<IncludingAComplex>)
+
+                          @Including
+                          data class IncludingAComplexList(val x: Int, val includingSimple: List<IncludingSimple>)
+
+                          data class IncludingTheComplexWithList(val id: Int, val includingAComplex: IncludingAComplex)
+
 
                           val logger = KotlinLogging.logger {}
                           describe("null test") {
@@ -89,6 +101,33 @@ class NullTest : Spek({
                                       table.insert(list)
                                       val all = table.readAll()
                                       assertEquals(list, all)
+                                  }
+                                  it("test Including aComplex") {
+                                      val table = persister.Table(IncludingTheComplex::class)
+                                      table.persist()
+                                      val list = listOf(IncludingTheComplex(2, IncludingAComplex(2, IncludingSimple(5, "what"))),
+                                                        IncludingTheComplex(3, IncludingAComplex(2, IncludingSimple(5, "whatIs"))))
+                                      table.insert(list)
+                                      val all = table.readAll()
+                                      assertEquals(list, all)
+                                  }
+                                  it("test Including aComplex list") {
+                                      val table = persister.Table(IncludingTheComplexList::class)
+                                      table.persist()
+                                      val list = listOf(IncludingTheComplexList(2,
+                                                                                listOf(IncludingAComplex(2, IncludingSimple(5, "what")),
+                                                                                       IncludingAComplex(2, IncludingSimple(5, "what")))),
+                                                        IncludingTheComplexList(3,
+                                                                                listOf(IncludingAComplex(2, IncludingSimple(5, "whatIs")),
+                                                                                       IncludingAComplex(2, IncludingSimple(5, "what")))))
+                                      table.insert(list)
+                                      val all = table.readAll()
+                                      assertEquals(list, all)
+                                  }
+                              }
+                              on("test including complex list") {
+                                  it("including complexList") {
+
                                   }
                               }
                               afterGroup { persister.delete() }

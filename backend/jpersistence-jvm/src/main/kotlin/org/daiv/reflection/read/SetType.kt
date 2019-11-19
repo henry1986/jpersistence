@@ -40,7 +40,7 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
 
     private lateinit var idField: KeyType
 
-    private val valueField = propertyData.clazz.toFieldData(persisterProvider, KeyAnnotation(propertyData.property), "value", persister)
+    private val valueField = propertyData.clazz.toFieldData(persisterProvider, "value")
 
     override val helperTable
         get() = helper
@@ -50,9 +50,10 @@ internal class SetType<R : Any, T : Any> constructor(override val propertyData: 
     override fun onIdField(idField: KeyType) {
         this.idField = idField
         helper = persister.HelperTable(listOf(idField, valueField) as List<FieldData<Any, Any, Any, Any>>,
+                                       listOf(idField, valueField) as List<FieldData<Any, Any, Any, Any>>,
+                                       emptyList(),
                                        { helperTableName },
-                                       { helperTableName },
-                                       2)
+                                       { helperTableName })
         persisterProvider.registerHelperTableName(helperTableName)
     }
 

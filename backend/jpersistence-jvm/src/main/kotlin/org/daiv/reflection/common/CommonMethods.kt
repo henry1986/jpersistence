@@ -23,8 +23,15 @@
 
 package org.daiv.reflection.common
 
+import org.daiv.reflection.isEnum
+import org.daiv.reflection.isPrimitiveOrWrapperOrString
+import org.daiv.reflection.read.EnumType
+import org.daiv.reflection.read.InnerMapType
+import org.daiv.reflection.read.ReadComplexType
+import org.daiv.reflection.read.ReadSimpleType
 import java.sql.ResultSet
 import kotlin.reflect.KClass
+import kotlin.reflect.KType
 
 fun <R : Any> ResultSet.getList(method: ResultSet.() -> R): List<R> {
     val mutableList = mutableListOf<R>()
@@ -40,6 +47,33 @@ fun <T : Any> T?.asList() = listOfNotNull(this)
 
 internal class ReadValue constructor(val resultSet: ResultSet) {
     fun getObject(number: Int): Any? = resultSet.getObject(number)
+}
+
+internal fun KType.toLowField(persisterProvider: PersisterProvider,
+                              depth: Int,
+                              prefix: String?): FieldData<Any, Any, Any, Any> {
+    val clazz = this.classifier as KClass<Any>
+    return when {
+        clazz.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(clazz,
+                                                                                       clazz.simpleName!!),
+                                                                    prefix)
+        clazz.isEnum() -> EnumType(SimpleTypeProperty(clazz, clazz.simpleName!!), prefix)
+        clazz.isNoMapAndNoListAndNoSet() -> ReadComplexType(SimpleTypeProperty(clazz, clazz.simpleName!!),
+                                                            clazz.moreKeys(),
+                                                            clazz.including(),
+                                                            persisterProvider,
+                                                            prefix)
+//        this == List::class -> listOf(ReadSimpleType(SimpleTypeProperty(this,
+//                                                                        this.simpleName!!),
+//                                                     prefix) as FieldData<Any, Any, T, Any>)
+        clazz == Map::class -> InnerMapType(SimpleMapTypeProperty<Any, Any, Any>(this),
+                                            depth,
+                                            persisterProvider,
+                                            prefix) as FieldData<Any, Any, Any, Any>
+        else -> {
+            throw RuntimeException("this: $this not possible")
+        }
+    }
 }
 
 

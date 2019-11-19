@@ -30,7 +30,6 @@ import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.ReadCache
 import org.daiv.reflection.plain.SimpleReadObject
-import kotlin.reflect.KClass
 
 internal class ReadComplexType<R : Any, T : Any> constructor(override val propertyData: PropertyData<R, T, T>,
                                                              val moreKeys: MoreKeys,
@@ -55,8 +54,6 @@ internal class ReadComplexType<R : Any, T : Any> constructor(override val proper
         get() = persisterProvider.table(providerKey) as Persister.Table<T>
 
     override fun subFields(): List<FieldData<Any, Any, Any, Any>> = persisterData.fields as List<FieldData<Any, Any, Any, Any>>
-
-    override fun numberOfKeyFields(): Int = moreKeys.amount
 
     override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<R>) {
         objectValue.forEach {

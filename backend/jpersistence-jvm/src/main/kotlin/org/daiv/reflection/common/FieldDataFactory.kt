@@ -71,9 +71,7 @@ internal class KeyAnnotation(private val property: KProperty1<*, *>) : CheckAnno
 internal fun <T : Any> KClass<T>.isNoMapAndNoListAndNoSet() = this != List::class && this != Map::class && this != Set::class
 
 internal fun <T : Any> KClass<T>.toFieldData(persisterProvider: PersisterProvider,
-                                             checkAnnotation: CheckAnnotation,
-                                             prefix: String?,
-                                             persister: Persister): FieldData<Any, Any, T, Any> {
+                                             prefix: String?): FieldData<Any, Any, T, Any> {
     return when {
         this.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(this,
                                                                                       this.simpleName!!),
@@ -84,6 +82,33 @@ internal fun <T : Any> KClass<T>.toFieldData(persisterProvider: PersisterProvide
                                                            including(),
                                                            persisterProvider,
                                                            prefix) as FieldData<Any, Any, T, Any>
+//        this == List::class -> ListType(SimpleTypeProperty(this, this.simpleName!!), persisterProvider,)
+        else -> {
+            throw RuntimeException("this: $this not possible")
+        }
+    }
+}
+
+internal fun <T : Any> KClass<T>.toKeyFieldDatas(persisterProvider: PersisterProvider,
+                                                 prefix: String?): List<FieldData<Any, Any, T, Any>> {
+    return when {
+        this.java.isPrimitiveOrWrapperOrString() -> listOf(ReadSimpleType(SimpleTypeProperty(this,
+                                                                                             this.simpleName!!),
+                                                                          prefix) as FieldData<Any, Any, T, Any>)
+        this.isEnum() -> listOf(EnumType(SimpleTypeProperty(this, this.simpleName!!), prefix) as FieldData<Any, Any, T, Any>)
+        this.isNoMapAndNoListAndNoSet() -> listOf(ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
+                                                                  moreKeys(),
+                                                                  including(),
+                                                                  persisterProvider,
+                                                                  prefix) as FieldData<Any, Any, T, Any>)
+//        this == List::class -> listOf(ReadSimpleType(SimpleTypeProperty(this,
+//                                                                        this.simpleName!!),
+//                                                     prefix) as FieldData<Any, Any, T, Any>)
+//        this == Map::class -> listOf(ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
+//                                                     moreKeys(),
+//                                                     including(),
+//                                                     persisterProvider,
+//                                                     prefix) as FieldData<Any, Any, T, Any>)
         else -> {
             throw RuntimeException("this: $this not possible")
         }
