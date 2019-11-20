@@ -68,21 +68,21 @@ class MapTest :
                              assertEquals(list, all)
                          }
                      }
-//                     on("test List") {
-//                         val table = persister.Table(ListObject::class)
-//                         table.persist()
-//                         it("persist list") {
-//                             //                             table.persist()
-//                             val s0 = SimpleObject(0, "Hello")
-//                             val s1 = SimpleObject(1, "Hello")
-//                             val s2 = SimpleObject(2, "World")
-//                             val list = listOf(ListObject(0, listOf(listOf(s0, s1),
-//                                                                    listOf(s2))),
-//                                               ListObject(1, listOf(listOf(s0, s2),
-//                                                                    listOf(s1, s2))))
-//                             table.insert(list)
-//                         }
-//                     }
+                     on("test List") {
+                         val table = persister.Table(ListObject::class)
+                         table.persist()
+                         it("persist list") {
+                             //                             table.persist()
+                             val s0 = SimpleObject(0, "Hello")
+                             val s1 = SimpleObject(1, "Hello")
+                             val s2 = SimpleObject(2, "World")
+                             val list = listOf(ListObject(0, listOf(listOf(s0, s1),
+                                                                    listOf(s2))),
+                                               ListObject(1, listOf(listOf(s0, s2),
+                                                                    listOf(s1, s2))))
+                             table.insert(list)
+                         }
+                     }
                      afterGroup { persister.delete() }
                  }
              })

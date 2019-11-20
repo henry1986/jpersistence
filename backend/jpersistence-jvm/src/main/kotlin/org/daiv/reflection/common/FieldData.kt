@@ -182,7 +182,6 @@ internal interface FieldData : FieldCollection, FieldReadable {
 
     fun insertObjects(o: Any): List<List<InsertObject>> = listOf(insertObject(o))
     fun readFromList(list: List<List<ReadFieldValue>>): Any? = list.first().first().value
-    fun buildPair(any: List<Any>): Any = any.first()
 
 //    fun makeString(any: R): String
 }

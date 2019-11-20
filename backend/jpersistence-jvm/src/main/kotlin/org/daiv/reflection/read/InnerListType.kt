@@ -44,7 +44,8 @@ import org.daiv.reflection.persister.ReadCache
 internal class InnerMapType constructor(override val propertyData: MapProperty,
                                         val depth: Int,
                                         val persisterProvider: PersisterProvider,
-                                        override val prefix: String?) :
+                                        override val prefix: String?,
+                                        val converter: (Any) -> Map<Any, Any> = { it as Map<Any, Any> }) :
         SimpleCollectionFieldData {
 
     private fun fieldName(name: String) = if (depth == 0) name else "$name$depth"
@@ -68,7 +69,8 @@ internal class InnerMapType constructor(override val propertyData: MapProperty,
     }
 
     override fun insertObjects(o: Any): List<List<InsertObject>> {
-        val x = o as Map<Any, Any>
+        val x = converter(o)
+//        val x = o as Map<Any, Any>
         return x.flatMap { entry ->
             valueField.insertObjects(entry.value)
                     .map {
@@ -103,8 +105,8 @@ internal class InnerMapType constructor(override val propertyData: MapProperty,
     }
 
     override suspend fun toStoreData(insertMap: InsertMap, r: List<Any>) {
-        val o = r as List<Map<Any, Any>>
-        r.forEach { x ->
+        r.forEach { z ->
+            val x = converter(z)
             keyField.toStoreData(insertMap, x.map { it.key })
             valueField.toStoreData(insertMap, x.map { it.value })
         }
@@ -121,19 +123,8 @@ internal class InnerMapType constructor(override val propertyData: MapProperty,
             it.first()
                     .value
         }
-                .map { it.key to valueField.readFromList(it.value.map { it.drop(1) }) }.toMap()
+                .map { it.key to valueField.readFromList(it.value.map { it.drop(1) }) }
+                .toMap()
         return group
-//        return list.map {
-//            it.first().value to it[1].value
-//        }
-//                .toMap()
-//        return list.first().value to valueField.readFromList(list.drop(1))
-    }
-
-    override fun buildPair(any: List<Any>): Any {
-        return any.first()
-//        val pairs = any as List<Pair<ReadFieldValue, Any>>
-//        return pairs.map { it.first to it.second }
-//                .toMap()
     }
 }

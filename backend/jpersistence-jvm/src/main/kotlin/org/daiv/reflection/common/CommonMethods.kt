@@ -25,10 +25,7 @@ package org.daiv.reflection.common
 
 import org.daiv.reflection.isEnum
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
-import org.daiv.reflection.read.EnumType
-import org.daiv.reflection.read.InnerMapType
-import org.daiv.reflection.read.ReadComplexType
-import org.daiv.reflection.read.ReadSimpleType
+import org.daiv.reflection.read.*
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
@@ -63,7 +60,7 @@ internal fun KType.toLowField(persisterProvider: PersisterProvider,
                                                             clazz.including(),
                                                             persisterProvider,
                                                             prefix)
-        clazz == List::class -> InnerMapType(SimpleListTypeProperty(this), depth, persisterProvider, prefix)
+        clazz == List::class -> InnerMapType(SimpleListTypeProperty(this), depth, persisterProvider, prefix, listConverter)
         clazz == Map::class -> InnerMapType(SimpleMapTypeProperty(this), depth, persisterProvider, prefix)
         else -> {
             throw RuntimeException("this: $this not possible")

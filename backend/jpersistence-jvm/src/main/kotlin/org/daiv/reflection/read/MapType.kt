@@ -57,21 +57,22 @@ internal class MapType constructor(override val propertyData: DefaultMapProperty
     }
 }
 
+internal val listConverter: (Any) -> Map<Any, Any> = {
+    it as List<Any>
+    it.mapIndexed { index, t -> index to t }
+            .toMap()
+}
 
 internal class ListType constructor(override val propertyData: ListMapProperty,
                                     val persisterProvider: PersisterProvider,
                                     override val prefix: String?,
                                     val persister: Persister,
                                     val parentClass: KClass<Any>,
-                                    val converterToMap: (List<Any>) -> Map<Int, Any> = {
-                                        it.mapIndexed { index, t -> index to t }
-                                                .toMap()
-                                    },
                                     val mapEngine: MapEngine = MapEngine(propertyData,
                                                                          persisterProvider,
                                                                          persister,
                                                                          parentClass) {
-                                        converterToMap(propertyData.getObject(it) as List<Any>) as Map<Any, Any>
+                                        propertyData.getObject(it)
                                     }) : CollectionFieldData,
                                          MapEngineInterface by mapEngine {
 
@@ -86,7 +87,7 @@ internal class ListType constructor(override val propertyData: ListMapProperty,
     }
 
     override fun fNEqualsValue(o: Any, sep: String): String {
-        return mapEngine.fNEqualsValue(converterToMap(o as List<Any>), sep)
+        return mapEngine.fNEqualsValue(listConverter(o as List<Any>), sep)
     }
 
     override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
@@ -112,7 +113,7 @@ internal class MapEngine(val propertyData: MapProperty,
                          val persisterProvider: PersisterProvider,
                          val persister: Persister,
                          val parrentClass: KClass<Any>,
-                         val getObjectMethod: (Any) -> Map<Any, Any>) : MapEngineInterface {
+                         val getObjectMethod: (Any) -> Any) : MapEngineInterface {
     override val helperTable: HelperTable
         get() = helper
 
@@ -125,7 +126,6 @@ internal class MapEngine(val propertyData: MapProperty,
     private val helperTableName
         get() = "${persisterProvider[parrentClass]}_${propertyData.receiverType.simpleName}_$name"
 
-    //    private val keyField = (propertyData.keyClazz).toLowField(persisterProvider, "key") as FieldData<Any, Any, Any, Any>
     private val valueField = propertyData.type.toLowField(persisterProvider, 0, "value")
 
 
@@ -139,19 +139,7 @@ internal class MapEngine(val propertyData: MapProperty,
                         .map {
                             InsertRequest(b + it)
                         }
-//                x.second.flatMap { entry ->
-//                    //                    val key = keyField.getObject(entry.key)
-//
-//                    val x = idField.insertObject(id1)
-////                    val y = keyField.insertObject(key)
-//                    val z = valueField.insertObjects(entry.value)
-//                    z.map {
-//                        InsertRequest(x + it)
-//                    }
-//                }
             }) {
-                //                x.second
-                //                keyField.toStoreData(insertMap, x.second.map { it.key })
                 valueField.toStoreData(insertMap, listOf(x.second))
             })
 
@@ -192,14 +180,6 @@ internal class MapEngine(val propertyData: MapProperty,
         val fn = idField.autoIdFNEqualsValue(key, " AND ")
         val read = helperTable.readIntern(fn, readCache)
         return NextSize(ReadAnswer(valueField.readFromList(read.map { it.drop(1) })), number)
-//        val list = read.map { valueField.readFromList(it.drop(1)) as Pair<Any, Any> }
-////        val list = read.map { it[1].value as M to valueField.readFromList(it.drop(2)) as T }
-//        val blub = list.map { it.first to valueField.buildPair(listOf(it.second)) }.toMap()
-////        val ret = list.groupBy { it.first }
-////                .map { it.key to it.value.map { it.second } }
-////        val x = ret.map { it.first to valueField.buildPair(it.second) }
-////        val map = x.toMap()
-//        return NextSize(ReadAnswer(blub), number) as NextSize<ReadAnswer<Any>>
     }
 
     override fun clearLists() {
