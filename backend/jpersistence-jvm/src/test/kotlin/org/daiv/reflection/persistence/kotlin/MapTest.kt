@@ -81,6 +81,8 @@ class MapTest :
                                                ListObject(1, listOf(listOf(s0, s2),
                                                                     listOf(s1, s2))))
                              table.insert(list)
+                             val read = table.readAll()
+                             assertEquals(list, read)
                          }
                      }
                      afterGroup { persister.delete() }

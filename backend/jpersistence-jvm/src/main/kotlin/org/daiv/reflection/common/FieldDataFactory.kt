@@ -35,6 +35,7 @@ import org.daiv.reflection.toKClass
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.KProperty1
+import kotlin.reflect.full.createType
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.primaryConstructor
@@ -69,51 +70,32 @@ internal class KeyAnnotation(private val property: KProperty1<*, *>) : CheckAnno
 }
 
 internal fun <T : Any> KClass<T>.isNoMapAndNoListAndNoSet() = this != List::class && this != Map::class && this != Set::class
-
-internal fun KClass<Any>.toFieldData(persisterProvider: PersisterProvider,
-                                     prefix: String?): FieldData {
-    return when {
-        this.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(this,
-                                                                                      this.simpleName!!),
-                                                                   prefix)
-        this.isEnum() -> EnumType(SimpleTypeProperty(this, this.simpleName!!), prefix)
-        this.isNoMapAndNoListAndNoSet() -> ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
-                                                           moreKeys(),
-                                                           including(),
-                                                           persisterProvider,
-                                                           prefix)
-//        this == List::class -> ListType(SimpleTypeProperty(this, this.simpleName!!), persisterProvider,)
-        else -> {
-            throw RuntimeException("this: $this not possible")
-        }
-    }
+internal fun <T : Any> KClass<T>.isMapListOrSet() = this == List::class || this == Map::class || this == Set::class
+internal fun KClass<Any>.toProperty(property: KProperty1<Any, Any>) = when {
+    this == Map::class -> DefaultMapProperty(property, this)
+    this == Set::class -> DefSetProperty(property, this)
+    this == List::class -> ListMapProperty(property, this)
+    else -> throw RuntimeException("Only map, set and list are tested in this function")
 }
+//internal fun KClass<Any>.toFieldData(persisterProvider: PersisterProvider,
+//                                     prefix: String?): FieldData {
+//    return when {
+//        this.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(this,
+//                                                                                      this.simpleName!!),
+//                                                                   prefix)
+//        this.isEnum() -> EnumType(SimpleTypeProperty(this, this.simpleName!!), prefix)
+//        this.isNoMapAndNoListAndNoSet() -> ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
+//                                                           moreKeys(),
+//                                                           including(),
+//                                                           persisterProvider,
+//                                                           prefix)
+////        this == List::class -> ListType(SimpleTypeProperty(this, this.simpleName!!), persisterProvider,)
+//        else -> {
+//            throw RuntimeException("this: $this not possible")
+//        }
+//    }
+//}
 
-internal fun KClass<Any>.toKeyFieldDatas(persisterProvider: PersisterProvider,
-                                         prefix: String?): List<FieldData> {
-    return when {
-        this.java.isPrimitiveOrWrapperOrString() -> listOf(ReadSimpleType(SimpleTypeProperty(this,
-                                                                                             this.simpleName!!),
-                                                                          prefix) as FieldData)
-        this.isEnum() -> listOf(EnumType(SimpleTypeProperty(this, this.simpleName!!), prefix) as FieldData)
-        this.isNoMapAndNoListAndNoSet() -> listOf(ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
-                                                                  moreKeys(),
-                                                                  including(),
-                                                                  persisterProvider,
-                                                                  prefix) as FieldData)
-//        this == List::class -> listOf(ReadSimpleType(SimpleTypeProperty(this,
-//                                                                        this.simpleName!!),
-//                                                     prefix) as FieldData)
-//        this == Map::class -> listOf(ReadComplexType(SimpleTypeProperty(this, this.simpleName!!),
-//                                                     moreKeys(),
-//                                                     including(),
-//                                                     persisterProvider,
-//                                                     prefix) as FieldData)
-        else -> {
-            throw RuntimeException("this: $this not possible")
-        }
-    }
-}
 
 internal class FieldDataFactory constructor(val persisterProvider: PersisterProvider,
                                             val clazz: KClass<Any>,
@@ -192,34 +174,19 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
             }
         }
 
+
         fun createKeyDependent(property: KProperty1<Any, Any>): FieldData {
             val simple = create(property)
             if (simple != null) {
                 return simple
             }
+            val proClass = property.returnType.classifier as KClass<Any>
             return when {
-                property.returnType.classifier as KClass<out Any> == Map::class -> {
-                    MapType(DefaultMapProperty(property, clazz),
-                            persisterProvider,
-                            prefix,
-                            persister,
-                            clazz)
-                }
-                property.returnType.classifier as KClass<out Any> == List::class -> {
-                    ListType(ListMapProperty(property, clazz),
-                             persisterProvider,
-                             prefix,
-                             persister,
-                             clazz)
-                }
-
-                property.returnType.classifier as KClass<out Any> == Set::class -> {
-                    SetType(SetProperty(property, clazz),
-                            persisterProvider,
-                            property.findAnnotation() ?: ManyList::class.constructors.first().call(""),
-                            persister,
-                            prefix)
-                }
+                proClass.isMapListOrSet() ->
+                    if(proClass == List::class){
+                        ListType(proClass.toProperty(property),  persisterProvider, prefix, persister, clazz)
+                    } else
+                        MapType(proClass.toProperty(property), persisterProvider, prefix, persister, clazz)
                 else -> {
                     throw RuntimeException("unknown type : ${property.returnType}")
                 }
@@ -233,7 +200,7 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
 
     fun fieldsRead(): Builder {
         if (clazz.java.isPrimitiveOrWrapperOrString()) {
-            val key = KeyType(listOf(ReadSimpleType(SimpleTypeProperty(clazz, clazz.tableName()),
+            val key = KeyType(listOf(ReadSimpleType(SimpleTypeProperty(clazz.createType(), clazz.tableName()),
                                                     prefix)) as List<FieldData>)
             val fields = listOf(key) as List<FieldData>
             return Builder(key, fields, fields)

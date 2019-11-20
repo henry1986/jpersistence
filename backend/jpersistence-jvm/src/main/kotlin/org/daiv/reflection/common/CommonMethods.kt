@@ -51,17 +51,23 @@ internal fun KType.toLowField(persisterProvider: PersisterProvider,
                               prefix: String?): FieldData {
     val clazz = this.classifier as KClass<Any>
     return when {
-        clazz.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(clazz,
+        clazz.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(this,
                                                                                        clazz.simpleName!!),
                                                                     prefix)
-        clazz.isEnum() -> EnumType(SimpleTypeProperty(clazz, clazz.simpleName!!), prefix)
-        clazz.isNoMapAndNoListAndNoSet() -> ReadComplexType(SimpleTypeProperty(clazz, clazz.simpleName!!),
+        clazz.isEnum() -> EnumType(SimpleTypeProperty(this, clazz.simpleName!!), prefix)
+        clazz.isNoMapAndNoListAndNoSet() -> ReadComplexType(SimpleTypeProperty(this, clazz.simpleName!!),
                                                             clazz.moreKeys(),
                                                             clazz.including(),
                                                             persisterProvider,
                                                             prefix)
-        clazz == List::class -> InnerMapType(SimpleListTypeProperty(this), depth, persisterProvider, prefix, listConverter)
+        clazz == List::class -> InnerMapType(SimpleListTypeProperty(this),
+                                             depth,
+                                             persisterProvider,
+                                             prefix,
+                                             listConverter,
+                                             listBackConverter)
         clazz == Map::class -> InnerMapType(SimpleMapTypeProperty(this), depth, persisterProvider, prefix)
+        clazz == Set::class -> InnerSetType(SimpleSetProperty(this), depth, persisterProvider, prefix)
         else -> {
             throw RuntimeException("this: $this not possible")
         }

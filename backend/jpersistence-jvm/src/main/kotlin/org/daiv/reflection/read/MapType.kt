@@ -26,12 +26,11 @@ package org.daiv.reflection.read
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.*
 import org.daiv.reflection.persister.Persister.HelperTable
-import java.lang.RuntimeException
 import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
 
 
-internal class MapType constructor(override val propertyData: DefaultMapProperty,
+internal class MapType constructor(override val propertyData: CollectionProperty,
                                    val persisterProvider: PersisterProvider,
                                    override val prefix: String?,
                                    val persister: Persister,
@@ -39,21 +38,11 @@ internal class MapType constructor(override val propertyData: DefaultMapProperty
                                    val mapEngine: MapEngine = MapEngine(propertyData,
                                                                         persisterProvider,
                                                                         persister,
-                                                                        parentClass) {
-                                       propertyData.getObject(it) as Map<Any, Any>
-                                   }) :
+                                                                        parentClass) { propertyData.getObject(it) }) :
         CollectionFieldData, MapEngineInterface by mapEngine {
 
     override fun isType(a: Any): Boolean {
-        return a::class.isSubclassOf(Map::class)
-    }
-
-    override fun fNEqualsValue(o: Any, sep: String): String {
-        return mapEngine.fNEqualsValue(o, sep)
-    }
-
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
-        return mapEngine.getValue(readCache, readValue, number, key)
+        return a::class.isSubclassOf(propertyData.type.classifier as KClass<*>)
     }
 }
 
@@ -62,8 +51,13 @@ internal val listConverter: (Any) -> Map<Any, Any> = {
     it.mapIndexed { index, t -> index to t }
             .toMap()
 }
+internal val listBackConverter: (Map<Any?, Any?>) -> Any = {
+    it.toList()
+            .sortedBy { it.first as Int }
+            .map { it.second }
+}
 
-internal class ListType constructor(override val propertyData: ListMapProperty,
+internal class ListType constructor(override val propertyData: CollectionProperty,
                                     val persisterProvider: PersisterProvider,
                                     override val prefix: String?,
                                     val persister: Persister,
@@ -76,24 +70,10 @@ internal class ListType constructor(override val propertyData: ListMapProperty,
                                     }) : CollectionFieldData,
                                          MapEngineInterface by mapEngine {
 
-    val converter: (ReadAnswer<Map<Int, Any>>) -> ReadAnswer<List<Any>> = {
-        ReadAnswer(it.t!!.toList()
-                           .sortedBy { it.first }
-                           .map { it.second }, true)
-    }
-
     override fun isType(a: Any): Boolean {
         return a::class.isSubclassOf(List::class)
     }
 
-    override fun fNEqualsValue(o: Any, sep: String): String {
-        return mapEngine.fNEqualsValue(listConverter(o as List<Any>), sep)
-    }
-
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
-        val ret = mapEngine.getValue(readCache, readValue, number, key)
-        return NextSize(converter(ret.t as ReadAnswer<Map<Int, Any>>), ret.i) as NextSize<ReadAnswer<Any>>
-    }
 }
 
 internal interface MapEngineInterface {
@@ -101,15 +81,17 @@ internal interface MapEngineInterface {
 
     fun onIdField(idField: KeyType)
     suspend fun toStoreData(insertMap: InsertMap, objectValue: List<Any>)
-
+    fun fNEqualsValue(o: Any, sep: String): String
     fun createTableForeign(tableNames: Set<String>): Set<String>
 
     fun deleteLists(key: List<Any>)
 
     fun clearLists()
+
+    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>>
 }
 
-internal class MapEngine(val propertyData: MapProperty,
+internal class MapEngine(val propertyData: CollectionProperty,
                          val persisterProvider: PersisterProvider,
                          val persister: Persister,
                          val parrentClass: KClass<Any>,
@@ -159,10 +141,8 @@ internal class MapEngine(val propertyData: MapProperty,
         persisterProvider.registerHelperTableName(helperTableName)
     }
 
-    fun fNEqualsValue(o: Any, sep: String): String {
-        o as Map<Any, Any>
-        return sequenceOf(o.values.map { valueField.fNEqualsValue(it, sep) })
-                .joinToString(", ")
+    override fun fNEqualsValue(o: Any, sep: String): String {
+        return valueField.fNEqualsValue(o, sep)
     }
 
     override fun createTableForeign(tableNames: Set<String>): Set<String> {
@@ -173,7 +153,7 @@ internal class MapEngine(val propertyData: MapProperty,
         helperTable.deleteBy(idField.name, key)
     }
 
-    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
         if (key.isEmpty()) {
             throw NullPointerException("a List cannot be a key")
         }
