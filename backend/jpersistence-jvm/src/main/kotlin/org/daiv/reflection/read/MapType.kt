@@ -34,85 +34,29 @@ internal class MapType constructor(override val propertyData: CollectionProperty
                                    val persisterProvider: PersisterProvider,
                                    override val prefix: String?,
                                    val persister: Persister,
-                                   val parentClass: KClass<Any>,
-                                   val mapEngine: MapEngine = MapEngine(propertyData,
-                                                                        persisterProvider,
-                                                                        persister,
-                                                                        parentClass) { propertyData.getObject(it) }) :
-        CollectionFieldData, MapEngineInterface by mapEngine {
-
+                                   val parentClass: KClass<Any>) :
+        CollectionFieldData {
     override fun isType(a: Any): Boolean {
         return a::class.isSubclassOf(propertyData.type.classifier as KClass<*>)
     }
-}
 
-internal val listConverter: (Any) -> Map<Any, Any> = {
-    it as List<Any>
-    it.mapIndexed { index, t -> index to t }
-            .toMap()
-}
-internal val listBackConverter: (Map<Any?, Any?>) -> Any = {
-    it.toList()
-            .sortedBy { it.first as Int }
-            .map { it.second }
-}
-
-internal class ListType constructor(override val propertyData: CollectionProperty,
-                                    val persisterProvider: PersisterProvider,
-                                    override val prefix: String?,
-                                    val persister: Persister,
-                                    val parentClass: KClass<Any>,
-                                    val mapEngine: MapEngine = MapEngine(propertyData,
-                                                                         persisterProvider,
-                                                                         persister,
-                                                                         parentClass) {
-                                        propertyData.getObject(it)
-                                    }) : CollectionFieldData,
-                                         MapEngineInterface by mapEngine {
-
-    override fun isType(a: Any): Boolean {
-        return a::class.isSubclassOf(List::class)
-    }
-
-}
-
-internal interface MapEngineInterface {
-    val helperTable: HelperTable
-
-    fun onIdField(idField: KeyType)
-    suspend fun toStoreData(insertMap: InsertMap, objectValue: List<Any>)
-    fun fNEqualsValue(o: Any, sep: String): String
-    fun createTableForeign(tableNames: Set<String>): Set<String>
-
-    fun deleteLists(key: List<Any>)
-
-    fun clearLists()
-
-    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>>
-}
-
-internal class MapEngine(val propertyData: CollectionProperty,
-                         val persisterProvider: PersisterProvider,
-                         val persister: Persister,
-                         val parrentClass: KClass<Any>,
-                         val getObjectMethod: (Any) -> Any) : MapEngineInterface {
     override val helperTable: HelperTable
         get() = helper
 
-    val name: String = propertyData.name
+    //    val name: String = propertyData.name
     private lateinit var idField: KeyType
     private lateinit var helper: HelperTable
 
-    val innerTableName: String = "${persisterProvider.innerTableName(parrentClass)}_${propertyData.receiverType.simpleName}_$name"
+    val innerTableName: String = "${persisterProvider.innerTableName(parentClass)}_${propertyData.receiverType.simpleName}_$name"
 
     private val helperTableName
-        get() = "${persisterProvider[parrentClass]}_${propertyData.receiverType.simpleName}_$name"
+        get() = "${persisterProvider[parentClass]}_${propertyData.receiverType.simpleName}_$name"
 
     private val valueField = propertyData.type.toLowField(persisterProvider, 0, "value")
 
 
     override suspend fun toStoreData(insertMap: InsertMap, r: List<Any>) {
-        val p = r.map { key -> key to getObjectMethod(key) }
+        val p = r.map { key -> key to propertyData.getObject(key) }
         p.forEach { x ->
             val id1 = idField.hashCodeXIfAutoKey(x.first)
             insertMap.toBuild(RequestTask(InsertKey(helperTableName, id1), {
@@ -135,7 +79,7 @@ internal class MapEngine(val propertyData: CollectionProperty,
         val keyFields = (listOf(idField) + valueField.additionalKeyFields())
         helper = persister.HelperTable(keyFields,
                                        fields3,
-                                       listOf(valueField),
+                                       if (valueField.isAlsoKeyField()) emptyList() else listOf(valueField),
                                        { innerTableName },
                                        { helperTableName })
         persisterProvider.registerHelperTableName(helperTableName)
@@ -159,10 +103,23 @@ internal class MapEngine(val propertyData: CollectionProperty,
         }
         val fn = idField.autoIdFNEqualsValue(key, " AND ")
         val read = helperTable.readIntern(fn, readCache)
-        return NextSize(ReadAnswer(valueField.readFromList(read.map { it.drop(1) })), number)
+        val x = valueField.readFromList(read.map { it.drop(1) })
+        return NextSize(ReadAnswer(x), number)
     }
 
     override fun clearLists() {
         helperTable.clear()
     }
 }
+
+internal val listConverter: (Any) -> Map<Any, Any> = {
+    it as List<Any>
+    it.mapIndexed { index, t -> index to t }
+            .toMap()
+}
+internal val listBackConverter: (Map<Any?, Any?>) -> Any = {
+    it.toList()
+            .sortedBy { it.first as Int }
+            .map { it.second }
+}
+

@@ -9,11 +9,13 @@ import kotlin.reflect.full.isSubclassOf
 internal class InnerSetType constructor(override val propertyData: SetProperty,
                                         val depth: Int,
                                         val persisterProvider: PersisterProvider,
-                                        override val prefix: String?) :
-        SimpleCollectionFieldData {
+                                        override val prefix: String?) : SimpleCollectionFieldData {
 
     private fun fieldName(name: String) = if (depth == 0) name else "$name$depth"
     private val valueField = propertyData.subType.toLowField(persisterProvider, depth + 1, fieldName("value"))
+
+
+    override fun isAlsoKeyField() = true
 
     override fun copyTableName(): Map<String, String> {
         return valueField.copyTableName()
@@ -74,7 +76,9 @@ internal class InnerSetType constructor(override val propertyData: SetProperty,
     }
 
     override fun readFromList(list: List<List<ReadFieldValue>>): Any {
-        return valueField.readFromList(list)!!
+        val x = list.flatMap { it.map { it.value } }
+        return x.toSet()
+//        return valueField.readFromList(list)!!
 //        val group = list.groupBy {
 //            it.first()
 //                    .value

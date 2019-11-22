@@ -71,10 +71,10 @@ internal class KeyAnnotation(private val property: KProperty1<*, *>) : CheckAnno
 
 internal fun <T : Any> KClass<T>.isNoMapAndNoListAndNoSet() = this != List::class && this != Map::class && this != Set::class
 internal fun <T : Any> KClass<T>.isMapListOrSet() = this == List::class || this == Map::class || this == Set::class
-internal fun KClass<Any>.toProperty(property: KProperty1<Any, Any>) = when {
-    this == Map::class -> DefaultMapProperty(property, this)
-    this == Set::class -> DefSetProperty(property, this)
-    this == List::class -> ListMapProperty(property, this)
+internal fun KClass<Any>.toProperty(property: KProperty1<Any, Any>, receiverClass: KClass<Any>) = when {
+    this == Map::class -> DefaultMapProperty(property, receiverClass)
+    this == Set::class -> DefSetProperty(property, receiverClass)
+    this == List::class -> ListMapProperty(property, receiverClass)
     else -> throw RuntimeException("Only map, set and list are tested in this function")
 }
 //internal fun KClass<Any>.toFieldData(persisterProvider: PersisterProvider,
@@ -183,10 +183,7 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
             val proClass = property.returnType.classifier as KClass<Any>
             return when {
                 proClass.isMapListOrSet() ->
-                    if(proClass == List::class){
-                        ListType(proClass.toProperty(property),  persisterProvider, prefix, persister, clazz)
-                    } else
-                        MapType(proClass.toProperty(property), persisterProvider, prefix, persister, clazz)
+                    MapType(proClass.toProperty(property, clazz), persisterProvider, prefix, persister, clazz)
                 else -> {
                     throw RuntimeException("unknown type : ${property.returnType}")
                 }

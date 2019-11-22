@@ -1,7 +1,6 @@
 package org.daiv.reflection.persistence.kotlin
 
 import mu.KotlinLogging
-import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
 import org.daiv.reflection.persister.Persister
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
@@ -16,6 +15,8 @@ class MapTest :
                  data class KeySimpleObject(val x: Int, val y: String)
                  data class InnerKeySimpleObject(val x: Int, val y: String)
                  data class ListObject(val id: Int, val list: List<List<SimpleObject>>)
+                 data class ListMapObject(val id: Int, val list: List<Map<InnerKeySimpleObject, SimpleObject>>)
+                 data class SetObject(val id: Int, val list: Set<SimpleObject>)
                  data class MapObject(val id: Int, val map: Map<KeySimpleObject, Map<InnerKeySimpleObject, SimpleObject>>)
 
                  describe("complex Collection") {
@@ -49,16 +50,6 @@ class MapTest :
                          val table = persister.Table(MapObject::class)
                          table.persist()
                          it("persist Map") {
-                             //                             table.persist()
-                             val s0 = SimpleObject(0, "Hello")
-                             val s1 = SimpleObject(1, "Hello")
-                             val s2 = SimpleObject(2, "World")
-                             val k0 = KeySimpleObject(0, "Hello")
-                             val k1 = KeySimpleObject(1, "Hello")
-                             val k2 = KeySimpleObject(2, "World")
-                             val i0 = InnerKeySimpleObject(0, "Hello")
-                             val i1 = InnerKeySimpleObject(1, "Hello")
-                             val i2 = InnerKeySimpleObject(2, "World")
                              val list = listOf(MapObject(0, mapOf(k0 to mapOf(i0 to s0, i1 to s1),
                                                                   k1 to mapOf(i0 to s1, i1 to s1))),
                                                MapObject(1, mapOf(k1 to mapOf(i0 to s0, i1 to s2),
@@ -72,14 +63,35 @@ class MapTest :
                          val table = persister.Table(ListObject::class)
                          table.persist()
                          it("persist list") {
-                             //                             table.persist()
-                             val s0 = SimpleObject(0, "Hello")
-                             val s1 = SimpleObject(1, "Hello")
-                             val s2 = SimpleObject(2, "World")
                              val list = listOf(ListObject(0, listOf(listOf(s0, s1),
                                                                     listOf(s2))),
                                                ListObject(1, listOf(listOf(s0, s2),
                                                                     listOf(s1, s2))))
+                             table.insert(list)
+                             val read = table.readAll()
+                             assertEquals(list, read)
+                         }
+                     }
+                     on("test ListMap") {
+                         val table = persister.Table(ListMapObject::class)
+                         table.persist()
+                         it("persist listMap") {
+                             val list = listOf(ListMapObject(0, listOf(mapOf(i1 to s0, i2 to s1),
+                                                                       mapOf(i1 to s2))),
+                                               ListMapObject(1, listOf(mapOf(i1 to s0, i2 to s2),
+                                                                       mapOf(i0 to s1, i1 to s2))))
+                             table.insert(list)
+                             val read = table.readAll()
+                             assertEquals(list, read)
+                         }
+                     }
+                     on("test Set") {
+                         val table = persister.Table(SetObject::class)
+                         table.persist()
+                         it("persist Set") {
+                             val list = listOf(SetObject(0, setOf(s0, s1)),
+                                               SetObject(1, setOf(s0, s2)))
+
                              table.insert(list)
                              val read = table.readAll()
                              assertEquals(list, read)

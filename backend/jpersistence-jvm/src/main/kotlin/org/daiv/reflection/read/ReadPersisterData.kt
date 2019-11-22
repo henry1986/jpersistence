@@ -350,15 +350,19 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
     companion object {
         fun <T : Any> readValue(clazz: KClass<T>): (List<ReadFieldValue>) -> T {
             return { values ->
-                val primaryConstructor = clazz.primaryConstructor!!
-                primaryConstructor.isAccessible = true
-                primaryConstructor.callBy(
-                        try {
-                            primaryConstructor.parameters.map { it to values.first { v -> v.fieldData.name == it.name }.value }
-                                    .toMap()
-                        } catch (t: Throwable) {
-                            throw RuntimeException("error for clazz $clazz at ${primaryConstructor.parameters} and $values", t)
-                        })
+                try {
+                    val primaryConstructor = clazz.primaryConstructor!!
+                    primaryConstructor.isAccessible = true
+                    primaryConstructor.callBy(
+                            try {
+                                primaryConstructor.parameters.map { it to values.first { v -> v.fieldData.name == it.name }.value }
+                                        .toMap()
+                            } catch (t: Throwable) {
+                                throw RuntimeException("error for clazz $clazz at ${primaryConstructor.parameters} and $values", t)
+                            })
+                } catch (t:Throwable){
+                    throw t
+                }
             }
         }
     }

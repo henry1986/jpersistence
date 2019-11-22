@@ -180,6 +180,8 @@ internal interface FieldData : FieldCollection, FieldReadable {
         return emptyList()
     }
 
+    fun isAlsoKeyField() = false
+
     fun insertObjects(o: Any): List<List<InsertObject>> = listOf(insertObject(o))
     fun readFromList(list: List<List<ReadFieldValue>>): Any? = list.first().first().value
 
