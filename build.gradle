@@ -24,10 +24,10 @@
 buildscript {
     ext.kotlin_version = '1.3.11'
     ext.dokka_version = '0.9.16'
-    ext.jpersistence_version = '0.7.08-SNAPSHOT'
+    ext.jpersistence_version = '0.7.10-SNAPSHOT'
     ext.coroutines_version = '1.1.0'
     ext.serialization_version = '0.9.1'
-    ext.kutil_version = '0.0.8-SNAPSHOT'
+    ext.kutil_version = '0.1.2-SNAPSHOT'
 
     repositories {
         jcenter()
