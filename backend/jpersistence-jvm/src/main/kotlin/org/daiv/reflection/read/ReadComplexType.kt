@@ -152,8 +152,6 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
         if (objectValue == null) {
             return persisterData.key.insertObject(null)
         }
-        objectValue
-                ?: throw RuntimeException("this type must not be null ${propertyData.receiverType} - ${propertyData.clazz}")
         return persisterData.key.insertObject(persisterData.key.hashCodeXIfAutoKey(objectValue))
     }
 

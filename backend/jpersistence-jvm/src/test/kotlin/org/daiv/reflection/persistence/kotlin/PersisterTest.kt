@@ -141,7 +141,8 @@ class PersisterTest :
                          list.persist()
                          val c = ComplexHostList(5, listOf(e1, e2, e1, e2, e2, e2, e1), listOf(e2, e3))
                          list.insert(c)
-                         assertEquals(c, list.read(5))
+                         val read = list.read(5)
+                         assertEquals(c, read)
                      }
                      it("on set") {
                          val list = persister.Table(ComplexHostSet::class)

@@ -144,6 +144,7 @@ internal class ReadCache(val persisterPreference: PersisterPreference) : Persist
                     logger.info { "clearing cache, because more than ${persisterPreference.clearCacheAfterNumberOfStoredObjects} are stored (${map.size}" }
                     map.clear()
                 }
+                tableCache[readCacheKey] = read
                 return read
             } else {
                 return null
