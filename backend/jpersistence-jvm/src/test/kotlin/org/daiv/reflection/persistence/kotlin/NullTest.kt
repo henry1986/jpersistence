@@ -18,6 +18,9 @@ class NullTest : Spek({
 
                           data class ComplexClass2(val x: Int, val y: SimpleClass2?, val z: SimpleClass2?)
 
+                          data class HNComplexClass(val x: SimpleClass, val y: SimpleClass)
+                          data class HNComplexClass2(val x: Int, val y: HNComplexClass?)
+
                           @Including
                           data class IncludingSimple(val x: Int, val y: String)
 
@@ -40,11 +43,15 @@ class NullTest : Spek({
                           describe("null test") {
                               val persister = Persister("NullTest.db")
                               on("test simple") {
+                                  val s0 = SimpleClass(0, "wow")
+                                  val s1 = SimpleClass(1, "hello")
+                                  val s2 = SimpleClass(2, "wow")
+                                  val s3 = SimpleClass(3, "now")
                                   it("check as value") {
                                       val table = persister.Table(ComplexClass::class)
                                       table.persist()
-                                      val list = listOf(ComplexClass(1, SimpleClass(0, "wow"), SimpleClass(1, "hello")),
-                                                        ComplexClass(2, SimpleClass(2, "wow"), SimpleClass(3, "now")),
+                                      val list = listOf(ComplexClass(1, s0, s1),
+                                                        ComplexClass(2, s2, s3),
                                                         ComplexClass(3, null, SimpleClass(4, "oh")),
                                                         ComplexClass(4, SimpleClass(4, "oh"), null),
                                                         ComplexClass(5, null, null))
@@ -66,16 +73,15 @@ class NullTest : Spek({
                                       assertEquals(list.size, all.size)
                                       assertEquals(list, all)
                                   }
-//                                  it("check as Key") {
-                                  //                                      val table = persister.Table(ComplexClass2::class)
-//                                      table.persist()
-//                                      val list = listOf(ComplexClass2(SimpleClass(4, "what"), SimpleClass(0, "wow")),
-//                                                        ComplexClass2(null, SimpleClass(2, "wow")),
-//                                                        ComplexClass2(3, null))
-//                                      table.insert(list)
-//                                      val all = table.readAll()
-//                                      assertEquals(list, all)
-//                                  }
+                                  it("check hiddenNull") {
+                                      val table = persister.Table(HNComplexClass2::class)
+                                      table.persist()
+                                      val list = listOf(HNComplexClass2(1, null), HNComplexClass2(2, null))
+                                      table.insert(list)
+                                      val all = table.readAll()
+                                      assertEquals(list.size, all.size)
+                                      assertEquals(list, all)
+                                  }
                               }
 
                               on("test including") {
@@ -123,11 +129,6 @@ class NullTest : Spek({
                                       table.insert(list)
                                       val all = table.readAll()
                                       assertEquals(list, all)
-                                  }
-                              }
-                              on("test including complex list") {
-                                  it("including complexList") {
-
                                   }
                               }
                               afterGroup { persister.delete() }

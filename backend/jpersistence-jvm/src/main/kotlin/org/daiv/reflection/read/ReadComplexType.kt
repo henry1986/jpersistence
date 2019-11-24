@@ -32,10 +32,10 @@ import org.daiv.reflection.persister.ReadCache
 import org.daiv.reflection.plain.SimpleReadObject
 
 internal class ReadComplexType constructor(override val propertyData: PropertyData,
-                                                             val moreKeys: MoreKeys,
-                                                             val including: Including,
-                                                             val persisterProvider: PersisterProvider,
-                                                             override val prefix: String?) : NoList {
+                                           val moreKeys: MoreKeys,
+                                           val including: Including,
+                                           val persisterProvider: PersisterProvider,
+                                           override val prefix: String?) : NoList {
     val providerKey = ProviderKey(propertyData, prefixedName)
 
     //    private val persisterData: ReadPersisterData<T, Any> = ReadPersisterData(propertyData.clazz,
@@ -116,7 +116,7 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
     }
 
     override fun toTableHead(nullable: Boolean): String? {
-        return persisterData.key.toTableHead(propertyData.isNullable)
+        return persisterData.key.toTableHead(nullable || propertyData.isNullable)
     }
 
     override fun copyTableName(): Map<String, String> {
@@ -125,7 +125,7 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
 
     override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
         val nextSize = persisterData.key.getValue(readCache, readValue, number, key)
-        if (propertyData.isNullable && nextSize.t.t == null) {
+        if (nextSize.t.t == null) {
             return NextSize(ReadAnswer(null) as ReadAnswer<Any>, nextSize.i)
         }
         if (including.include) {
@@ -149,10 +149,12 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
     }
 
     override fun insertObject(objectValue: Any?): List<InsertObject> {
-        if (propertyData.isNullable && objectValue == null) {
+        if (objectValue == null) {
             return persisterData.key.insertObject(null)
         }
-        return persisterData.key.insertObject(persisterData.key.hashCodeXIfAutoKey(objectValue!!))
+        objectValue
+                ?: throw RuntimeException("this type must not be null ${propertyData.receiverType} - ${propertyData.clazz}")
+        return persisterData.key.insertObject(persisterData.key.hashCodeXIfAutoKey(objectValue))
     }
 
     override fun toStoreObjects(objectValue: Any): List<ToStoreManyToOneObjects> {
