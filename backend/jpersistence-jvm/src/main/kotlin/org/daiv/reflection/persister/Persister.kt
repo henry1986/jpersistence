@@ -219,13 +219,34 @@ class Persister(private val databaseInterface: DatabaseInterface,
         override val persister: Persister = this@Persister
     }
 
-    private fun <R : Any> createPersisterProvider(clazz: KClass<R>,
-                                                  tableName: String,
-                                                  tableNames: Map<KClass<out Any>, String>,
-                                                  tableNamePrefix: String?): PersisterProvider {
-        val persisterProvider = PersisterProviderImpl(this@Persister, tableNames, tableNamePrefix)
-        persisterProvider[clazz] = getTableName(tableName, clazz)
-        return persisterProvider
+//    private fun <R : Any> createPersisterProvider(clazz: KClass<R>,
+//                                                  tableName: String,
+//                                                  tableNames: Map<KClass<out Any>, String>,
+//                                                  tableNamePrefix: String?): PersisterProvider {
+//        val persisterProvider = PersisterProviderImpl(this@Persister, tableNames, tableNamePrefix)
+//        persisterProvider[clazz] = getTableName(tableName, clazz)
+//        return persisterProvider
+//    }
+
+    private fun createPersisterProvider(tableNames: Map<KClass<out Any>, String>,
+                                        tableNamePrefix: String?) = PersisterProviderImpl(this@Persister, tableNames, tableNamePrefix)
+
+    private val persisterProviderMap = mutableMapOf<String?, PersisterProvider>(null to createPersisterProvider(emptyMap(), null))
+
+    internal fun <R : Any> getPersisterProvider(clazz: KClass<R>,
+                                                tableName: String,
+                                                tableNames: Map<KClass<out Any>, String>,
+                                                tableNamePrefix: String?): PersisterProvider {
+        val p = persisterProviderMap[tableNamePrefix]
+        return if (p == null) {
+            val x = createPersisterProvider(tableNames, tableNamePrefix)
+            x[clazz] = getTableName(tableName, clazz)
+            persisterProviderMap[tableNamePrefix] = x
+            x
+        } else {
+            p.setIfNotExists(clazz, getTableName(tableName, clazz))
+            p
+        }
     }
 
     inner class Table<R : Any> internal constructor(override val readPersisterData: ReadPersisterData,
@@ -250,7 +271,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
                     tableName: String = "",
                     tableNames: Map<KClass<out Any>, String> = mapOf(),
                     tableNamePrefix: String? = null)
-                : this(clazz, createPersisterProvider(clazz, tableName, tableNames, tableNamePrefix))
+                : this(clazz, getPersisterProvider(clazz, tableName, tableNames, tableNamePrefix))
 
         internal constructor(clazz: KClass<R>, persisterProvider: PersisterProvider)
                 : this(ReadPersisterData(clazz as KClass<Any>, this@Persister, persisterProvider), clazz)
@@ -282,6 +303,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
             onlyDropMaster()
             next.rename(next.tableName, _tableName)
             persisterProvider.rename(next.clazz, innerTableName)
+            persisterProvider.remove(clazz)
             return creator(_tableName)
         }
 
@@ -296,6 +318,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
                 .joinToString(" $and ")
 
         fun copyHelperTable(map: Map<String, Map<String, String>>, oldTable: Table<out Any>? = null): Table<R> {
+            oldTable?.let {
+                persisterProvider[it.clazz] = _tableName
+            }
             val request: (String, String) -> String = { helperTableName, variable ->
                 "(select $variable from $tableName where ${oldTable?.toKeyNames(helperTableName)})"
             }
@@ -380,23 +405,22 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
                 .toMap()
 
+        internal fun insertCache(insertCachePreference: InsertCachePreference,
+                                 actors: Map<String, TableHandler>,
+                                 isParallel: Boolean) =
+                InsertCacheHandler(InsertMap(persister, insertCachePreference, actors, readCache()), readPersisterData, this, isParallel)
 
         inner class InsertCacheParallel(val coroutineScope: CoroutineScope, val requestScope: CoroutineScope, completable: Boolean,
                                         val insertCachePreference: InsertCachePreference = innerCachePreference()) :
-                InsertCache<R> by InsertCacheHandler(InsertMap(persister,
-                                                               insertCachePreference,
-                                                               coroutineScope.actors(requestScope, completable),
-                                                               readCache()), readPersisterData, this, true)
+                InsertCache<R> by insertCache(insertCachePreference, coroutineScope.actors(requestScope, completable), true)
 
         inner class InsertCacheSeriell(val insertCachePreference: InsertCachePreference = innerCachePreference()) :
-                InsertCache<R> by InsertCacheHandler(InsertMap(persister, insertCachePreference, tableHandlers(), readCache()),
-                                                     readPersisterData, this, false)
+                InsertCache<R> by insertCache(insertCachePreference, tableHandlers(), false)
 
         fun insert(o: List<R>, innerCachePreference: InsertCachePreference = innerCachePreference()) {
             if (o.isEmpty()) {
                 return
             }
-
             runBlocking {
                 val map = InsertMap(persister, innerCachePreference, tableHandlers(), readCache())
                 readPersisterData.putInsertRequests(_tableName, map, o)

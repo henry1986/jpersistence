@@ -24,9 +24,17 @@ internal interface PersisterProvider {
 
     fun rename(clazz: KClass<out Any>, newTableName: String)
     fun registerHelperTableName(helperTableName: String)
+    fun exists(clazz: KClass<out Any>): Boolean
 
     operator fun set(clazz: KClass<out Any>, newTableName: String) {
         rename(clazz, newTableName)
+    }
+    fun remove(clazz: KClass<out Any>)
+
+    fun setIfNotExists(clazz: KClass<out Any>, newTableName: String) {
+        if (!exists(clazz)) {
+            set(clazz, newTableName)
+        }
     }
 }
 
@@ -65,6 +73,14 @@ internal class PersisterProviderImpl(val persister: Persister,
 
     override fun rename(clazz: KClass<out Any>, newTableName: String) {
         tableNames[clazz.java.name] = newTableName
+    }
+
+    override fun remove(clazz: KClass<out Any>){
+        tableNames.remove(clazz.java.name)
+    }
+
+    override fun exists(clazz: KClass<out Any>): Boolean {
+        return tableNames.containsKey(clazz.java.name)
     }
 
     override fun register(providerKey: ProviderKey) {
