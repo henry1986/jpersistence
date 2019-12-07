@@ -219,14 +219,14 @@ class Persister(private val databaseInterface: DatabaseInterface,
         override val persister: Persister = this@Persister
     }
 
-//    private fun <R : Any> createPersisterProvider(clazz: KClass<R>,
-//                                                  tableName: String,
-//                                                  tableNames: Map<KClass<out Any>, String>,
-//                                                  tableNamePrefix: String?): PersisterProvider {
-//        val persisterProvider = PersisterProviderImpl(this@Persister, tableNames, tableNamePrefix)
-//        persisterProvider[clazz] = getTableName(tableName, clazz)
-//        return persisterProvider
-//    }
+    private fun <R : Any> createPersisterProvider(clazz: KClass<R>,
+                                                  tableName: String,
+                                                  tableNames: Map<KClass<out Any>, String>,
+                                                  tableNamePrefix: String?): PersisterProvider {
+        val persisterProvider = PersisterProviderImpl(this@Persister, tableNames, tableNamePrefix)
+        persisterProvider[clazz] = getTableName(tableName, clazz)
+        return persisterProvider
+    }
 
     private fun createPersisterProvider(tableNames: Map<KClass<out Any>, String>,
                                         tableNamePrefix: String?) = PersisterProviderImpl(this@Persister, tableNames, tableNamePrefix)
@@ -247,6 +247,13 @@ class Persister(private val databaseInterface: DatabaseInterface,
             p.setIfNotExists(clazz, getTableName(tableName, clazz))
             p
         }
+    }
+
+    fun <R : Any> tableOnOwnPersisterProvider(clazz: KClass<R>,
+                                              tableName: String = "",
+                                              tableNames: Map<KClass<out Any>, String> = mapOf(),
+                                              tableNamePrefix: String? = null): Table<R> {
+        return Table(clazz, createPersisterProvider(clazz, tableName, tableNames, tableNamePrefix))
     }
 
     inner class Table<R : Any> internal constructor(override val readPersisterData: ReadPersisterData,
