@@ -120,6 +120,39 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
     }
 
+    private fun innerCachePreference() = InsertCachePreference(false)
+    private fun CoroutineScope.actors(requestScope: CoroutineScope,
+                                      completable: Boolean,
+                                      persisterProvider: PersisterProvider) = persisterProvider.tableNamesIncludingPrefix().map {
+        val actorHandler = ActorHandler(this, requestScope, readCache().readTableCache(it))
+        it to if (!completable) InsertActor(actorHandler) else InsertCompletableActor(actorHandler)
+    }
+            .toMap()
+
+    private fun tableHandlers(persisterProvider: PersisterProvider) = persisterProvider.tableNamesIncludingPrefix().map {
+        it to SequentialTableHandler(readCache().readTableCache(it))
+    }
+            .toMap()
+
+    inner class CommonCache(coroutineScope: CoroutineScope,
+                            requestScope: CoroutineScope,
+                            completable: Boolean,
+                            insertCachePreference: InsertCachePreference = innerCachePreference(),
+                            tableNamePrefix: String? = null) {
+        private val p = persisterProviderMap[tableNamePrefix]!!
+        private val actors = coroutineScope.actors(requestScope, completable, p)
+        internal val i = InsertMap(this@Persister, insertCachePreference, actors, readCache())
+
+        fun <R : Any> onTable(table: Table<R>): InsertCache<R> {
+            return table.insertCacheParallel(this)
+        }
+
+        fun commit(){
+            i.insertAll()
+            event()
+        }
+    }
+
     private fun getTableName(tableName: String, clazz: KClass<*>) = if (tableName == "") clazz.tableName() else tableName
 
     internal interface InternalTable : PersisterListener {
@@ -399,19 +432,6 @@ class Persister(private val databaseInterface: DatabaseInterface,
             insert(listOf(o))
         }
 
-        private fun innerCachePreference() = InsertCachePreference(false)
-        private fun CoroutineScope.actors(requestScope: CoroutineScope,
-                                          completable: Boolean) = persisterProvider.tableNamesIncludingPrefix().map {
-            val actorHandler = ActorHandler(this, requestScope, readCache().readTableCache(it))
-            it to if (!completable) InsertActor(actorHandler) else InsertCompletableActor(actorHandler)
-        }
-                .toMap()
-
-        private fun tableHandlers() = persisterProvider.tableNamesIncludingPrefix().map {
-            it to SequentialTableHandler(readCache().readTableCache(it))
-        }
-                .toMap()
-
         internal fun insertCache(insertCachePreference: InsertCachePreference,
                                  actors: Map<String, TableHandler>,
                                  isParallel: Boolean) =
@@ -419,17 +439,23 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         inner class InsertCacheParallel(val coroutineScope: CoroutineScope, val requestScope: CoroutineScope, completable: Boolean,
                                         val insertCachePreference: InsertCachePreference = innerCachePreference()) :
-                InsertCache<R> by insertCache(insertCachePreference, coroutineScope.actors(requestScope, completable), true)
+                InsertCache<R> by insertCache(insertCachePreference,
+                                              coroutineScope.actors(requestScope, completable, persisterProvider),
+                                              true)
 
         inner class InsertCacheSeriell(val insertCachePreference: InsertCachePreference = innerCachePreference()) :
-                InsertCache<R> by insertCache(insertCachePreference, tableHandlers(), false)
+                InsertCache<R> by insertCache(insertCachePreference, tableHandlers(persisterProvider), false)
+
+        fun insertCacheParallel(commonCache: CommonCache): InsertCache<R> {
+            return InsertCacheHandler(commonCache.i, readPersisterData, this, true)
+        }
 
         fun insert(o: List<R>, innerCachePreference: InsertCachePreference = innerCachePreference()) {
             if (o.isEmpty()) {
                 return
             }
             runBlocking {
-                val map = InsertMap(persister, innerCachePreference, tableHandlers(), readCache())
+                val map = InsertMap(persister, innerCachePreference, tableHandlers(persisterProvider), readCache())
                 readPersisterData.putInsertRequests(_tableName, map, o)
                 map.insertAll()
             }
