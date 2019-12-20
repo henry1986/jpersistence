@@ -31,8 +31,7 @@ import org.daiv.reflection.plain.PlainObject
 import java.sql.SQLException
 import kotlin.reflect.KClass
 
-internal class ReadSimpleType(override val propertyData: PropertyData, override val prefix: String?) :
-        SimpleTypes {
+internal class ReadSimpleType constructor(override val propertyData: PropertyData, override val prefix: String?) : SimpleTypes {
     companion object {
         private val valueMappingJavaSQL = mapOf("long" to "bigInt", "String" to "Text")
     }
@@ -126,8 +125,8 @@ object EnumHashCodeable : HashCodeable {
 }
 
 internal class MapHashCodeable constructor(val keyHashCodeable: KeyHashCodeable,
-                                                             val valueHashCodeable: KeyHashCodeable,
-                                                             val readable: MapReadable) : HashCodeable, FieldReadable by readable {
+                                           val valueHashCodeable: KeyHashCodeable,
+                                           val readable: MapReadable) : HashCodeable, FieldReadable by readable {
     override fun plainHashCodeX(t: Any): Int {
         try {
             t as Map<Any, Any>

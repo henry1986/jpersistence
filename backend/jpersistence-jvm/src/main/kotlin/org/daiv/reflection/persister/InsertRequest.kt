@@ -61,13 +61,6 @@ internal data class InsertMap constructor(val persister: Persister,
         nextTask()
     }
 
-    suspend fun toBuild(insertKey: InsertKey,
-                        obj: Any? = null,
-                        toBuild: () -> List<InsertRequest>,
-                        toDo: suspend () -> Unit) {
-        toBuild(RequestTask(insertKey, obj, toBuild, toDo))
-    }
-
     suspend fun toBuild(requestTask: RequestTask) {
         val actor = actors[requestTask.insertKey.tableName]!!
         actor.send(requestTask)

@@ -24,6 +24,7 @@
 package org.daiv.reflection.annotations
 
 import kotlinx.serialization.Serializable
+import kotlin.reflect.KClass
 
 @Target(AnnotationTarget.PROPERTY)
 @Retention(AnnotationRetention.RUNTIME)
@@ -40,6 +41,14 @@ annotation class ManyMap(val tableNameKey: String = "", val tableNameValue: Stri
 annotation class MoreKeys(val amount: Int = 1, val auto: Boolean = false)
 
 annotation class Including(val include: Boolean = true)
+
+@Target(AnnotationTarget.PROPERTY)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class IFaceForObject(val classesNames: Array<KClass<*>>)
+
+@Target(AnnotationTarget.PROPERTY)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class IFaceForList(val classesNames: Array<KClass<*>>, val depth: Int)
 
 @Serializable
 data class TableData(val tableName: String, val db: String, val header: List<String>, val values: List<List<String>>) {

@@ -167,9 +167,7 @@ internal interface FieldData : FieldCollection, FieldReadable {
     fun copyTableName(): Map<String, String>
     fun copyData(map: Map<String, String>, request: (String, String) -> String)
 
-    fun toStoreObjects(objectValue: Any): List<ToStoreManyToOneObjects>
     suspend fun toStoreData(insertMap: InsertMap, objectValue: List<Any>)
-    fun persist()
     fun subFields(): List<FieldData>
 
     fun onIdField(idField: KeyType)
@@ -206,12 +204,10 @@ internal interface SimpleCollectionFieldData : FieldData {
     override fun keySimpleType(r: Any) = throw RuntimeException("a collection cannot be a key")
     override fun key() = throw RuntimeException("a collection cannot be a key")
     override fun toTableHead(nullable: Boolean): String? = null
-    override fun toStoreObjects(objectValue: Any): List<ToStoreManyToOneObjects> = emptyList()
     override fun getColumnValue(readValue: ReadValue) = throw RuntimeException("a collection cannot be a key")
 
     override fun underscoreName() = null
     override fun size() = 0
-    override fun persist() {}
     override fun copyTableName() = emptyMap<String, String>()
 
 
@@ -250,12 +246,10 @@ internal interface SimpleTypes : NoList {
 
     val typeName: String
 
-    override fun toStoreObjects(objectValue: Any): List<ToStoreManyToOneObjects> = emptyList()
     override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<Any>) {}
 
     override fun subFields(): List<FieldData> = emptyList()
 
-    override fun persist() {}
     override fun getColumnValue(resultSet: ReadValue) = resultSet.getObject(1)!!
 
     override fun keySimpleType(r: Any) = propertyData.getObject(r)

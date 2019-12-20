@@ -51,7 +51,7 @@ internal interface InternalRPD {
     val fields: List<FieldData>
     val noKeyFields: List<FieldData>
     fun field(fieldName: String): FieldCollection {
-        return fields.find { it.name == fieldName } as FieldData?
+        return fields.find { it.name == fieldName }
                 ?: fields.flatMap { it.subFields() }.find { it.name == fieldName } ?: throw RuntimeException(
                         "couldn't find any fields with name: $fieldName")
     }
@@ -62,10 +62,7 @@ internal interface InternalRPD {
 
     fun fromWhere(fieldName: String, id: Any, sep: String): String {
         return if (key.fieldName == fieldName) {
-//            if (id is List<*>)
             key.whereClause(id as List<Any>, sep)
-//            else
-//                key.whereClause(listOf(id), sep)
         } else {
             try {
                 field(fieldName).whereClause(id, sep)
@@ -106,13 +103,7 @@ internal interface InternalRPD {
         return fields.joinToString(separator = ", ", transform = { it.key() })
     }
 
-//    fun createTableString(prefix: String): String {
-//        return createTableInnerData(prefix, 0)
-//    }
-
     fun getIdName() = key.fieldName
-
-//    internal fun foreignKey() = fields.map { it.foreignKey() }.filterNotNull().map { it.sqlMethod() }.joinToString(", ")
 
     fun createTable(): String {
         val createTableInnerData = createTableInnerData(0)
@@ -129,9 +120,6 @@ internal interface InternalRPD {
         return key.getColumnValue(readValue)
     }
 
-//    fun helperTables() = onFields { helperTables() }.flatten()
-//    fun keyTables() = onFields { keyTables() }.flatten()
-
     fun innerRead(readValue: ReadValue, counter: Int = 1, readCache: ReadCache): NextSize<List<ReadFieldValue>> {
         val x = key.getValue(readCache, readValue, counter, emptyList())
         return Reader(readCache, noKeyFields, x.t.t as List<Any>, readValue).read(x.i,
@@ -139,12 +127,6 @@ internal interface InternalRPD {
                                                                                       ReadFieldValue(e,
                                                                                                      key.fields[i])
                                                                                   })
-//        val x = key.getValue(readCache, readValue, counter, emptyList())
-//        return Reader(readCache, fields.drop(key.fields.size), x.t.t!!, readValue).read(x.i,
-//                                                                                        list = x.t.t!!.mapIndexed { i, e ->
-//                                                                                            ReadFieldValue(e,
-//                                                                                                           key.fields[i])
-//                                                                                        })
     }
 
     /**
@@ -156,10 +138,6 @@ internal interface InternalRPD {
 
     fun keyName(): String {
         return key.name()
-    }
-
-    fun <X> onKey(f: FieldData.() -> X): X {
-        return key.onKey(f)
     }
 
     fun keyColumnName() = key.columnName()
@@ -195,19 +173,6 @@ internal interface InternalRPD {
         onFields { clearLists() }
     }
 
-    fun insertBy(insertObjects: List<InsertObject>): String {
-        val headString = insertObjects.insertHeadString()
-        val valueString = insertObjects.insertValueString()
-        return "($headString ) VALUES ($valueString);"
-    }
-
-    fun insertListBy(insertObjects: List<List<InsertObject>>): String {
-        val headString = insertObjects.first()
-                .insertHeadString()
-        val valueString = insertObjects.joinToString(separator = "), (") { it.insertValueString() }
-        return "($headString ) VALUES ($valueString);"
-    }
-
     fun classOfField(fieldName: String): KClass<Any> {
         return fields.find { it.name == fieldName }!!.propertyData.clazz
     }
@@ -225,10 +190,10 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
                         persisterProvider: PersisterProvider,
                         className: String = "no name",
                         method: (List<ReadFieldValue>) -> Any) : this(builder.idField!!,
-                                                                    persisterProvider,
-                                                                    builder.fields as List<FieldData>,
-                                                                    className,
-                                                                    method)
+                                                                      persisterProvider,
+                                                                      builder.fields as List<FieldData>,
+                                                                      className,
+                                                                      method)
 
     constructor(clazz: KClass<Any>,
                 persister: Persister,
@@ -245,10 +210,6 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
             throw RuntimeException("this class has no fields: $className")
         }
     }
-
-//    override fun evaluateToList(func:(Int) -> Any): List<R> {
-//        return func.getList(::evaluate)
-//    }
 
     fun evaluate(readValue: ReadValue, readCache: ReadCache): Any {
         return read(readValue, readCache).t
@@ -270,29 +231,6 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
 
     fun keySimpleType(r: Any) = key.simpleType(r)
 
-    fun toMany(list: List<ToStoreManyToOneObjects>,
-               i: Int = 0,
-               ret: Map<FieldData, List<Any>> = emptyMap()): Map<FieldData, List<Any>> {
-        if (i < list.size) {
-            val t = list[i]
-            val toInsert = ret[t.field]?.let { it + t.any } ?: listOf(t.any)
-            val nextRet = ret + (t.field to toInsert)
-            return toMany(list, i + 1, nextRet)
-        }
-        return ret
-    }
-
-//    private fun toManyStore(o: List<R>) {
-//        /**
-//         * only for fields, that have to store data in other tables. It ensures that this data
-//         * is written in one time, so that it is faster. Other fields may have an empty implementation
-//         * of this method
-//         */
-//        val z = o.flatMap { fields.flatMap { f -> f.toStoreObjects(f.hashCodeXIfAutoKey(it) as T) } }
-//        val x = toMany(z)
-//        x.forEach { t, u -> t.storeManyToOneObject(u as List<T>) }
-//    }
-
     suspend fun trueInsert(tableName: String, insertMap: InsertMap, it: Any) {
         val insertKey = InsertKey(tableName, key.hashCodeXIfAutoKey(it))
         val request = RequestTask(insertKey, it, { listOf(InsertRequest(insertObject(it))) }) {
@@ -302,41 +240,15 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
     }
 
     suspend fun putInsertRequests(tableName: String, insertMap: InsertMap, o: List<Any>) {
-//        for (it in o){
-//            withContext(Dispatchers.Default) {
-//                launch(Dispatchers.Default) {
-//                    val insertKey = InsertKey(tableName, key.hashCodeXIfAutoKey(it))
-//                    insertMap.toBuild(insertKey, it, { InsertRequest(insertObject(it)) }) {
-//                        fields.forEach { f -> f.toStoreData(insertMap, listOf(it)) }
-//                    }
-//                }
-//            }
-//        }
         o.map {
-            //            if (insertMap.insertCachePreference.multiThreading) {
-//                insertMap.actors.values.first()
-//                        .requestScope.launch {
-//                    trueInsert(tableName, insertMap, it)
-//                }
-//            } else {
             insertMap.actors.values.first()
                     .launch {
                         trueInsert(tableName, insertMap, it)
                     }
-//            }
-
         }
     }
 
-//    fun insert(o: R): String {
-//        toManyStore(listOf(o))
-//
-//        val insertObjects = insertObject(o)
-//        return insertBy(insertObjects)
-//    }
-
     fun deleteLists(key: List<Any>) {
-//        val key = keySimpleType(o)
         onFields { deleteLists(key) }
     }
 
@@ -360,7 +272,7 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
                             } catch (t: Throwable) {
                                 throw RuntimeException("error for clazz $clazz at ${primaryConstructor.parameters} and $values", t)
                             })
-                } catch (t:Throwable){
+                } catch (t: Throwable) {
                     throw t
                 }
             }

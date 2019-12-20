@@ -8,6 +8,9 @@ enum class X2(private val s: String) {
     B1("1"), B2("2"), B3("3");
 }
 
+interface TheInterface{
+    val x:Int
+}
 
 enum class OfferSide {
     BID, ASK;

@@ -39,6 +39,7 @@ internal interface PropertyData : FieldReadable {
         get() = false
 }
 
+
 private fun <R : Any, T : Any> KProperty1<R, T>.getObject(r: R): T {
     isAccessible = true
     try {
@@ -52,8 +53,7 @@ object SimpleTypeReadable : FieldReadable {
     override fun getObject(o: Any) = o
 }
 
-data class SimpleTypeProperty constructor(override val type: KType, override val name: String) :
-        SimpleProperty {
+data class SimpleTypeProperty constructor(override val type: KType, override val name: String) : SimpleProperty {
     override val clazz: KClass<Any> = type.classifier as KClass<Any>
     override val receiverType: KClass<Any>? = null
 }
@@ -66,13 +66,23 @@ internal interface PropertyReader : FieldReadable {
 
 class DefaultProperyReader(override val property: KProperty1<Any, Any>) : PropertyReader
 
-data class DefProperty(override val property: KProperty1<Any, Any>,
-                       override val receiverType: KClass<Any>,
-                       override val name: String = property.name) :
-        PropertyReader, PropertyData {
+internal class InterfaceProperty(override val property: KProperty1<Any, Any>,
+                                 override val receiverType: KClass<Any>,
+                                 override val name: String = property.name) : PropertyData, PropertyReader {
     override val type: KType = property.returnType
     override val clazz: KClass<Any> = type.classifier as KClass<Any>
     override val isNullable = property.returnType.isMarkedNullable
+}
+
+data class DefProperty(override val property: KProperty1<Any, Any>,
+                       override val receiverType: KClass<Any>,
+                       override val type: KType = property.returnType,
+                       override val isNullable: Boolean = property.returnType.isMarkedNullable,
+                       override val name: String = property.name) :
+        PropertyReader, PropertyData {
+
+    override val clazz: KClass<Any> = type.classifier as KClass<Any>
+
 }
 
 internal class AutoKeyProperty(val key: KeyHashCodeable) : PropertyData {

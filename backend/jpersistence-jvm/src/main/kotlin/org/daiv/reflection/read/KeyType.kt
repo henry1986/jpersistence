@@ -70,13 +70,6 @@ internal class KeyType constructor(val fields: List<FieldData>,
         return super.getObject(o)
     }
 
-    override fun toStoreObjects(objectValue: Any): List<ToStoreManyToOneObjects> {
-        return emptyList()
-    }
-
-    override fun persist() {
-        fields.forEach { it.persist() }
-    }
 
     override fun subFields(): List<FieldData> {
         return fields.flatMap { it.subFields() }

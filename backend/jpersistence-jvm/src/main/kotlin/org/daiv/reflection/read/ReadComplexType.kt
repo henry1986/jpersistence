@@ -79,7 +79,6 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
                 .lastOrNull()
     }
 
-    override fun persist() {}
 
     override fun createTableForeign(tableNames: Set<String>): Set<String> {
         if (including.include) {
@@ -155,9 +154,6 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
         return persisterData.key.insertObject(persisterData.key.hashCodeXIfAutoKey(objectValue))
     }
 
-    override fun toStoreObjects(objectValue: Any): List<ToStoreManyToOneObjects> {
-        return listOf(ToStoreManyToOneObjects(this, objectValue))
-    }
 
 //    override fun hashCodeXIfAutoKey(t: R): T {
 //        val obj = getObject(t)

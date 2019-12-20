@@ -23,10 +23,7 @@
 
 package org.daiv.reflection.common
 
-import org.daiv.reflection.annotations.Including
-import org.daiv.reflection.annotations.ManyList
-import org.daiv.reflection.annotations.ManyToOne
-import org.daiv.reflection.annotations.MoreKeys
+import org.daiv.reflection.annotations.*
 import org.daiv.reflection.isEnum
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.persister.Persister
@@ -158,13 +155,37 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
             }
         }
 
-        fun create(property: KProperty1<Any, Any>): FieldData? {
+        private fun createWithoutInterface(thisClass: KClass<Any>, property: KProperty1<Any, Any>): FieldData? {
             return when {
-                property.toKClass().java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property,
-                                                                                                      clazz), prefix)
-                property.toKClass().isEnum() -> EnumType(DefProperty(property as KProperty1<Any, Any>,
-                                                                     clazz), prefix)
-                (property.returnType.classifier as KClass<out Any>).isNoMapAndNoListAndNoSet() -> {
+                thisClass.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property,
+                                                                                            clazz), prefix)
+                thisClass.isEnum() -> EnumType(DefProperty(property, clazz), prefix)
+                thisClass.isNoMapAndNoListAndNoSet() -> {
+                    val propertyData = DefProperty(property, clazz, thisClass.createType(), true, thisClass.simpleName!!)
+                    ReadComplexType(propertyData, moreKeys, propertyData.clazz.including(), persisterProvider, prefix)
+                }
+                else -> {
+                    null
+                }
+            }
+        }
+
+        fun create(property: KProperty1<Any, Any>): FieldData? {
+            val kClass = property.toKClass()
+            return when {
+                kClass.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property, clazz), prefix)
+                kClass.isEnum() -> EnumType(DefProperty(property, clazz), prefix)
+                kClass.java.isInterface && kClass.isNoMapAndNoListAndNoSet() -> {
+                    val interf = property.findAnnotation<IFaceForObject>()
+                            ?: throw RuntimeException("missing @IFaceForObject annotation in $clazz")
+                    val map = interf.classesNames.map {
+                        val name = InterfaceField.nameOfClass(it)
+                        name to PossibleImplementation(name, createWithoutInterface(it as KClass<Any>, property)!!)
+                    }
+                            .toMap()
+                    InterfaceField(InterfaceProperty(property, clazz), prefix, map)
+                }
+                kClass.isNoMapAndNoListAndNoSet() -> {
                     val propertyData = DefProperty(property, clazz)
                     ReadComplexType(propertyData, moreKeys, propertyData.clazz.including(), persisterProvider, prefix)
                 }
@@ -197,8 +218,7 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
 
     fun fieldsRead(): Builder {
         if (clazz.java.isPrimitiveOrWrapperOrString()) {
-            val key = KeyType(listOf(ReadSimpleType(SimpleTypeProperty(clazz.createType(), clazz.tableName()),
-                                                    prefix)) as List<FieldData>)
+            val key = KeyType(listOf(ReadSimpleType(SimpleTypeProperty(clazz.createType(), clazz.tableName()), prefix)) as List<FieldData>)
             val fields = listOf(key) as List<FieldData>
             return Builder(key, fields, fields)
         }

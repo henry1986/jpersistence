@@ -23,6 +23,7 @@
 
 package org.daiv.reflection.common
 
+import org.daiv.reflection.annotations.IFaceForObject
 import org.daiv.reflection.isEnum
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.read.*
@@ -48,13 +49,21 @@ internal class ReadValue constructor(val resultSet: ResultSet) {
 
 internal fun KType.toLowField(persisterProvider: PersisterProvider,
                               depth: Int,
-                              prefix: String?): FieldData {
+                              prefix: String?,
+                              interfaceAnnotation: IFaceForObject? = null): FieldData {
     val clazz = this.classifier as KClass<Any>
     return when {
         clazz.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(this,
                                                                                        clazz.simpleName!!),
                                                                     prefix)
         clazz.isEnum() -> EnumType(SimpleTypeProperty(this, clazz.simpleName!!), prefix)
+//        clazz.java.isInterface -> {
+//            val map = interfaceAnnotation!!.classesNames.map {
+//                val name = InterfaceField.nameOfClass(it)
+//                name to PossibleImplementation(name, it.createType().toLowField(persisterProvider, 0, prefix))
+//            }.toMap()
+//            InterfaceField(InterfaceProperty(, clazz), prefix, map)
+//        }
         clazz.isNoMapAndNoListAndNoSet() -> ReadComplexType(SimpleTypeProperty(this, clazz.simpleName!!),
                                                             clazz.moreKeys(),
                                                             clazz.including(),
