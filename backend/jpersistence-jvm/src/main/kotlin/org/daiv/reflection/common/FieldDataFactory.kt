@@ -44,6 +44,8 @@ interface CheckAnnotation {
 
 internal fun getManyToOne() = ManyToOne::class.constructors.first().call("")
 
+internal fun getIFaceForList(iFaceForObject: Array<IFaceForObject>) = IFaceForList::class.constructors.first().call(iFaceForObject)
+
 internal fun <T : Any> KClass<T>.createObject(vararg args: Any) = this.constructors.first().call(*args)
 
 internal fun <T : Any> T?.default(clazz: KClass<T>, vararg args: Any): T {
@@ -204,7 +206,10 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
             val proClass = property.returnType.classifier as KClass<Any>
             return when {
                 proClass.isMapListOrSet() ->
-                    MapType(proClass.toProperty(property, clazz), persisterProvider, prefix, persister, clazz)
+                    MapType(proClass.toProperty(property, clazz), persisterProvider, property.findAnnotation() ?: kotlin.run {
+                        property.findAnnotation<IFaceForObject>()
+                                ?.let { getIFaceForList(arrayOf(it)) }
+                    }, prefix, persister, clazz)
                 else -> {
                     throw RuntimeException("unknown type : ${property.returnType}")
                 }

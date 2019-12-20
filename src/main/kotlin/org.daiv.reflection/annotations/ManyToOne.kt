@@ -44,11 +44,12 @@ annotation class Including(val include: Boolean = true)
 
 @Target(AnnotationTarget.PROPERTY)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class IFaceForObject(val classesNames: Array<KClass<*>>)
+annotation class IFaceForObject(val classesNames: Array<KClass<*>>, val depth: Int = 1)
+
 
 @Target(AnnotationTarget.PROPERTY)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class IFaceForList(val classesNames: Array<KClass<*>>, val depth: Int)
+annotation class IFaceForList(val ifaceForObject: Array<IFaceForObject>)
 
 @Serializable
 data class TableData(val tableName: String, val db: String, val header: List<String>, val values: List<List<String>>) {

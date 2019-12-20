@@ -23,6 +23,7 @@
 
 package org.daiv.reflection.read
 
+import org.daiv.reflection.annotations.IFaceForList
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.*
 import org.daiv.reflection.persister.Persister.HelperTable
@@ -32,6 +33,7 @@ import kotlin.reflect.full.isSubclassOf
 
 internal class MapType constructor(override val propertyData: CollectionProperty,
                                    val persisterProvider: PersisterProvider,
+                                   val iFaceForList: IFaceForList?,
                                    override val prefix: String?,
                                    val persister: Persister,
                                    val parentClass: KClass<Any>) :
@@ -52,7 +54,7 @@ internal class MapType constructor(override val propertyData: CollectionProperty
     private val helperTableName
         get() = "${persisterProvider[parentClass]}_${propertyData.receiverType.simpleName}_$name"
 
-    private val valueField = propertyData.type.toLowField(persisterProvider, 0, "value")
+    private val valueField = propertyData.type.toLowField(persisterProvider, 0, "value", iFaceForList)
 
 
     override suspend fun toStoreData(insertMap: InsertMap, r: List<Any>) {

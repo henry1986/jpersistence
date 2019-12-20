@@ -23,13 +23,14 @@
 
 package org.daiv.reflection.common
 
-import org.daiv.reflection.annotations.IFaceForObject
+import org.daiv.reflection.annotations.IFaceForList
 import org.daiv.reflection.isEnum
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
 import org.daiv.reflection.read.*
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
+import kotlin.reflect.full.createType
 
 fun <R : Any> ResultSet.getList(method: ResultSet.() -> R): List<R> {
     val mutableList = mutableListOf<R>()
@@ -47,35 +48,42 @@ internal class ReadValue constructor(val resultSet: ResultSet) {
     fun getObject(number: Int): Any? = resultSet.getObject(number)
 }
 
-internal fun KType.toLowField(persisterProvider: PersisterProvider,
-                              depth: Int,
-                              prefix: String?,
-                              interfaceAnnotation: IFaceForObject? = null): FieldData {
+internal fun KType.createWithoutInterface(clazz: KClass<*>, persisterProvider: PersisterProvider, prefix: String?): FieldData {
+    return when {
+        clazz.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(this, clazz.simpleName!!), prefix)
+        clazz.isEnum() -> EnumType(SimpleTypeProperty(this, clazz.simpleName!!), prefix)
+        clazz.isNoMapAndNoListAndNoSet() ->
+            ReadComplexType(SimpleTypeProperty(this, clazz.simpleName!!), clazz.moreKeys(), clazz.including(), persisterProvider, prefix)
+        else -> throw RuntimeException("type unknown: $clazz in $this")
+    }
+}
+
+internal fun KType.toLowField(persisterProvider: PersisterProvider, depth: Int, prefix: String?, interf: IFaceForList? = null): FieldData {
     val clazz = this.classifier as KClass<Any>
     return when {
-        clazz.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(this,
-                                                                                       clazz.simpleName!!),
-                                                                    prefix)
+        clazz.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(this, clazz.simpleName!!), prefix)
         clazz.isEnum() -> EnumType(SimpleTypeProperty(this, clazz.simpleName!!), prefix)
-//        clazz.java.isInterface -> {
-//            val map = interfaceAnnotation!!.classesNames.map {
-//                val name = InterfaceField.nameOfClass(it)
-//                name to PossibleImplementation(name, it.createType().toLowField(persisterProvider, 0, prefix))
-//            }.toMap()
-//            InterfaceField(InterfaceProperty(, clazz), prefix, map)
-//        }
-        clazz.isNoMapAndNoListAndNoSet() -> ReadComplexType(SimpleTypeProperty(this, clazz.simpleName!!),
-                                                            clazz.moreKeys(),
-                                                            clazz.including(),
-                                                            persisterProvider,
-                                                            prefix)
+        clazz.java.isInterface && clazz.isNoMapAndNoListAndNoSet() -> {
+            interf ?: throw RuntimeException(" no interface annotation for $this")
+            val i = interf.ifaceForObject.firstOrNull { it.depth == depth }
+                    ?: throw RuntimeException("for depth $depth there is nothing configured in $this")
+            val map = i.classesNames.map {
+                val name = InterfaceField.nameOfClass(it)
+                name to PossibleImplementation(name, it.createType().createWithoutInterface(it, persisterProvider, prefix))
+            }
+                    .toMap()
+            InterfaceField(SimpleTypeProperty(this, InterfaceField.nameOfClass(clazz)), prefix, map)
+        }
+        clazz.isNoMapAndNoListAndNoSet() ->
+            ReadComplexType(SimpleTypeProperty(this, clazz.simpleName!!), clazz.moreKeys(), clazz.including(), persisterProvider, prefix)
         clazz == List::class -> InnerMapType(SimpleListTypeProperty(this),
                                              depth,
+                                             interf,
                                              persisterProvider,
                                              prefix,
                                              listConverter,
                                              listBackConverter)
-        clazz == Map::class -> InnerMapType(SimpleMapTypeProperty(this), depth, persisterProvider, prefix)
+        clazz == Map::class -> InnerMapType(SimpleMapTypeProperty(this), depth, interf, persisterProvider, prefix)
         clazz == Set::class -> InnerSetType(SimpleSetProperty(this), depth, persisterProvider, prefix)
         else -> {
             throw RuntimeException("this: $this not possible")

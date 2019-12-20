@@ -1,5 +1,6 @@
 package org.daiv.reflection.read
 
+import org.daiv.reflection.annotations.IFaceForList
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.ReadCache
@@ -92,6 +93,7 @@ internal class InnerSetType constructor(override val propertyData: SetProperty,
 
 internal class InnerMapType constructor(override val propertyData: MapProperty,
                                         val depth: Int,
+                                        val iFaceForList: IFaceForList?,
                                         val persisterProvider: PersisterProvider,
                                         override val prefix: String?,
                                         val converter: (Any) -> Map<Any, Any> = { it as Map<Any, Any> },
@@ -100,7 +102,7 @@ internal class InnerMapType constructor(override val propertyData: MapProperty,
 
     private fun fieldName(name: String) = if (depth == 0) name else "$name$depth"
     private val keyField = propertyData.keyClazz.toLowField(persisterProvider, depth + 1, fieldName("key"))
-    private val valueField = propertyData.subType.toLowField(persisterProvider, depth + 1, fieldName("value"))
+    private val valueField = propertyData.subType.toLowField(persisterProvider, depth + 1, fieldName("value"), iFaceForList)
 
 
     override fun copyTableName(): Map<String, String> {
