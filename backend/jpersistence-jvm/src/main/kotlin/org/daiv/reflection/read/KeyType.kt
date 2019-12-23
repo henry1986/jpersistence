@@ -3,7 +3,11 @@ package org.daiv.reflection.read
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.ReadCache
+import org.daiv.reflection.plain.ObjectKey
+import org.daiv.reflection.plain.ObjectKeyToWrite
+import org.daiv.reflection.plain.PersistenceKey
 import org.daiv.reflection.plain.SimpleReadObject
+import org.daiv.util.recIndexed
 
 /**
  * in case, this is an auto idField, [idFieldIfAuto] is the older idField without [key]
@@ -51,6 +55,32 @@ internal class KeyType constructor(val fields: List<FieldData>,
                 .joinToString(", ")
     }
 
+    fun keyToWrite(t: Any): ObjectKeyToWrite {
+        return object : ObjectKeyToWrite {
+            override fun theObject() = t
+
+            override fun itsKey() = getObject(t) as List<Any>
+
+            override fun itsHashCode() = key!!.plainHashCodeX(t)
+
+            override fun keyToWrite() = hashCodeXIfAutoKey(t)
+
+            override fun isAutoId() = this@KeyType.isAuto()
+
+            override fun toObjectKey() = PersistenceKey(keyToWrite(), isAutoId())
+        }
+    }
+
+    fun toObjectKey(t: Any) = PersistenceKey(hashCodeXIfAutoKey(t), isAuto())
+
+    fun objectKey(key: List<Any>): ObjectKey {
+        return if (isAuto()) {
+            PersistenceKey(listOf(plainHashCodeXIfAutoKey(key)), true)
+        } else {
+            PersistenceKey(key, false)
+        }
+    }
+
     /**
      * returns hashcodeX of [getObject] of [t] if this is a autoKey, [getObject] of [t] else
      */
@@ -75,23 +105,24 @@ internal class KeyType constructor(val fields: List<FieldData>,
         return fields.flatMap { it.subFields() }
     }
 
-    private fun read(i: Int,
-                     readCache: ReadCache,
-                     readValue: ReadValue,
-                     number: Int,
-                     ret: NextSize<ReadAnswer<List<Any>>>): NextSize<ReadAnswer<List<Any>>> {
-        if (i < fields.size) {
-            val read = fields[i].getValue(readCache, readValue, number, emptyList())
-            val x = ReadAnswer(read.t.t?.let { ret.t.t!! + read.t.t })
-            return read(i + 1, readCache, readValue, read.i, NextSize(x, read.i))
+    fun getKeyValue(readCache: ReadCache, readValue: ReadValue, number: Int): NextSize<ReadAnswer<ObjectKey>> {
+        val ret: List<NextSize<ReadAnswer<Any>>> = fields.recIndexed { i, fieldData, list ->
+            val read = fieldData.getValue(readCache, readValue, list.lastOrNull()?.i ?: number, ObjectKey.empty)
+            read
         }
-        return ret
+        val p = ret.map { it.t.t }
+        val res: ObjectKey? = if (p.any { it == null }) null else PersistenceKey(p as List<Any>, isAuto())
+        return NextSize(ReadAnswer(res), ret.last().i)
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
-        return read(0, readCache, readValue, number, NextSize(ReadAnswer(emptyList()), number)) as NextSize<ReadAnswer<Any>>
-//        return fields.first()
-//                .getValue(readValue, number, key)
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
+        val ret: List<NextSize<ReadAnswer<Any>>> = fields.recIndexed { i, fieldData, list ->
+            val read = fieldData.getValue(readCache, readValue, list.lastOrNull()?.i ?: number, ObjectKey.empty)
+            read
+        }
+        val p = ret.map { it.t.t }
+        val list = if (p.any { it == null }) null else p
+        return NextSize(ReadAnswer(list), ret.last().i) as NextSize<ReadAnswer<Any>>
     }
 
     override fun fNEqualsValue(o: Any, sep: String): String {

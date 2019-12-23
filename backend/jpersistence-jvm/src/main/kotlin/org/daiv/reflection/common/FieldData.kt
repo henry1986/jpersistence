@@ -24,9 +24,9 @@
 package org.daiv.reflection.common
 
 import org.daiv.reflection.persister.InsertMap
-import org.daiv.reflection.persister.InsertRequest
 import org.daiv.reflection.persister.Persister.HelperTable
 import org.daiv.reflection.persister.ReadCache
+import org.daiv.reflection.plain.ObjectKey
 import org.daiv.reflection.plain.SimpleReadObject
 import org.daiv.reflection.read.InsertObject
 import org.daiv.reflection.read.KeyType
@@ -58,7 +58,7 @@ internal interface FieldCollection {
     fun plainType(name: String): SimpleReadObject?
 
     fun getColumnValue(readValue: ReadValue): Any
-    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>>
+    fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>>
     fun insertObject(o: Any?): List<InsertObject>
     fun underscoreName(): String?
 }

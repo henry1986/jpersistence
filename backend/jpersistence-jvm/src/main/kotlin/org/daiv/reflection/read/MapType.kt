@@ -27,6 +27,7 @@ import org.daiv.reflection.annotations.IFaceForList
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.*
 import org.daiv.reflection.persister.Persister.HelperTable
+import org.daiv.reflection.plain.ObjectKey
 import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
 
@@ -60,9 +61,10 @@ internal class MapType constructor(override val propertyData: CollectionProperty
     override suspend fun toStoreData(insertMap: InsertMap, r: List<Any>) {
         val p = r.map { key -> key to propertyData.getObject(key) }
         p.forEach { x ->
-            val id1 = idField.hashCodeXIfAutoKey(x.first)
-            insertMap.toBuild(RequestTask(InsertKey(helperTableName, id1), {
-                val b = idField.insertObject(id1)
+            val id1 = idField.keyToWrite(x.first)
+//            val id1 = idField.hashCodeXIfAutoKey(x.first)
+            insertMap.toBuild(RequestTask(InsertKey(helperTableName, id1.toObjectKey()), {
+                val b = idField.insertObject(id1.keyToWrite())
                 valueField.insertObjects(x.second)
                         .map {
                             InsertRequest(b + it)
@@ -99,9 +101,10 @@ internal class MapType constructor(override val propertyData: CollectionProperty
         helperTable.deleteBy(idField.name, key)
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, objectKey: ObjectKey): NextSize<ReadAnswer<Any>> {
+        val key = objectKey.keys()
         if (key.isEmpty()) {
-            throw NullPointerException("a List cannot be a key")
+            throw NullPointerException("a Collection with no autoId cannot be a key")
         }
         val fn = idField.autoIdFNEqualsValue(key, " AND ")
         val read = helperTable.readIntern(fn, readCache)

@@ -4,7 +4,9 @@ import mu.KotlinLogging
 import org.daiv.reflection.annotations.IFaceForList
 import org.daiv.reflection.annotations.Including
 import org.daiv.reflection.annotations.IFaceForObject
+import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.persister.Persister
+import org.daiv.util.json.log
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
@@ -24,6 +26,9 @@ class InterfaceTest :
                  //                 data class ListClass(val x: Int, @IFaceForList([IFaceForObject([SimpleClass::class, AnotherClass2::class],
 //                                                                                1)]) val interf: List<TheInterface>)
                  data class ListClass(val x: Int, @IFaceForObject([SimpleClass::class, AnotherClass2::class]) val interf: List<TheInterface>)
+
+                 @MoreKeys(1, true)
+                 data class ListAutoClass(@IFaceForObject([SimpleClass::class, AnotherClass2::class]) val interf: List<TheInterface>)
                  describe("InterfaceTest") {
                      val logger = KotlinLogging.logger {}
                      val persister = Persister("InterfaceTest.db")
@@ -50,12 +55,23 @@ class InterfaceTest :
                          it("test persist list object") {
                              val table = persister.Table(ListClass::class)
                              table.persist()
-                             val c = listOf(ListClass(5, listOf(SimpleClass(3, "Hello"))),
-                                            ListClass(6, listOf(AnotherClass2(2, 6, "Wow"))),
+                             val c = listOf(ListClass(5, listOf(SimpleClass(3, "Hello"), AnotherClass2(2, 6, "Wow"))),
+                                            ListClass(6, listOf(AnotherClass2(3, 6, "Wow"))),
                                             ListClass(7, listOf(AnotherClass2(2, 6, "Wow"))))
                              table.insert(c)
                              val read = table.readAll()
                              assertEquals(c, read)
+                         }
+                         it("test persist auto list object") {
+                             val table = persister.Table(ListAutoClass::class)
+                             table.persist()
+                             val c = listOf(ListAutoClass(listOf(SimpleClass(3, "Hello"))),
+                                            ListAutoClass(listOf(AnotherClass2(3, 9, "Wow"))),
+                                            ListAutoClass(listOf(AnotherClass2(2, 10, "Wow"))))
+                             table.insert(c)
+                             val read = table.readAll()
+                             read.log(logger)
+                             assertEquals(c.toSet(), read.toSet())
                          }
                      }
                      afterGroup { persister.delete() }

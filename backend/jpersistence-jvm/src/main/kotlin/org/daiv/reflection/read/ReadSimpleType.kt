@@ -25,6 +25,7 @@ package org.daiv.reflection.read
 
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.ReadCache
+import org.daiv.reflection.plain.ObjectKey
 import org.daiv.reflection.plain.PlainBooleanObject
 import org.daiv.reflection.plain.PlainLongObject
 import org.daiv.reflection.plain.PlainObject
@@ -48,7 +49,7 @@ internal class ReadSimpleType constructor(override val propertyData: PropertyDat
         else -> PlainObject(name)
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
         try {
             val any = if (propertyData.clazz == Long::class) {
                 readValue.resultSet.getLong(number)
@@ -181,9 +182,28 @@ internal class SetHashCodeable(val valueHashCodeable: HashCodeable, setReadable:
     }
 }
 
+internal class InterfaceHashCodeable(val possibleHashImplementation: Map<String, PossibleHashImplementation>, readable: FieldReadable) :
+        HashCodeable, FieldReadable by readable {
+
+    private fun hashCodeCalc(plain: Any, tFromGetObject: Any): Int {
+        val name = InterfaceField.nameOfObj(tFromGetObject)
+        val p = possibleHashImplementation[name] ?: throw RuntimeException("type unknown: $name - maybe no InterfaceField Annotation used?")
+        return p.hashCodeable.hashCodeX(plain)
+    }
+
+    override fun hashCodeX(t: Any): Int {
+        return hashCodeCalc(t, getObject(t))
+    }
+
+    override fun plainHashCodeX(t: Any): Int {
+        return hashCodeCalc(t, t)
+    }
+
+}
+
 internal class ComplexHashCodeable(val clazz: KClass<Any>,
                                    val provider: HashCodeableProvider,
-                                   val complexReadable: FieldReadable) : HashCodeable, FieldReadable {
+                                   val complexReadable: FieldReadable) : HashCodeable, FieldReadable by complexReadable {
 
     init {
         provider.register(clazz)
@@ -191,10 +211,6 @@ internal class ComplexHashCodeable(val clazz: KClass<Any>,
 
     val key: KeyHashCodeable
         get() = provider.hashCodeable(clazz)
-
-    override fun getObject(o: Any): Any {
-        return complexReadable.getObject(o)
-    }
 
     override fun hashCodeX(t: Any): Int {
         return key.hashCodeX(getObject(t))

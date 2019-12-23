@@ -29,6 +29,7 @@ import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.ReadCache
+import org.daiv.reflection.plain.ObjectKey
 import org.daiv.reflection.plain.SimpleReadObject
 
 internal class ReadComplexType constructor(override val propertyData: PropertyData,
@@ -64,7 +65,8 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
             if (including.include) {
                 return
             }
-            val key = persisterData.key.hashCodeXIfAutoKey(obj)
+            val key = persisterData.key.keyToWrite(obj)
+//            val key = persisterData.key.hashCodeXIfAutoKey(obj)
             insertMap.nextTask(table, key, obj) {
                 table.readPersisterData.putInsertRequests(table._tableName, insertMap, listOf(obj))
             }
@@ -122,19 +124,20 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
         return persisterData.key.copyTableName()
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
-        val nextSize = persisterData.key.getValue(readCache, readValue, number, key)
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
+        val nextSize = persisterData.key.getKeyValue(readCache, readValue, number)
+//        val nextSize = persisterData.key.getValue(readCache, readValue, number, key)
         if (nextSize.t.t == null) {
             return NextSize(ReadAnswer(null) as ReadAnswer<Any>, nextSize.i)
         }
         if (including.include) {
-            val x = nextSize.t.t as List<Any>
+            val x = nextSize.t.t.keys()
             val list = table.readPersisterData.fields.mapIndexed { i, e -> ReadFieldValue(x[i], e) }
             val n = NextSize(list, nextSize.i)
             val r = ReadPersisterData.readValue(clazz)
             return n.transform { b -> ReadAnswer(r(b)) }
         }
-        val read = readCache.readNoNull(table, nextSize.t.t as List<Any>)
+        val read = readCache.readNoNull(table, nextSize.t.t)
 //        val read = table.readMultipleUseHashCode(nextSize.t)
 //                ?: throw RuntimeException("did not find value for key ${nextSize.t}")
 

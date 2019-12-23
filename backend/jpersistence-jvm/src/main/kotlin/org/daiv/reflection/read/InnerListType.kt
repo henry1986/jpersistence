@@ -4,6 +4,7 @@ import org.daiv.reflection.annotations.IFaceForList
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.ReadCache
+import org.daiv.reflection.plain.ObjectKey
 import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
 
@@ -45,7 +46,7 @@ internal class InnerSetType constructor(override val propertyData: SetProperty,
                 .joinToString(", ")
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
         val x = valueField.getValue(readCache, readValue, number, key)
         return NextSize(ReadAnswer(x.t.t), number)
     }
@@ -136,10 +137,10 @@ internal class InnerMapType constructor(override val propertyData: MapProperty,
         o as Map<Any, Any>
         return sequenceOf(o.values.map { valueField.fNEqualsValue(it, sep) },
                           o.keys.map { keyField.fNEqualsValue(it, sep) })
-                .joinToString(", ")
+                .joinToString(sep)
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
         val x = valueField.getValue(readCache, readValue, number, key)
         return NextSize(ReadAnswer(x.t.t), number)
     }

@@ -28,6 +28,7 @@ import org.daiv.reflection.common.ReadAnswer
 import org.daiv.reflection.common.ReadValue
 import org.daiv.reflection.common.SimpleTypes
 import org.daiv.reflection.persister.ReadCache
+import org.daiv.reflection.plain.ObjectKey
 import org.daiv.reflection.plain.PlainEnumObject
 import org.daiv.reflection.plain.SimpleReadObject
 import java.sql.SQLException
@@ -48,7 +49,7 @@ internal class EnumType constructor(override val propertyData: PropertyData, ove
         return null
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
         try {
             val any = readValue.getObject(number) as String
             return NextSize(ReadAnswer(getEnumValue(propertyData.clazz.java, any)), number + 1)
@@ -75,7 +76,7 @@ internal class AutoKeyType(override val propertyData: PropertyData, override val
         return null
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
         val any = readValue.getObject(number)
         return NextSize(ReadAnswer(any), number + 1)
     }

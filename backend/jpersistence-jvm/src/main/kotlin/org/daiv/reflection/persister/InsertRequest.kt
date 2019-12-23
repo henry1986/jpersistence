@@ -1,12 +1,13 @@
 package org.daiv.reflection.persister
 
 import mu.KotlinLogging
-import org.daiv.reflection.common.ReadAnswer
+import org.daiv.reflection.plain.ObjectKey
+import org.daiv.reflection.plain.ObjectKeyToWrite
 import org.daiv.reflection.read.InsertObject
 import org.daiv.reflection.read.insertHeadString
 import org.daiv.reflection.read.insertValueString
 
-internal data class InsertKey constructor(val tableName: String, val key: List<Any>)
+internal data class InsertKey constructor(val tableName: String, val key: ObjectKey)
 
 internal data class InsertRequest(val insertObjects: List<InsertObject>)
 
@@ -32,7 +33,7 @@ internal data class InsertMap constructor(val persister: Persister,
     }
 
 
-    private fun <T : Any> T.checkDBValue(objectValue: T, key: List<Any>): T {
+    private fun <T : Any> T.checkDBValue(objectValue: T, key: ObjectKey): T {
         if (this != objectValue) {
             val firstTryMsg = "values are not the same -> " +
                     "databaseValue:       $this \n vs manyToOne Value: $objectValue"
@@ -46,15 +47,16 @@ internal data class InsertMap constructor(val persister: Persister,
         return objectValue
     }
 
-    suspend fun <T : Any> nextTask(table: Persister.Table<T>, key: List<Any>, obj: T, nextTask: suspend () -> Unit) {
+    suspend fun <T : Any> nextTask(table: Persister.Table<T>, key: ObjectKeyToWrite, obj: T, nextTask: suspend () -> Unit) {
+        val objectKey = key.toObjectKey()
         if (insertCachePreference.checkCacheOnly) {
-            if (readCache.isInCache(table, key)) {
+            if (readCache.isInCache(table, objectKey)) {
                 return
             }
         } else {
-            val read = readCache.read(table, key)
+            val read = readCache.read(table, objectKey)
             if (read != null) {
-                read.checkDBValue(obj, key)
+                read.checkDBValue(obj, objectKey)
                 return
             }
         }
@@ -102,7 +104,7 @@ internal interface PersisterListener {
 }
 
 internal class ReadTableCache(val tableName: String) {
-    private val map: MutableMap<List<Any>, Any> = mutableMapOf()
+    private val map: MutableMap<ObjectKey, Any> = mutableMapOf()
     fun containsKey(insertKey: InsertKey): Boolean {
         return map.containsKey(insertKey.key)
     }
@@ -121,7 +123,7 @@ internal class ReadCache(val persisterPreference: PersisterPreference) : Persist
     private val logger = KotlinLogging.logger {}
     private val map: MutableMap<String, ReadTableCache> = mutableMapOf()
 
-    fun <T : Any> read(table: Persister.Table<T>, key: List<Any>): T? {
+    fun <T : Any> read(table: Persister.Table<T>, key: ObjectKey): T? {
         val readCacheKey = InsertKey(table.tableName, key)
         val tableCache = if (!map.containsKey(readCacheKey.tableName)) {
             val tableCache = ReadTableCache(readCacheKey.tableName)
@@ -147,7 +149,7 @@ internal class ReadCache(val persisterPreference: PersisterPreference) : Persist
         }
     }
 
-    fun <T : Any> isInCache(table: Persister.Table<T>, key: List<Any>): Boolean {
+    fun <T : Any> isInCache(table: Persister.Table<T>, key: ObjectKey): Boolean {
         val readCacheKey = InsertKey(table._tableName, key)
         return map[readCacheKey.tableName]?.get(readCacheKey) != null
     }
@@ -168,8 +170,9 @@ internal class ReadCache(val persisterPreference: PersisterPreference) : Persist
 //        map[insertKey] = obj
 //    }
 
-    fun <T : Any> readNoNull(table: Persister.Table<T>, key: List<Any>): T {
-        return read(table, key) ?: throw RuntimeException("did not find value for key $key in ${table._tableName}")
+    fun <T : Any> readNoNull(table: Persister.Table<T>, key: ObjectKey): T {
+        return read(table, key)
+                ?: throw RuntimeException("did not find value for key $key in ${table._tableName}")
     }
 
     override fun onDelete(tableName: String, key: List<Any>) {

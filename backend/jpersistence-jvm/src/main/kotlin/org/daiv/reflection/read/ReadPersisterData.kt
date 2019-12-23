@@ -25,6 +25,7 @@ package org.daiv.reflection.read
 
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.*
+import org.daiv.reflection.plain.ObjectKey
 import kotlin.reflect.KClass
 import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.isAccessible
@@ -32,7 +33,7 @@ import kotlin.reflect.jvm.isAccessible
 internal data class ReadFieldValue(val value: Any?, val fieldData: FieldData)
 private class Reader(val readCache: ReadCache,
                      val fields: List<FieldData>,
-                     val key: List<Any>,
+                     val key: ObjectKey,
                      val readValue: ReadValue) {
     fun read(counter: Int, i: Int = 0, list: List<ReadFieldValue> = emptyList()): NextSize<List<ReadFieldValue>> {
         if (i < fields.size) {
@@ -61,14 +62,14 @@ internal interface InternalRPD {
     }
 
     fun fromWhere(fieldName: String, id: Any, sep: String): String {
-        return if (key.fieldName == fieldName) {
-            key.whereClause(id as List<Any>, sep)
-        } else {
-            try {
+        try {
+            return if (key.fieldName == fieldName) {
+                key.whereClause(id as List<Any>, sep)
+            } else {
                 field(fieldName).whereClause(id, sep)
-            } catch (t: Throwable) {
-                throw t
             }
+        } catch (t: Throwable) {
+            throw t
         }
     }
 
@@ -121,12 +122,13 @@ internal interface InternalRPD {
     }
 
     fun innerRead(readValue: ReadValue, counter: Int = 1, readCache: ReadCache): NextSize<List<ReadFieldValue>> {
-        val x = key.getValue(readCache, readValue, counter, emptyList())
-        return Reader(readCache, noKeyFields, x.t.t as List<Any>, readValue).read(x.i,
-                                                                                  list = x.t.t.mapIndexed { i, e ->
-                                                                                      ReadFieldValue(e,
-                                                                                                     key.fields[i])
-                                                                                  })
+        val keyAnswer = key.getKeyValue(readCache, readValue, counter)
+//        val x = key.getValue(readCache, readValue, counter, ObjectKey.empty)
+        return Reader(readCache, noKeyFields, keyAnswer.t.t!!, readValue).read(keyAnswer.i,
+                                                                               list = keyAnswer.t.t.keys().mapIndexed { i, e ->
+                                                                                   ReadFieldValue(e,
+                                                                                                  key.fields[i])
+                                                                               })
     }
 
     /**
@@ -232,7 +234,8 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
     fun keySimpleType(r: Any) = key.simpleType(r)
 
     suspend fun trueInsert(tableName: String, insertMap: InsertMap, it: Any) {
-        val insertKey = InsertKey(tableName, key.hashCodeXIfAutoKey(it))
+        val insertKey = InsertKey(tableName, key.toObjectKey(it))
+//        val insertKey = InsertKey(tableName, key.hashCodeXIfAutoKey(it))
         val request = RequestTask(insertKey, it, { listOf(InsertRequest(insertObject(it))) }) {
             fields.forEach { f -> f.toStoreData(insertMap, listOf(it)) }
         }

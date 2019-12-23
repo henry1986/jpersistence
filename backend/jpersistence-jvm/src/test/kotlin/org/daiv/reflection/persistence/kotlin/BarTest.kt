@@ -2,9 +2,11 @@ package org.daiv.reflection.persistence.kotlin
 
 import mu.KotlinLogging
 import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
+import org.daiv.reflection.annotations.Including
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.FieldDataFactory
 import org.daiv.reflection.common.createHashCode
+import org.daiv.reflection.common.hashCodeX
 import org.daiv.reflection.database.persister
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.PersisterPreference
@@ -60,6 +62,14 @@ class BarTest
                data class WaveSet(val id: Int, val waves: List<DrawnWave>) {
                    constructor(waves: List<DrawnWave>) : this(waves.hashCode(), waves)
                }
+
+               @Including
+               data class SameHashCodeTest(val x1: Int, val x2: Int)
+
+               @MoreKeys(auto = true)
+               data class ComplexSameHashCode(val sameHashCodeTest: SameHashCodeTest)
+
+               data class ReadComplexSameHashCode(val x:Int, val complexSameHashCode: ComplexSameHashCode)
 
                val logger = KotlinLogging.logger { }
                describe("BarTest") {
@@ -244,7 +254,7 @@ class BarTest
                        }
                    }
 
-                   fun Persister.testDoubleReference(testName: String, initBlock:()->Unit = {}) {
+                   fun Persister.testDoubleReference(testName: String, initBlock: () -> Unit = {}) {
                        on(testName) {
                            it("test double reference") {
                                val table = Table(WPDescriptor::class)
@@ -321,6 +331,31 @@ class BarTest
                            createTable("test1", 200.0)
                            createTable("test2", 300.0)
                            createTable("test3", 400.0)
+                       }
+                   }
+                   on("test same hashcode") {
+                       val c1 = ComplexSameHashCode(SameHashCodeTest(1, 32))
+                       val c2 = ComplexSameHashCode(SameHashCodeTest(2, 1))
+                       it("test read"){
+                           val table = persister.Table(ComplexSameHashCode::class)
+                           table.persist()
+                           val list = listOf(c1, c2)
+                           table.insert(list)
+                           val read = table.readAll()
+                           val hash1 = listOf(1, 32).hashCodeX() + 31
+                           val hash2 = listOf(2, 1).hashCodeX() + 31
+                           logger.trace{ "h1: $hash1, h2: $hash2"}
+                           assertEquals(list, read)
+                       }
+                       it("test ReadComplex"){
+                           val table = persister.Table(ReadComplexSameHashCode::class)
+                           table.persist()
+                           val r1 = ReadComplexSameHashCode(2, c1)
+                           val r2 = ReadComplexSameHashCode(3, c2)
+                           val rList = listOf(r1, r2)
+                           table.insert(rList)
+                           val read = table.readAll()
+                           assertEquals(rList, read)
                        }
                    }
                    afterGroup { persister.delete(); doubleRefPersister.delete() }

@@ -3,6 +3,7 @@ package org.daiv.reflection.read
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.ReadCache
+import org.daiv.reflection.plain.ObjectKey
 import org.daiv.reflection.plain.SimpleReadObject
 import org.daiv.util.rec
 import org.daiv.util.recIndexed
@@ -85,7 +86,7 @@ internal class InterfaceField(override val propertyData: PropertyData,
         TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: List<Any>): NextSize<ReadAnswer<Any>> {
+    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
 //        val name = readSimpleType.getValue(readCache, readValue, number, key).t.t as String
 //        possibleClasses[name]!!.fieldData.getValue(readCache, readValue, number, key)
         val res: List<Pair<String, NextSize<ReadAnswer<Any>>>> = possibleClasses.toList()

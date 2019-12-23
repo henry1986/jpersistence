@@ -62,6 +62,19 @@ internal fun <T : Any> KClass<T>.moreKeys() = this.findAnnotation<MoreKeys>()
 internal fun <T : Any> KClass<T>.including() = this.findAnnotation<Including>()
         .default(Including::class, false)
 
+internal fun <T : Any> KProperty1<*, *>.toMap(clazz: KClass<*>,
+                                              createFct: (String, KClass<*>) -> T): Map<String, T> {
+    val interf = findAnnotation<IFaceForObject>()
+            ?: throw RuntimeException("missing @IFaceForObject annotation in $clazz")
+    val map = interf.classesNames.map {
+        val name = InterfaceField.nameOfClass(it)
+        name to createFct(name, it)
+    }
+            .toMap()
+    return map
+
+}
+
 internal class KeyAnnotation(private val property: KProperty1<*, *>) : CheckAnnotation {
     override fun manyToOne(): ManyToOne {
         return property.findAnnotation() ?: getManyToOne()
@@ -178,13 +191,9 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
                 kClass.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property, clazz), prefix)
                 kClass.isEnum() -> EnumType(DefProperty(property, clazz), prefix)
                 kClass.java.isInterface && kClass.isNoMapAndNoListAndNoSet() -> {
-                    val interf = property.findAnnotation<IFaceForObject>()
-                            ?: throw RuntimeException("missing @IFaceForObject annotation in $clazz")
-                    val map = interf.classesNames.map {
-                        val name = InterfaceField.nameOfClass(it)
-                        name to PossibleImplementation(name, createWithoutInterface(it as KClass<Any>, property)!!)
+                    val map = property.toMap(kClass) { s, c ->
+                        PossibleImplementation(s, createWithoutInterface(c as KClass<Any>, property)!!)
                     }
-                            .toMap()
                     InterfaceField(InterfaceProperty(property, clazz), prefix, map)
                 }
                 kClass.isNoMapAndNoListAndNoSet() -> {
@@ -238,15 +247,17 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
 fun KClass<out Any>.createHashCode(obj: List<Any>) = createHashCodeableKey(HashCodeableProvider()).plainHashCodeX(obj)
 
 internal fun KClass<out Any>.createHashCodeableKey(provider: HashCodeableProvider,
-                                                   moreKeys: MoreKeys = this.findAnnotation<MoreKeys>().default(1)) =
-        createHashCodeables(provider, moreKeys, moreKeys.amount).key()
+                                                   moreKeys: MoreKeys = this.findAnnotation<MoreKeys>().default(1),
+                                                   including: Including? = this.findAnnotation()) =
+        createHashCodeables(provider, moreKeys, including, moreKeys.amount).key()
 
-internal class HashCodeableHandler(val moreKeys: MoreKeys, val list: List<HashCodeable>) {
-    fun key() = KeyHashCodeable(list.take(moreKeys.amount))
+internal class HashCodeableHandler(val moreKeys: MoreKeys, val including: Including?, val list: List<HashCodeable>) {
+    fun key() = KeyHashCodeable(including?.let { list } ?: list.take(moreKeys.amount))
 }
 
 internal fun KClass<out Any>.createHashCodeables(provider: HashCodeableProvider,
                                                  moreKeys: MoreKeys = this.findAnnotation<MoreKeys>().default(1),
+                                                 including: Including? = this.findAnnotation(),
                                                  maxSize: Int = moreKeys.amount,
                                                  i: Int = 0,
                                                  constructor: KFunction<Any> = this.primaryConstructor ?: run {
@@ -257,29 +268,49 @@ internal fun KClass<out Any>.createHashCodeables(provider: HashCodeableProvider,
         val parameter = constructor.parameters[i]
         val property = this.declaredMemberProperties.find { it.name == parameter.name }
         val hashCodeable = property!!.createHashCodeable(provider)
-        return createHashCodeables(provider, moreKeys, maxSize, i + 1, constructor, ret + hashCodeable)
+        return createHashCodeables(provider, moreKeys, including, maxSize, i + 1, constructor, ret + hashCodeable)
     }
-    return HashCodeableHandler(moreKeys, ret)
+    return HashCodeableHandler(moreKeys, including, ret)
+
+}
+
+internal data class PossibleHashImplementation(val key: String, val hashCodeable: HashCodeable)
+
+internal fun KProperty1<*, *>.createForInterface(provider: HashCodeableProvider, kClass: KClass<*>): HashCodeable {
+    return when {
+        kClass.java.isPrimitiveOrWrapperOrString() -> SimpleHashCodeable(DefaultProperyReader(this as KProperty1<Any, Any>))
+        kClass.isEnum() -> EnumHashCodeable
+        kClass.isNoMapAndNoListAndNoSet() ->
+            ComplexHashCodeable(kClass as KClass<Any>, provider, DefaultProperyReader(this as KProperty1<Any, Any>))
+        else -> throw RuntimeException("type not supported: $kClass")
+    }
 
 }
 
 internal fun KProperty1<*, *>.createHashCodeable(provider: HashCodeableProvider): HashCodeable {
+    val kClass = this.toKClass()
     return when {
-        this.toKClass().java.isPrimitiveOrWrapperOrString() -> SimpleHashCodeable(DefaultProperyReader(this as KProperty1<Any, Any>))
-        this.toKClass().isEnum() -> EnumHashCodeable
-        (this.returnType.classifier as KClass<Any>).isNoMapAndNoListAndNoSet() ->
-            ComplexHashCodeable((this.returnType.classifier as KClass<Any>), provider,
-                                DefaultProperyReader(this as KProperty1<Any, Any>))
-        this.returnType.classifier as KClass<Any> == Map::class -> {
+        kClass.java.isPrimitiveOrWrapperOrString() -> SimpleHashCodeable(DefaultProperyReader(this as KProperty1<Any, Any>))
+        kClass.isEnum() -> EnumHashCodeable
+        kClass.java.isInterface && kClass.isNoMapAndNoListAndNoSet() -> {
+            val pReader = DefaultProperyReader(this as KProperty1<Any, Any>)
+            val map = toMap(kClass) { name, clazz ->
+                PossibleHashImplementation(name, createForInterface(provider, clazz))
+            }
+            InterfaceHashCodeable(map, pReader)
+        }
+        kClass.isNoMapAndNoListAndNoSet() ->
+            ComplexHashCodeable(kClass, provider, DefaultProperyReader(this as KProperty1<Any, Any>))
+        kClass == Map::class -> {
             val mapReadable = MapReadable(this as KProperty1<Any, Map<Any, Any>>)
             MapHashCodeable(mapReadable.keyClazz.createHashCodeables(provider).key(),
                             mapReadable.clazz.createHashCodeables(provider).key(),
                             mapReadable)
         }
-        this.returnType.classifier as KClass<Any> == List::class -> {
+        kClass == List::class -> {
             ListHashCodeable((this as KProperty1<Any, List<Any>>).keyHashCodeable(provider), ListReadable(this))
         }
-        this.returnType.classifier as KClass<Any> == Set::class -> {
+        kClass == Set::class -> {
             this as KProperty1<Any, Set<Any>>
             SetHashCodeable(this.keyHashCodeable(provider), DefaultProperyReader(this))
         }
@@ -289,12 +320,27 @@ internal fun KProperty1<*, *>.createHashCodeable(provider: HashCodeableProvider)
     }
 }
 
-internal fun KClass<Any>.createHashCodeable(provider: HashCodeableProvider): HashCodeable {
+internal fun KClass<*>.createHashCodeablesWithoutInterface(provider: HashCodeableProvider): HashCodeable {
     return when {
         this.java.isPrimitiveOrWrapperOrString() -> SimpleHashCodeable(SimpleTypeReadable)
         this.isEnum() -> EnumHashCodeable
-        this.isNoMapAndNoListAndNoSet() ->
-            ComplexHashCodeable(this, provider, SimpleTypeReadable)
+        this.isNoMapAndNoListAndNoSet() -> ComplexHashCodeable(this as KClass<Any>, provider, SimpleTypeReadable)
+        else -> throw RuntimeException("type not known: $this")
+    }
+}
+
+internal fun KClass<Any>.createHashCodeable(provider: HashCodeableProvider, interf: IFaceForList?): HashCodeable {
+    return when {
+        this.java.isPrimitiveOrWrapperOrString() -> SimpleHashCodeable(SimpleTypeReadable)
+        this.isEnum() -> EnumHashCodeable
+        this.java.isInterface && this.isNoMapAndNoListAndNoSet() -> {
+            val map = this.createType()
+                    .toMap(interf, 1) { name, clazz ->
+                        PossibleHashImplementation(name, clazz.createHashCodeablesWithoutInterface(provider))
+                    }
+            InterfaceHashCodeable(map, SimpleTypeReadable)
+        }
+        this.isNoMapAndNoListAndNoSet() -> ComplexHashCodeable(this, provider, SimpleTypeReadable)
         this == Map::class -> {
             val mapReadable = MapReadable(this as KProperty1<Any, Map<Any, Any>>)
             MapHashCodeable(mapReadable.keyClazz.createHashCodeables(provider).key(),
@@ -315,6 +361,7 @@ internal fun KClass<Any>.createHashCodeable(provider: HashCodeableProvider): Has
 }
 
 internal fun <R : Any, S : Any> KProperty1<R, S>.keyHashCodeable(provider: HashCodeableProvider): HashCodeable {
-    return (returnType.arguments.first().type!!.classifier as KClass<Any>).createHashCodeable(provider) as HashCodeable
+    return (returnType.arguments.first().type!!.classifier as KClass<Any>).createHashCodeable(provider, findAnnotation<IFaceForObject>()
+            ?.let { getIFaceForList(arrayOf(it)) })
 }
 

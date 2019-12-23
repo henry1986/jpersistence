@@ -30,9 +30,7 @@ import org.daiv.reflection.common.*
 import org.daiv.reflection.database.DatabaseHandler
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
-import org.daiv.reflection.plain.RequestBuilder
-import org.daiv.reflection.plain.SimpleReadObject
-import org.daiv.reflection.plain.readPlainMapper
+import org.daiv.reflection.plain.*
 import org.daiv.reflection.read.InternalRPD
 import org.daiv.reflection.read.KeyType
 import org.daiv.reflection.read.ReadFieldValue
@@ -147,7 +145,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return table.insertCacheParallel(this)
         }
 
-        fun commit(){
+        fun commit() {
             i.insertAll()
             event()
         }
@@ -397,11 +395,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
 
         private fun List<Any>.toHashCodeX(): List<Any> {
-            return if (readPersisterData.key.isAuto()) {
-                listOf(readPersisterData.key.plainHashCodeXIfAutoKey(this))
-            } else {
-                this
-            }
+            return readPersisterData.key.objectKey(this).keys()
         }
 
         fun read(id: Any): R? {
@@ -412,13 +406,15 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return read(idName, id.toHashCodeX(), readCache()).firstOrNull()
         }
 
-        internal fun innerReadMultipleUseHashCode(id: List<Any>, readCache: ReadCache): R? {
-            return read(idName, id, readCache).firstOrNull()
+        internal fun innerReadMultipleUseHashCode(id: ObjectKey, readCache: ReadCache): R? {
+            val read = read(idName, id.keys(), readCache)
+//            return read.find { readPersisterData.getKey(it) == id }
+            return read.firstOrNull()
         }
 
-        fun readMultipleUseHashCode(id: List<Any>): R? {
-            return innerReadMultipleUseHashCode(id, readCache())
-        }
+//        fun readMultipleUseHashCode(id: List<Any>): R? {
+//            return innerReadMultipleUseHashCode(id, readCache())
+//        }
 
 //        fun readMultiple(vararg id: Any): R? {
 //            return readMultiple(id.asList())
