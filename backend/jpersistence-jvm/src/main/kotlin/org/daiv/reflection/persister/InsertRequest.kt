@@ -47,8 +47,12 @@ internal data class InsertMap constructor(val persister: Persister,
         return objectValue
     }
 
+    private fun<T:Any> readHashCode(table: Persister.Table<T>, key: ObjectKeyToWrite, obj: T){
+
+    }
+
     suspend fun <T : Any> nextTask(table: Persister.Table<T>, key: ObjectKeyToWrite, obj: T, nextTask: suspend () -> Unit) {
-        val objectKey = key.toObjectKey()
+        val objectKey = key.toObjectKey(0)
         if (insertCachePreference.checkCacheOnly) {
             if (readCache.isInCache(table, objectKey)) {
                 return

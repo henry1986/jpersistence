@@ -67,17 +67,17 @@ internal class KeyType constructor(val fields: List<FieldData>,
 
             override fun isAutoId() = this@KeyType.isAuto()
 
-            override fun toObjectKey() = PersistenceKey(keyToWrite(), isAutoId())
+            override fun toObjectKey(hashCounter: Int?) = PersistenceKey(keyToWrite(), isAutoId(), hashCounter)
         }
     }
 
-    fun toObjectKey(t: Any) = PersistenceKey(hashCodeXIfAutoKey(t), isAuto())
+    fun toObjectKey(t: Any, hashCounter: Int?) = PersistenceKey(hashCodeXIfAutoKey(t), isAuto(), if (isAuto()) hashCounter else null)
 
-    fun objectKey(key: List<Any>): ObjectKey {
+    fun objectKey(key: List<Any>, hashCounter: Int?): ObjectKey {
         return if (isAuto()) {
-            PersistenceKey(listOf(plainHashCodeXIfAutoKey(key)), true)
+            PersistenceKey(listOf(plainHashCodeXIfAutoKey(key)), true, hashCounter)
         } else {
-            PersistenceKey(key, false)
+            PersistenceKey(key, false, null)
         }
     }
 
@@ -86,10 +86,12 @@ internal class KeyType constructor(val fields: List<FieldData>,
      */
     override fun hashCodeXIfAutoKey(t: Any): List<Any> {
         val obj = getObject(t)
-        return key?.plainHashCodeX(obj)?.asList() ?: obj as List<Any>
+        return key?.let {
+            listOf(it.plainHashCodeX(obj), 0)
+        } ?: obj as List<Any>
     }
 
-    override fun plainHashCodeXIfAutoKey(t: Any): Any {
+    private fun plainHashCodeXIfAutoKey(t: Any): Any {
         return key?.plainHashCodeX(t) ?: t
     }
 
@@ -111,8 +113,16 @@ internal class KeyType constructor(val fields: List<FieldData>,
             read
         }
         val p = ret.map { it.t.t }
-        val res: ObjectKey? = if (p.any { it == null }) null else PersistenceKey(p as List<Any>, isAuto())
-        return NextSize(ReadAnswer(res), ret.last().i)
+        if (isAuto()) {
+            val res: ObjectKey? = if (p.any { it == null }) null else {
+                p as List<Any>
+                PersistenceKey(p.first().asList(), true, p[1] as Int)
+            }
+            return NextSize(ReadAnswer(res), ret.last().i)
+        } else {
+            val res: ObjectKey? = if (p.any { it == null }) null else PersistenceKey(p as List<Any>, false, null)
+            return NextSize(ReadAnswer(res), ret.last().i)
+        }
     }
 
     override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
@@ -126,16 +136,16 @@ internal class KeyType constructor(val fields: List<FieldData>,
     }
 
     override fun fNEqualsValue(o: Any, sep: String): String {
-        o as List<Any>
-        return fields.mapIndexed { i, e ->
-            val obj = o[i]
-//            if(e is AutoKeyType){
-//                e.plainHashCodeXIfAutoKey(obj)
-//            } else{
-            e.fNEqualsValue(obj, sep)
-//            }
+        try {
+            o as List<Any>
+            return fields.mapIndexed { i, e ->
+                val obj = o[i]
+                e.fNEqualsValue(obj, sep)
+            }
+                    .joinToString(sep)
+        }catch (t:Throwable){
+            throw t
         }
-                .joinToString(sep)
     }
 
     /**

@@ -126,8 +126,7 @@ internal interface InternalRPD {
 //        val x = key.getValue(readCache, readValue, counter, ObjectKey.empty)
         return Reader(readCache, noKeyFields, keyAnswer.t.t!!, readValue).read(keyAnswer.i,
                                                                                list = keyAnswer.t.t.keys().mapIndexed { i, e ->
-                                                                                   ReadFieldValue(e,
-                                                                                                  key.fields[i])
+                                                                                   ReadFieldValue(e, key.fields[i])
                                                                                })
     }
 
@@ -186,14 +185,14 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
                                                           private val className: String = "no name",
                                                           private val method: (List<ReadFieldValue>) -> Any,
                                                           override val noKeyFields: List<FieldData> = fields.drop(
-                                                                  key.fields.size)) : InternalRPD {
+                                                                  if (key.isAuto()) 1 else key.fields.size)) : InternalRPD {
 
     private constructor(builder: FieldDataFactory.Builder,
                         persisterProvider: PersisterProvider,
                         className: String = "no name",
                         method: (List<ReadFieldValue>) -> Any) : this(builder.idField!!,
                                                                       persisterProvider,
-                                                                      builder.fields as List<FieldData>,
+                                                                      builder.fields,
                                                                       className,
                                                                       method)
 
@@ -234,7 +233,7 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
     fun keySimpleType(r: Any) = key.simpleType(r)
 
     suspend fun trueInsert(tableName: String, insertMap: InsertMap, it: Any) {
-        val insertKey = InsertKey(tableName, key.toObjectKey(it))
+        val insertKey = InsertKey(tableName, key.toObjectKey(it, 0))
 //        val insertKey = InsertKey(tableName, key.hashCodeXIfAutoKey(it))
         val request = RequestTask(insertKey, it, { listOf(InsertRequest(insertObject(it))) }) {
             fields.forEach { f -> f.toStoreData(insertMap, listOf(it)) }

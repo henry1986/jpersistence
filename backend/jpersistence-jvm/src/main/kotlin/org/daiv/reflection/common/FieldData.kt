@@ -152,10 +152,6 @@ internal interface FieldData : FieldCollection, FieldReadable {
         return getObject(t)
     }
 
-    fun plainHashCodeXIfAutoKey(t: Any): Any {
-        return t
-    }
-
     fun deleteLists(key: List<Any>)
     fun clearLists()
     fun createTableForeign(tableName: Set<String>): Set<String>

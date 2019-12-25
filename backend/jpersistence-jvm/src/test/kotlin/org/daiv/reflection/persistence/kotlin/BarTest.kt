@@ -71,6 +71,9 @@ class BarTest
 
                data class ReadComplexSameHashCode(val x:Int, val complexSameHashCode: ComplexSameHashCode)
 
+               @MoreKeys(auto = true)
+               data class ReadListSameHashCode(val list: List<SameHashCodeTest>)
+
                val logger = KotlinLogging.logger { }
                describe("BarTest") {
                    val persister = persister("BarTest.db")
@@ -352,6 +355,16 @@ class BarTest
                            table.persist()
                            val r1 = ReadComplexSameHashCode(2, c1)
                            val r2 = ReadComplexSameHashCode(3, c2)
+                           val rList = listOf(r1, r2)
+                           table.insert(rList)
+                           val read = table.readAll()
+                           assertEquals(rList, read)
+                       }
+                       it("test ListSameHashCode"){
+                           val table = persister.Table(ReadListSameHashCode::class)
+                           table.persist()
+                           val r1 = ReadListSameHashCode(listOf(c1.sameHashCodeTest))
+                           val r2 = ReadListSameHashCode(listOf(c2.sameHashCodeTest))
                            val rList = listOf(r1, r2)
                            table.insert(rList)
                            val read = table.readAll()

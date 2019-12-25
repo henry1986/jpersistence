@@ -158,8 +158,8 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
 
             return if (moreKeys.auto) {
                 val keyHashCodeable = clazz.createHashCodeableKey(HashCodeableProvider())
-                val autoIdField = KeyType(listOf(AutoKeyType(AutoKeyProperty(keyHashCodeable),
-                                                             prefix)) as List<FieldData>)
+                val autoIdField = KeyType(listOf(AutoKeyType(AutoKeyProperty(keyHashCodeable), prefix),
+                                                 ReadSimpleType(SimpleTypeProperty(Int::class.createType(), "hashCodeXCounter"), null)))
                 val keyType = KeyType(autoIdField!!.fields, keyHashCodeable, idField)
                 val fields = (listOf(keyType) + fields)
                 fields.forEach { it.onIdField(keyType) }
@@ -172,8 +172,7 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
 
         private fun createWithoutInterface(thisClass: KClass<Any>, property: KProperty1<Any, Any>): FieldData? {
             return when {
-                thisClass.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property,
-                                                                                            clazz), prefix)
+                thisClass.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property, clazz), prefix)
                 thisClass.isEnum() -> EnumType(DefProperty(property, clazz), prefix)
                 thisClass.isNoMapAndNoListAndNoSet() -> {
                     val propertyData = DefProperty(property, clazz, thisClass.createType(), true, thisClass.simpleName!!)

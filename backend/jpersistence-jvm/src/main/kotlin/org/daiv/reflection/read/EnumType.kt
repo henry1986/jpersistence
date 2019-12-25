@@ -85,14 +85,7 @@ internal class AutoKeyType(override val propertyData: PropertyData, override val
         return t.toString()
     }
 
-    override fun makeStringOnEqualsValue(t: Any): String {
-        return t.toString()
-//        return propertyData.getObject(t).toString()
-
-    }
-
     fun autoIdFNEqualsValue(o: Any): String {
         return "$prefixedName = ${makeString(o)}"
-//        return "$prefixedName = ${makeString(o)}"
     }
 }

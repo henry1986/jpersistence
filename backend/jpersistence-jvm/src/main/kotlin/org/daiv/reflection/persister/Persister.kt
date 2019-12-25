@@ -395,7 +395,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
 
         private fun List<Any>.toHashCodeX(): List<Any> {
-            return readPersisterData.key.objectKey(this).keys()
+            return readPersisterData.key.objectKey(this, 0).keys()
         }
 
         fun read(id: Any): R? {
@@ -410,6 +410,13 @@ class Persister(private val databaseInterface: DatabaseInterface,
             val read = read(idName, id.keys(), readCache)
 //            return read.find { readPersisterData.getKey(it) == id }
             return read.firstOrNull()
+        }
+
+        internal fun readHashCode(hashCode: Int, readCache: ReadCache): List<R> {
+            val read = read("autoID", hashCode, readCache)
+
+//            return read.find { readPersisterData.getKey(it) == id }
+            return read
         }
 
 //        fun readMultipleUseHashCode(id: List<Any>): R? {

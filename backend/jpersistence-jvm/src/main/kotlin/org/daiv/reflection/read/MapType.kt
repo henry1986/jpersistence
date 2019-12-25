@@ -63,7 +63,7 @@ internal class MapType constructor(override val propertyData: CollectionProperty
         p.forEach { x ->
             val id1 = idField.keyToWrite(x.first)
 //            val id1 = idField.hashCodeXIfAutoKey(x.first)
-            insertMap.toBuild(RequestTask(InsertKey(helperTableName, id1.toObjectKey()), {
+            insertMap.toBuild(RequestTask(InsertKey(helperTableName, id1.toObjectKey(0)), {
                 val b = idField.insertObject(id1.keyToWrite())
                 valueField.insertObjects(x.second)
                         .map {
