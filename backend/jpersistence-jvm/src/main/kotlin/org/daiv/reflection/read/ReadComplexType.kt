@@ -26,9 +26,7 @@ package org.daiv.reflection.read
 import org.daiv.reflection.annotations.Including
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.*
-import org.daiv.reflection.persister.InsertMap
-import org.daiv.reflection.persister.Persister
-import org.daiv.reflection.persister.ReadCache
+import org.daiv.reflection.persister.*
 import org.daiv.reflection.plain.ObjectKey
 import org.daiv.reflection.plain.SimpleReadObject
 
@@ -37,7 +35,7 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
                                            val including: Including,
                                            val persisterProvider: PersisterProvider,
                                            override val prefix: String?) : NoList {
-    val providerKey = ProviderKey(propertyData, prefixedName)
+    val providerKey = ProviderKey(propertyData.clazz, prefixedName)
 
     //    private val persisterData: ReadPersisterData<T, Any> = ReadPersisterData(propertyData.clazz,
 //                                                                             persister,
@@ -52,7 +50,7 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
         get() = persisterProvider.readPersisterData(providerKey)
 
     private val table
-        get() = persisterProvider.table(providerKey) as Persister.Table<Any>
+        get() = persisterProvider.table(providerKey.clazz) as Persister.Table<Any>
 
     override fun subFields(): List<FieldData> = persisterData.fields
 
@@ -66,9 +64,10 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
                 return
             }
             val key = persisterData.key.keyToWrite(obj)
+
 //            val key = persisterData.key.hashCodeXIfAutoKey(obj)
-            insertMap.nextTask(table, key, obj) {
-                table.readPersisterData.putInsertRequests(table._tableName, insertMap, listOf(obj))
+            insertMap.nextTask(table, key) {
+                table.readPersisterData.putInsertRequests(table._tableName, insertMap, listOf(obj), listOf(it))
             }
         }
     }
@@ -146,15 +145,17 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
         return NextSize(ReadAnswer(read), nextSize.i)
     }
 
-    override fun fNEqualsValue(objectValue: Any, sep: String): String {
-        return persisterData.key.fNEqualsValue(persisterData.key.hashCodeXIfAutoKey(objectValue), sep)
+    override fun fNEqualsValue(objectValue: Any, sep: String, keyCreator: KeyCreator): String {
+        val objectKey = persisterData.mapObjectToKey(objectValue, keyCreator, table)
+        return persisterData.key.fNEqualsValue(objectKey.keys(), sep, keyCreator)
     }
 
-    override fun insertObject(objectValue: Any?): List<InsertObject> {
+    override fun insertObject(objectValue: Any?, keyCreator: KeyCreator): List<InsertObject> {
         if (objectValue == null) {
-            return persisterData.key.insertObject(null)
+            return persisterData.key.insertObject(null, keyCreator)
         }
-        return persisterData.key.insertObject(persisterData.key.hashCodeXIfAutoKey(objectValue))
+        val objectKey = persisterData.mapObjectToKey(objectValue, keyCreator, table)
+        return persisterData.key.insertObject(objectKey.keys(), keyCreator)
     }
 
 

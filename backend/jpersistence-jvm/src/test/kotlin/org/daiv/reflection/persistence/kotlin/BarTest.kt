@@ -10,6 +10,7 @@ import org.daiv.reflection.common.hashCodeX
 import org.daiv.reflection.database.persister
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.PersisterPreference
+import org.daiv.util.json.log
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
@@ -69,7 +70,8 @@ class BarTest
                @MoreKeys(auto = true)
                data class ComplexSameHashCode(val sameHashCodeTest: SameHashCodeTest)
 
-               data class ReadComplexSameHashCode(val x:Int, val complexSameHashCode: ComplexSameHashCode)
+               data class ReadComplexSameHashCode(val x: Int, val complexSameHashCode: ComplexSameHashCode)
+               data class ReadComplexSameHashCode2(val complexSameHashCode: ComplexSameHashCode, val x: Int)
 
                @MoreKeys(auto = true)
                data class ReadListSameHashCode(val list: List<SameHashCodeTest>)
@@ -336,10 +338,10 @@ class BarTest
                            createTable("test3", 400.0)
                        }
                    }
+                   val c1 = ComplexSameHashCode(SameHashCodeTest(1, 32))
+                   val c2 = ComplexSameHashCode(SameHashCodeTest(2, 1))
                    on("test same hashcode") {
-                       val c1 = ComplexSameHashCode(SameHashCodeTest(1, 32))
-                       val c2 = ComplexSameHashCode(SameHashCodeTest(2, 1))
-                       it("test read"){
+                       it("test read") {
                            val table = persister.Table(ComplexSameHashCode::class)
                            table.persist()
                            val list = listOf(c1, c2)
@@ -347,20 +349,13 @@ class BarTest
                            val read = table.readAll()
                            val hash1 = listOf(1, 32).hashCodeX() + 31
                            val hash2 = listOf(2, 1).hashCodeX() + 31
-                           logger.trace{ "h1: $hash1, h2: $hash2"}
+                           logger.trace { "h1: $hash1, h2: $hash2" }
+                           val hashCodeRead = table.readHashCode(1055, persister.readCache(), persister.readCache().allCheck)
+//                           logger.trace { "hashCodeRead: $hashCodeRead" }
+                           hashCodeRead.log(logger, "hashCodeRead")
                            assertEquals(list, read)
                        }
-                       it("test ReadComplex"){
-                           val table = persister.Table(ReadComplexSameHashCode::class)
-                           table.persist()
-                           val r1 = ReadComplexSameHashCode(2, c1)
-                           val r2 = ReadComplexSameHashCode(3, c2)
-                           val rList = listOf(r1, r2)
-                           table.insert(rList)
-                           val read = table.readAll()
-                           assertEquals(rList, read)
-                       }
-                       it("test ListSameHashCode"){
+                       it("test ListSameHashCode") {
                            val table = persister.Table(ReadListSameHashCode::class)
                            table.persist()
                            val r1 = ReadListSameHashCode(listOf(c1.sameHashCodeTest))
@@ -369,6 +364,42 @@ class BarTest
                            table.insert(rList)
                            val read = table.readAll()
                            assertEquals(rList, read)
+                       }
+                   }
+                   on("readComplex") {
+                       val table = persister.Table(ReadComplexSameHashCode::class)
+                       table.persist()
+                       val c1 = ComplexSameHashCode(SameHashCodeTest(3, 94))
+                       val c2 = ComplexSameHashCode(SameHashCodeTest(4, 63))
+                       val r1 = ReadComplexSameHashCode(2, c1)
+                       val r2 = ReadComplexSameHashCode(3, c2)
+                       val rList = listOf(r1, r2)
+                       table.insert(rList)
+                       it("test ReadComplex by readAll") {
+                           val read = table.readAll()
+                           assertEquals(rList, read)
+                       }
+                       it("test ReadComplex by read from key") {
+                           assertEquals(r1, table.read(2))
+                           assertEquals(r2, table.read(3))
+                       }
+                   }
+                   on("readComplex 2") {
+                       val table = persister.Table(ReadComplexSameHashCode2::class)
+                       table.persist()
+                       val c1 = ComplexSameHashCode(SameHashCodeTest(3, 94))
+                       val c2 = ComplexSameHashCode(SameHashCodeTest(4, 63))
+                       val r1 = ReadComplexSameHashCode2(c1, 2)
+                       val r2 = ReadComplexSameHashCode2(c2, 3)
+                       val rList = listOf(r1, r2)
+                       table.insert(rList)
+                       it("test ReadComplex by readAll") {
+                           val read = table.readAll()
+                           assertEquals(rList, read)
+                       }
+                       it("test ReadComplex by read from key") {
+                           assertEquals(r1, table.read(c1))
+                           assertEquals(r2, table.read(c2))
                        }
                    }
                    afterGroup { persister.delete(); doubleRefPersister.delete() }

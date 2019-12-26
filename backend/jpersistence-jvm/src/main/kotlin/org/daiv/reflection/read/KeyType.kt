@@ -2,11 +2,9 @@ package org.daiv.reflection.read
 
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
+import org.daiv.reflection.persister.KeyCreator
 import org.daiv.reflection.persister.ReadCache
-import org.daiv.reflection.plain.ObjectKey
-import org.daiv.reflection.plain.ObjectKeyToWrite
-import org.daiv.reflection.plain.PersistenceKey
-import org.daiv.reflection.plain.SimpleReadObject
+import org.daiv.reflection.plain.*
 import org.daiv.util.recIndexed
 
 /**
@@ -61,38 +59,52 @@ internal class KeyType constructor(val fields: List<FieldData>,
 
             override fun itsKey() = getObject(t) as List<Any>
 
-            override fun itsHashCode() = key!!.plainHashCodeX(t)
+            override fun itsHashCode() = key!!.plainHashCodeX(itsKey())
 
-            override fun keyToWrite() = hashCodeXIfAutoKey(t)
+            override fun keyToWrite(counter: Int?) = hashCodeXIfAutoKey(t, counter)
 
             override fun isAutoId() = this@KeyType.isAuto()
 
-            override fun toObjectKey(hashCounter: Int?) = PersistenceKey(keyToWrite(), isAutoId(), hashCounter)
+            override fun toObjectKey(hashCounter: Int?) =
+                    if (isAutoId())
+                        HashCodeKey(keyToWrite(hashCounter), itsHashCode(), hashCounter!!)
+                    else
+                        PersistenceKey(keyToWrite(null))
         }
     }
 
-    fun toObjectKey(t: Any, hashCounter: Int?) = PersistenceKey(hashCodeXIfAutoKey(t), isAuto(), if (isAuto()) hashCounter else null)
+    fun toObjectKey(t: Any, hashCounter: Int?) = if (isAuto()) {
+        val obj = getObject(t) as List<Any>
+        HashCodeKey(obj, key!!.plainHashCodeX(obj), hashCounter!!)
+    } else
+        PersistenceKey(getObject(t) as List<Any>)
 
-    fun objectKey(key: List<Any>, hashCounter: Int?): ObjectKey {
-        return if (isAuto()) {
-            PersistenceKey(listOf(plainHashCodeXIfAutoKey(key)), true, hashCounter)
-        } else {
-            PersistenceKey(key, false, null)
-        }
-    }
+    fun objectKey(key: List<Any>, hashCounter: Int? = null) = if (isAuto())
+        HashCodeKey(key, this.key!!.plainHashCodeX(key), hashCounter!!)
+    else
+        PersistenceKey(key)
+
+//    fun objectKey(key: List<Any>, hashCounter: Int?): ObjectKey {
+//        return if (isAuto()) {
+//            PersistenceKey(listOf(plainHashCodeXIfAutoKey(key)), true, hashCounter)
+//        } else {
+//            PersistenceKey(key, false, null)
+//        }
+//    }
 
     /**
      * returns hashcodeX of [getObject] of [t] if this is a autoKey, [getObject] of [t] else
      */
-    override fun hashCodeXIfAutoKey(t: Any): List<Any> {
+    override fun hashCodeXIfAutoKey(t: Any, counter: Int?): List<Any> {
+        propertyData.receiverType
         val obj = getObject(t)
         return key?.let {
-            listOf(it.plainHashCodeX(obj), 0)
+            listOf(it.plainHashCodeX(obj), counter!!)
         } ?: obj as List<Any>
     }
 
-    private fun plainHashCodeXIfAutoKey(t: Any): Any {
-        return key?.plainHashCodeX(t) ?: t
+    fun plainHashCodeX(t: List<Any>): Int {
+        return key?.plainHashCodeX(t)!!
     }
 
     override fun getObject(o: Any): Any {
@@ -116,11 +128,11 @@ internal class KeyType constructor(val fields: List<FieldData>,
         if (isAuto()) {
             val res: ObjectKey? = if (p.any { it == null }) null else {
                 p as List<Any>
-                PersistenceKey(p.first().asList(), true, p[1] as Int)
+                HashCodeKey(p.first().asList(), p.first() as Int, p[1] as Int)
             }
             return NextSize(ReadAnswer(res), ret.last().i)
         } else {
-            val res: ObjectKey? = if (p.any { it == null }) null else PersistenceKey(p as List<Any>, false, null)
+            val res: ObjectKey? = if (p.any { it == null }) null else PersistenceKey(p as List<Any>)
             return NextSize(ReadAnswer(res), ret.last().i)
         }
     }
@@ -135,15 +147,15 @@ internal class KeyType constructor(val fields: List<FieldData>,
         return NextSize(ReadAnswer(list), ret.last().i) as NextSize<ReadAnswer<Any>>
     }
 
-    override fun fNEqualsValue(o: Any, sep: String): String {
+    override fun fNEqualsValue(o: Any, sep: String, keyCreator: KeyCreator): String {
         try {
             o as List<Any>
             return fields.mapIndexed { i, e ->
                 val obj = o[i]
-                e.fNEqualsValue(obj, sep)
+                e.fNEqualsValue(obj, sep, keyCreator)
             }
                     .joinToString(sep)
-        }catch (t:Throwable){
+        } catch (t: Throwable) {
             throw t
         }
     }
@@ -151,12 +163,12 @@ internal class KeyType constructor(val fields: List<FieldData>,
     /**
      * if autoId, the value must already be the hashCodeX
      */
-    fun autoIdFNEqualsValue(o: List<Any>, sep: String): String {
+    fun autoIdFNEqualsValue(o: List<Any>, sep: String, keyCreator: KeyCreator): String {
         return fields.mapIndexed { i, e ->
             if (e is AutoKeyType) {
                 e.autoIdFNEqualsValue(o[i])
             } else {
-                e.fNEqualsValue(o[i], sep)
+                e.fNEqualsValue(o[i], sep, keyCreator)
             }
         }
                 .joinToString(sep)
@@ -182,14 +194,16 @@ internal class KeyType constructor(val fields: List<FieldData>,
                 .toMap()
     }
 
-    override fun insertObject(o: Any?): List<InsertObject> {
+    override fun toString() = "$name - $fields"
+
+    override fun insertObject(o: Any?, keyCreator: KeyCreator): List<InsertObject> {
         try {
             if (o == null) {
-                return fields.map { it.insertObject(null) }
+                return fields.map { it.insertObject(null, keyCreator) }
                         .flatten()
             }
             val x = o as List<Any?>
-            return fields.mapIndexed { i, e -> e.insertObject(x[i]) }
+            return fields.mapIndexed { i, e -> e.insertObject(x[i], keyCreator) }
                     .flatten()
         } catch (t: Throwable) {
             throw t

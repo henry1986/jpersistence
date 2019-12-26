@@ -53,20 +53,21 @@ internal interface InternalRPD {
     val noKeyFields: List<FieldData>
     fun field(fieldName: String): FieldCollection {
         return fields.find { it.name == fieldName }
-                ?: fields.flatMap { it.subFields() }.find { it.name == fieldName } ?: throw RuntimeException(
-                        "couldn't find any fields with name: $fieldName")
+                ?: fields.flatMap { it.subFields() }.find { it.name == fieldName }
+                ?: key.fields.find { it.name == fieldName }
+                ?: throw RuntimeException("couldn't find any fields with name: $fieldName")
     }
 
     fun dropHelper() {
         fields.forEach { it.dropHelper() }
     }
 
-    fun fromWhere(fieldName: String, id: Any, sep: String): String {
+    fun fromWhere(fieldName: String, id: Any, sep: String, keyCreator: KeyCreator): String {
         try {
             return if (key.fieldName == fieldName) {
-                key.whereClause(id as List<Any>, sep)
+                key.whereClause(id as List<Any>, sep, keyCreator)
             } else {
-                field(fieldName).whereClause(id, sep)
+                field(fieldName).whereClause(id, sep, keyCreator)
             }
         } catch (t: Throwable) {
             throw t
@@ -183,7 +184,7 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
                                                           val persisterProvider: PersisterProvider,
                                                           override val fields: List<FieldData>,
                                                           private val className: String = "no name",
-                                                          private val method: (List<ReadFieldValue>) -> Any,
+                                                          val method: (List<ReadFieldValue>) -> Any,
                                                           override val noKeyFields: List<FieldData> = fields.drop(
                                                                   if (key.isAuto()) 1 else key.fields.size)) : InternalRPD {
 
@@ -196,11 +197,11 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
                                                                       className,
                                                                       method)
 
-    constructor(clazz: KClass<Any>,
+    constructor(clazz: KClass<out Any>,
                 persister: Persister,
                 persisterProvider: PersisterProvider,
                 prefix: String? = null) :
-            this(FieldDataFactory(persisterProvider, clazz, prefix, persister).fieldsRead(),
+            this(FieldDataFactory(persisterProvider, clazz as KClass<Any>, prefix, persister).fieldsRead(),
                  persisterProvider,
                  clazz.simpleName ?: "no name",
                  readValue(clazz))
@@ -232,20 +233,30 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
 
     fun keySimpleType(r: Any) = key.simpleType(r)
 
-    suspend fun trueInsert(tableName: String, insertMap: InsertMap, it: Any) {
+    suspend fun trueInsert(tableName: String, insertMap: InsertMap, it: Any, objectKey: ObjectKey) {
         val insertKey = InsertKey(tableName, key.toObjectKey(it, 0))
 //        val insertKey = InsertKey(tableName, key.hashCodeXIfAutoKey(it))
-        val request = RequestTask(insertKey, it, { listOf(InsertRequest(insertObject(it))) }) {
+        val request = RequestTask(insertKey, it, { listOf(InsertRequest(insertObject(it, objectKey, insertMap))) }) {
             fields.forEach { f -> f.toStoreData(insertMap, listOf(it)) }
         }
         insertMap.toBuild(request)
     }
 
-    suspend fun putInsertRequests(tableName: String, insertMap: InsertMap, o: List<Any>) {
-        o.map {
+    fun mapObjectToKey(o: Any, insertMap: KeyCreator, table: Persister.Table<*>): ObjectKey {
+        val key = key.keyToWrite(o)
+        return insertMap.toObjectKey(table, key)
+    }
+
+    suspend fun putInsertRequests(tableName: String, insertMap: InsertMap, o: List<Any>, table: Persister.Table<*>) {
+        val keys = o.map { mapObjectToKey(it, insertMap, table) }
+        putInsertRequests(tableName, insertMap, o, keys)
+    }
+
+    suspend fun putInsertRequests(tableName: String, insertMap: InsertMap, o: List<Any>, keys: List<ObjectKey>) {
+        o.mapIndexed { i, it ->
             insertMap.actors.values.first()
                     .launch {
-                        trueInsert(tableName, insertMap, it)
+                        trueInsert(tableName, insertMap, it, keys[i])
                     }
         }
     }
@@ -254,10 +265,14 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
         onFields { deleteLists(key) }
     }
 
-    private fun insertObject(o: Any): List<InsertObject> {
+    private fun insertObject(o: Any, objectKey: ObjectKey, insertMap: InsertMap): List<InsertObject> {
         return fields.flatMap {
-            val x = it.hashCodeXIfAutoKey(o)
-            it.insertObject(x as Any?)
+            val x = if (it is KeyType) {
+                objectKey.keys()
+            } else {
+                it.hashCodeXIfAutoKey(o)
+            }
+            it.insertObject(x as Any?, insertMap)
         }
     }
 

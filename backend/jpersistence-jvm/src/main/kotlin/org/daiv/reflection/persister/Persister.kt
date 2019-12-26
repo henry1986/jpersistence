@@ -82,7 +82,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     private val internalReadCache = ReadCache(persisterPreference)
 
-    private fun readCache() = if (persisterPreference.useCache) internalReadCache else ReadCache(persisterPreference)
+    internal fun readCache() = if (persisterPreference.useCache) internalReadCache else ReadCache(persisterPreference)
 
     internal fun justPersist(tableName: String, readPersisterData: InternalRPD) {
         write("$createTable $tableName ${readPersisterData.createTable()}")
@@ -121,15 +121,20 @@ class Persister(private val databaseInterface: DatabaseInterface,
     private fun innerCachePreference() = InsertCachePreference(false)
     private fun CoroutineScope.actors(requestScope: CoroutineScope,
                                       completable: Boolean,
-                                      persisterProvider: PersisterProvider) = persisterProvider.tableNamesIncludingPrefix().map {
-        val actorHandler = ActorHandler(this, requestScope, readCache().readTableCache(it))
+                                      persisterProvider: PersisterProvider) = (persisterProvider.tableNamesIncludingPrefix().map {
+        val actorHandler = ActorHandler(this, requestScope, readCache().readTableCache(it.value, persisterProvider.isAutoIdTable(it.key)))
+        it.value to if (!completable) InsertActor(actorHandler) else InsertCompletableActor(actorHandler)
+    } + persisterProvider.getHelperTableNames().map {
+        val actorHandler = ActorHandler(this, requestScope, readCache().readTableCache(it, false))
         it to if (!completable) InsertActor(actorHandler) else InsertCompletableActor(actorHandler)
-    }
+    })
             .toMap()
 
-    private fun tableHandlers(persisterProvider: PersisterProvider) = persisterProvider.tableNamesIncludingPrefix().map {
-        it to SequentialTableHandler(readCache().readTableCache(it))
-    }
+    private fun tableHandlers(persisterProvider: PersisterProvider) = (persisterProvider.tableNamesIncludingPrefix().map {
+        it.value to SequentialTableHandler(readCache().readTableCache(it.value, persisterProvider.isAutoIdTable(it.key)))
+    } + persisterProvider.getHelperTableNames().map {
+        it to SequentialTableHandler(readCache().readTableCache(it, false))
+    })
             .toMap()
 
     inner class CommonCache(coroutineScope: CoroutineScope,
@@ -152,6 +157,17 @@ class Persister(private val databaseInterface: DatabaseInterface,
     }
 
     private fun getTableName(tableName: String, clazz: KClass<*>) = if (tableName == "") clazz.tableName() else tableName
+
+    private val defaultKeyCreator = object : KeyCreator {
+        override fun toObjectKey(table: Persister.Table<*>, keyToWrite: ObjectKeyToWrite): ObjectKey {
+            return readCache().toObjectKey(table, keyToWrite, this)
+        }
+
+        override val checkCacheOnly: Boolean
+            get() = innerCachePreference().checkCacheOnly
+    }
+
+    private fun defaultKeyCreator() = defaultKeyCreator
 
     internal interface InternalTable : PersisterListener {
         val readPersisterData: InternalRPD
@@ -193,9 +209,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return ret
         }
 
-        fun fromWhere(fieldName: String, id: Any, sep: String): String {
+        fun fromWhere(fieldName: String, id: Any, sep: String, keyCreator: KeyCreator): String {
             try {
-                val x = " FROM $tableName ${readPersisterData.fromWhere(fieldName, id, sep)}"
+                val x = " FROM $tableName ${readPersisterData.fromWhere(fieldName, id, sep, keyCreator)}"
                 return x
             } catch (t: Throwable) {
                 throw t
@@ -219,7 +235,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         fun deleteBy(fieldName: String, id: List<Any>) {
             try {
                 onDelete(tableName, id)
-                persister.write("DELETE ${fromWhere(fieldName, id, comma)};")
+                persister.write("DELETE ${fromWhere(fieldName, id, comma, persister.defaultKeyCreator())};")
                 persister.event()
             } catch (e: Throwable) {
                 throw e
@@ -252,25 +268,22 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     private fun <R : Any> createPersisterProvider(clazz: KClass<R>,
                                                   tableName: String,
-                                                  tableNames: Map<KClass<out Any>, String>,
                                                   tableNamePrefix: String?): PersisterProvider {
-        val persisterProvider = PersisterProviderImpl(this@Persister, tableNames, tableNamePrefix)
+        val persisterProvider = PersisterProviderImpl(this@Persister, tableNamePrefix)
         persisterProvider[clazz] = getTableName(tableName, clazz)
         return persisterProvider
     }
 
-    private fun createPersisterProvider(tableNames: Map<KClass<out Any>, String>,
-                                        tableNamePrefix: String?) = PersisterProviderImpl(this@Persister, tableNames, tableNamePrefix)
+    private fun createPersisterProvider(tableNamePrefix: String?) = PersisterProviderImpl(this@Persister, tableNamePrefix)
 
-    private val persisterProviderMap = mutableMapOf<String?, PersisterProvider>(null to createPersisterProvider(emptyMap(), null))
+    private val persisterProviderMap = mutableMapOf<String?, PersisterProvider>(null to createPersisterProvider(null))
 
     internal fun <R : Any> getPersisterProvider(clazz: KClass<R>,
                                                 tableName: String,
-                                                tableNames: Map<KClass<out Any>, String>,
                                                 tableNamePrefix: String?): PersisterProvider {
         val p = persisterProviderMap[tableNamePrefix]
         return if (p == null) {
-            val x = createPersisterProvider(tableNames, tableNamePrefix)
+            val x = createPersisterProvider(tableNamePrefix)
             x[clazz] = getTableName(tableName, clazz)
             persisterProviderMap[tableNamePrefix] = x
             x
@@ -282,9 +295,8 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
     fun <R : Any> tableOnOwnPersisterProvider(clazz: KClass<R>,
                                               tableName: String = "",
-                                              tableNames: Map<KClass<out Any>, String> = mapOf(),
                                               tableNamePrefix: String? = null): Table<R> {
-        return Table(clazz, createPersisterProvider(clazz, tableName, tableNames, tableNamePrefix))
+        return Table(clazz, createPersisterProvider(clazz, tableName, tableNamePrefix))
     }
 
     inner class Table<R : Any> internal constructor(override val readPersisterData: ReadPersisterData,
@@ -294,6 +306,8 @@ class Persister(private val databaseInterface: DatabaseInterface,
             get() = readPersisterData.persisterProvider.innerTableName(clazz)
         override val _tableName
             get() = readPersisterData.persisterProvider[clazz]
+
+        internal fun readCache() = this@Persister.readCache()
         /**
          * same as [_tableName] with backticks
          */
@@ -307,12 +321,15 @@ class Persister(private val databaseInterface: DatabaseInterface,
 
         constructor(clazz: KClass<R>,
                     tableName: String = "",
-                    tableNames: Map<KClass<out Any>, String> = mapOf(),
                     tableNamePrefix: String? = null)
-                : this(clazz, getPersisterProvider(clazz, tableName, tableNames, tableNamePrefix))
+                : this(clazz, getPersisterProvider(clazz, tableName, tableNamePrefix))
 
         internal constructor(clazz: KClass<R>, persisterProvider: PersisterProvider)
                 : this(ReadPersisterData(clazz as KClass<Any>, this@Persister, persisterProvider), clazz)
+
+        init {
+            persisterProvider.setAutoTableId(clazz, readPersisterData.key.isAuto(), this)
+        }
 
         private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()
 
@@ -366,17 +383,21 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return this
         }
 
-        internal fun read(fieldName: String, id: Any, readCache: ReadCache, orderOrder: String = ""): List<R> {
-            val req = "SELECT * ${fromWhere(fieldName, id, and)} $orderOrder;"
+        internal fun read(fieldName: String, id: Any, readCache: ReadCache, keyCreator: KeyCreator, orderOrder: String = ""): List<R> {
+            val req = "SELECT * ${fromWhere(fieldName, id, and, keyCreator)} $orderOrder;"
             return this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this), readCache) } } as List<R>
         }
 
         fun read(fieldName: String, id: Any, orderOrder: String = ""): List<R> {
-            return read(fieldName, id, readCache(), orderOrder).map { it }
+            return read(fieldName, id, readCache(), persister.defaultKeyCreator(), orderOrder).map { it }
         }
 
         fun readOrdered(fieldName: String, id: Any): List<R> {
-            return read(fieldName, id, readCache(), orderOrder = "ORDER BY ${readPersisterData.keyName()}").map { it }
+            return read(fieldName,
+                        id,
+                        readCache(),
+                        persister.defaultKeyCreator(),
+                        orderOrder = "ORDER BY ${readPersisterData.keyName()}").map { it }
         }
 
         private fun Any.toList(): List<Any> {
@@ -394,42 +415,36 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return req
         }
 
-        private fun List<Any>.toHashCodeX(): List<Any> {
-            return readPersisterData.key.objectKey(this, 0).keys()
+        private fun List<Any>.toHashCodeX(): R? {
+            val keyCreator = defaultKeyCreator()
+            if (readPersisterData.key.isAuto()) {
+                val hashCodeX = readPersisterData.key.plainHashCodeX(this)
+                val read = readHashCode(hashCodeX, readCache(), keyCreator)
+                return read.find { readPersisterData.getKey(it.second) == this }
+                        ?.second
+            }
+            return read(idName, this, readCache(), keyCreator).firstOrNull()
         }
 
         fun read(id: Any): R? {
-            return read(idName, id.toList().toHashCodeX(), readCache()).firstOrNull()
+            val key = id.toList()
+            return key.toHashCodeX()
+//            return read(idName, id.toList().toHashCodeX(), readCache()).firstOrNull()
         }
 
         fun readMultiple(id: List<Any>): R? {
-            return read(idName, id.toHashCodeX(), readCache()).firstOrNull()
+            return id.toHashCodeX()
         }
 
-        internal fun innerReadMultipleUseHashCode(id: ObjectKey, readCache: ReadCache): R? {
-            val read = read(idName, id.keys(), readCache)
-//            return read.find { readPersisterData.getKey(it) == id }
+        internal fun innerReadMultipleUseHashCode(id: ObjectKey, readCache: ReadCache, keyCreator: KeyCreator): R? {
+            val read = read(idName, id.keys(), readCache, keyCreator)
             return read.firstOrNull()
         }
 
-        internal fun readHashCode(hashCode: Int, readCache: ReadCache): List<R> {
-            val read = read("autoID", hashCode, readCache)
-
-//            return read.find { readPersisterData.getKey(it) == id }
-            return read
+        internal fun readHashCode(hashCode: Int, readCache: ReadCache, keyCreator: KeyCreator): List<Pair<Int, R>> {
+            val internRead = readIntern(readPersisterData.key.fields.first().fNEqualsValue(hashCode, and, keyCreator), readCache)
+            return internRead.map { it[1].value as Int to readPersisterData.method(it) } as List<Pair<Int, R>>
         }
-
-//        fun readMultipleUseHashCode(id: List<Any>): R? {
-//            return innerReadMultipleUseHashCode(id, readCache())
-//        }
-
-//        fun readMultiple(vararg id: Any): R? {
-//            return readMultiple(id.asList())
-//        }
-
-//        fun read(id: List<Any>): R? {
-//            return read(idName, id).firstOrNull()
-//        }
 
         fun insert(o: R) {
             insert(listOf(o))
@@ -459,14 +474,17 @@ class Persister(private val databaseInterface: DatabaseInterface,
             }
             runBlocking {
                 val map = InsertMap(persister, innerCachePreference, tableHandlers(persisterProvider), readCache())
-                readPersisterData.putInsertRequests(_tableName, map, o)
+                readPersisterData.putInsertRequests(_tableName, map, o, this@Table)
                 map.insertAll()
             }
             tableEvent()
         }
 
         fun exists(fieldName: String, id: Any): Boolean {
-            return this@Persister.read("SELECT EXISTS( SELECT $selectHeader ${fromWhere(fieldName, id, comma)});") { it.getInt(1) != 0 }
+            return this@Persister.read("SELECT EXISTS( SELECT $selectHeader ${fromWhere(fieldName,
+                                                                                        id,
+                                                                                        comma,
+                                                                                        defaultKeyCreator())});") { it.getInt(1) != 0 }
         }
 
         fun exists(id: Any): Boolean {
@@ -476,7 +494,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         private fun innerDelete(fieldName: String, id: Any) {
             try {
                 val list = read(fieldName, id)
-                this@Persister.write("DELETE ${fromWhere(fieldName, id, and)};")
+                this@Persister.write("DELETE ${fromWhere(fieldName, id, and, defaultKeyCreator())};")
                 list.forEach { readPersisterData.deleteLists(readPersisterData.keySimpleType(it).toList()) }
                 tableEvent()
             } catch (e: Throwable) {
@@ -500,7 +518,10 @@ class Persister(private val databaseInterface: DatabaseInterface,
         fun innerUpdate(fieldName2Find: String, id: Any, fieldName2Set: String, value: Any) {
             val field2Find = readPersisterData.field(fieldName2Find)
             val field2Set = readPersisterData.field(fieldName2Set)
-            write("UPDATE $tableName SET ${field2Set.fNEqualsValue(value, comma)} ${field2Find.whereClause(id, comma)}")
+            val keyCreator = defaultKeyCreator()
+            write("UPDATE $tableName SET ${field2Set.fNEqualsValue(value, comma, keyCreator)} ${field2Find.whereClause(id,
+                                                                                                                       comma,
+                                                                                                                       keyCreator)}")
             tableEvent()
         }
 

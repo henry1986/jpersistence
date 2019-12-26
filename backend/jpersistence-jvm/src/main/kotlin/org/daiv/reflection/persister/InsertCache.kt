@@ -11,7 +11,7 @@ class InsertCacheHandler<R : Any> internal constructor(internal val map: InsertM
         if (o.isEmpty()) {
             return
         }
-        readPersisterData.putInsertRequests(table._tableName, map, o)
+        readPersisterData.putInsertRequests(table._tableName, map, o, table)
     }
 
     override fun commit() {

@@ -36,6 +36,7 @@ internal class ReadSimpleType constructor(override val propertyData: PropertyDat
     companion object {
         private val valueMappingJavaSQL = mapOf("long" to "bigInt", "String" to "Text")
     }
+    override fun toString() = "$name - $typeName"
 
     override val typeName by lazy {
         val simpleName = propertyData.clazz.simpleName!!

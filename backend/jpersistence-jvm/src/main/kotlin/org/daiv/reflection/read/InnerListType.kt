@@ -3,10 +3,9 @@ package org.daiv.reflection.read
 import org.daiv.reflection.annotations.IFaceForList
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
+import org.daiv.reflection.persister.KeyCreator
 import org.daiv.reflection.persister.ReadCache
 import org.daiv.reflection.plain.ObjectKey
-import kotlin.reflect.KClass
-import kotlin.reflect.full.isSubclassOf
 
 internal class InnerSetType constructor(override val propertyData: SetProperty,
                                         val depth: Int,
@@ -31,18 +30,18 @@ internal class InnerSetType constructor(override val propertyData: SetProperty,
         return valueField.toTableHead(nullable)
     }
 
-    override fun insertObject(o: Any?): List<InsertObject> {
+    override fun insertObject(o: Any?, keyCreator: KeyCreator): List<InsertObject> {
         throw RuntimeException("this must not be called")
     }
 
-    override fun insertObjects(o: Any): List<List<InsertObject>> {
+    override fun insertObjects(o: Any, keyCreator: KeyCreator): List<List<InsertObject>> {
         o as Set<Any>
-        return o.flatMap { entry -> valueField.insertObjects(entry) }
+        return o.flatMap { entry -> valueField.insertObjects(entry, keyCreator) }
     }
 
-    override fun fNEqualsValue(o: Any, sep: String): String {
+    override fun fNEqualsValue(o: Any, sep: String, keyCreator: KeyCreator): String {
         o as Set<Any>
-        return sequenceOf(o.map { valueField.fNEqualsValue(it, sep) })
+        return sequenceOf(o.map { valueField.fNEqualsValue(it, sep, keyCreator) })
                 .joinToString(", ")
     }
 
@@ -118,25 +117,25 @@ internal class InnerMapType constructor(override val propertyData: MapProperty,
         return "${keyField.toTableHead(nullable)} , ${valueField.toTableHead(nullable)}"
     }
 
-    override fun insertObject(o: Any?): List<InsertObject> {
+    override fun insertObject(o: Any?, keyCreator: KeyCreator): List<InsertObject> {
         throw RuntimeException("this must not be called")
     }
 
-    override fun insertObjects(o: Any): List<List<InsertObject>> {
+    override fun insertObjects(o: Any, keyCreator: KeyCreator): List<List<InsertObject>> {
         val x = converter(o)
 //        val x = o as Map<Any, Any>
         return x.flatMap { entry ->
-            valueField.insertObjects(entry.value)
+            valueField.insertObjects(entry.value, keyCreator)
                     .map {
-                        keyField.insertObject(entry.key) + it
+                        keyField.insertObject(entry.key, keyCreator) + it
                     }
         }
     }
 
-    override fun fNEqualsValue(o: Any, sep: String): String {
+    override fun fNEqualsValue(o: Any, sep: String, keyCreator: KeyCreator): String {
         o as Map<Any, Any>
-        return sequenceOf(o.values.map { valueField.fNEqualsValue(it, sep) },
-                          o.keys.map { keyField.fNEqualsValue(it, sep) })
+        return sequenceOf(o.values.map { valueField.fNEqualsValue(it, sep, keyCreator) },
+                          o.keys.map { keyField.fNEqualsValue(it, sep, keyCreator) })
                 .joinToString(sep)
     }
 

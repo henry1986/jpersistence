@@ -72,6 +72,8 @@ internal class EnumType constructor(override val propertyData: PropertyData, ove
 internal class AutoKeyType(override val propertyData: PropertyData, override val prefix: String?) : SimpleTypes {
     override val typeName = "Int"
 
+    override fun toString() = "$name - $typeName"
+
     override fun plainType(name: String): SimpleReadObject? {
         return null
     }

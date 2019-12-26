@@ -1,6 +1,7 @@
 package org.daiv.reflection.persister
 
 import mu.KotlinLogging
+import org.daiv.reflection.plain.HashCodeKey
 import org.daiv.reflection.plain.ObjectKey
 import org.daiv.reflection.plain.ObjectKeyToWrite
 import org.daiv.reflection.read.InsertObject
@@ -20,8 +21,15 @@ data class InsertCachePreference(val checkCacheOnly: Boolean)
 internal data class InsertMap constructor(val persister: Persister,
                                           val insertCachePreference: InsertCachePreference,
                                           val actors: Map<String, TableHandler>,
-                                          val readCache: ReadCache) {
+                                          val readCache: ReadCache) : KeyCreator {
     private val logger = KotlinLogging.logger {}
+
+    override val checkCacheOnly: Boolean
+        get() = insertCachePreference.checkCacheOnly
+
+    override fun toObjectKey(table: Persister.Table<*>, keyToWrite: ObjectKeyToWrite): ObjectKey {
+        return readCache.toObjectKey(table, keyToWrite, this)
+    }
 
     private fun insertListBy(insertObjects: List<List<List<InsertObject>>>): String {
         val headString = insertObjects.first()
@@ -47,28 +55,26 @@ internal data class InsertMap constructor(val persister: Persister,
         return objectValue
     }
 
-    private fun<T:Any> readHashCode(table: Persister.Table<T>, key: ObjectKeyToWrite, obj: T){
 
-    }
-
-    suspend fun <T : Any> nextTask(table: Persister.Table<T>, key: ObjectKeyToWrite, obj: T, nextTask: suspend () -> Unit) {
-        val objectKey = key.toObjectKey(0)
+    suspend fun <T : Any> nextTask(table: Persister.Table<T>, key: ObjectKeyToWrite, nextTask: suspend (ObjectKey) -> Unit) {
+        val objectKey = readCache.toObjectKey(table, key, this)
         if (insertCachePreference.checkCacheOnly) {
             if (readCache.isInCache(table, objectKey)) {
                 return
             }
         } else {
-            val read = readCache.read(table, objectKey)
+            val read = readCache.read(table, objectKey, this)
             if (read != null) {
-                read.checkDBValue(obj, objectKey)
+                read.checkDBValue(key.theObject(), objectKey)
                 return
             }
         }
-        nextTask()
+        nextTask(objectKey)
     }
 
     suspend fun toBuild(requestTask: RequestTask) {
-        val actor = actors[requestTask.insertKey.tableName]!!
+        val actor = actors[requestTask.insertKey.tableName]
+                ?: throw RuntimeException("actor for ${requestTask.insertKey} not found")
         actor.send(requestTask)
 
     }
@@ -107,19 +113,70 @@ internal interface PersisterListener {
     fun onUpdate(tableName: String, key: List<Any>)
 }
 
-internal class ReadTableCache(val tableName: String) {
+internal class ReadHashCodeTableCache(val tableName: String) : ReadTableCache {
+    private val map: MutableMap<Int, List<Any>> = mutableMapOf()
+
+    private fun InsertKey.hashCodeKey(): HashCodeKey {
+        if (this.key is HashCodeKey) {
+            return this.key
+        } else {
+            throw RuntimeException("this is not a HashCodeKey: $this")
+        }
+    }
+
+    override fun containsKey(insertKey: InsertKey): Boolean {
+        val key = insertKey.hashCodeKey()
+        return map[key.hashCodeX]?.size?.let { it > key.hashCodeCounter } ?: false
+    }
+
+    fun containsHashCode(hashCodeX: Int): Boolean {
+        return map.containsKey(hashCodeX)
+    }
+
+    fun getHashCodeObjects(hashCodeX: Int) = map[hashCodeX]
+
+    override operator fun get(insertKey: InsertKey): Any? {
+        val key = insertKey.hashCodeKey()
+        return map[key.hashCodeX]?.get(key.hashCodeCounter)
+    }
+
+    override operator fun set(insertKey: InsertKey, any: Any) {
+        val key = insertKey.hashCodeKey()
+        val list = if (map.containsKey(key.hashCodeX)) {
+            map[key.hashCodeX]!! + any
+        } else {
+            listOf(any)
+        }
+        map[key.hashCodeX] = list
+    }
+}
+
+internal interface ReadTableCache {
+    fun containsKey(insertKey: InsertKey): Boolean
+
+    operator fun get(insertKey: InsertKey): Any?
+
+    operator fun set(insertKey: InsertKey, any: Any)
+}
+
+internal class ReadTableCacheImpl(val tableName: String) : ReadTableCache {
     private val map: MutableMap<ObjectKey, Any> = mutableMapOf()
-    fun containsKey(insertKey: InsertKey): Boolean {
+    override fun containsKey(insertKey: InsertKey): Boolean {
         return map.containsKey(insertKey.key)
     }
 
-    operator fun get(insertKey: InsertKey): Any? {
+    override operator fun get(insertKey: InsertKey): Any? {
         return map[insertKey.key]
     }
 
-    operator fun set(insertKey: InsertKey, any: Any) {
+    override operator fun set(insertKey: InsertKey, any: Any) {
         map[insertKey.key] = any
     }
+}
+
+internal interface KeyCreator {
+    val checkCacheOnly: Boolean
+    fun toObjectKey(table: Persister.Table<*>, key: ObjectKeyToWrite): ObjectKey
 }
 
 
@@ -127,17 +184,54 @@ internal class ReadCache(val persisterPreference: PersisterPreference) : Persist
     private val logger = KotlinLogging.logger {}
     private val map: MutableMap<String, ReadTableCache> = mutableMapOf()
 
-    fun <T : Any> read(table: Persister.Table<T>, key: ObjectKey): T? {
+    private fun readDatabase(table: Persister.Table<*>,
+                             key: ObjectKeyToWrite,
+                             readTableCache: ReadHashCodeTableCache,
+                             keyCreator: KeyCreator,
+                             hashCodeX: Int = key.itsHashCode()): ObjectKey {
+        val counter = if (keyCreator.checkCacheOnly) {
+            0
+        } else {
+            val readHashCode = table.readHashCode(hashCodeX, this, keyCreator)
+            readHashCode.forEach {
+                readTableCache[InsertKey(table._tableName, key.toObjectKey(it.first))] = it.second
+            }
+            readHashCode.find { it.second == key.theObject() }?.first ?: readHashCode.size
+        }
+        val objectKey = key.toObjectKey(counter)
+        readTableCache[InsertKey(readTableCache.tableName, objectKey)] = key.theObject()
+        return objectKey
+    }
+
+    fun <T : Any> toObjectKey(table: Persister.Table<T>, key: ObjectKeyToWrite, keyCreator: KeyCreator): ObjectKey {
+        return if (key.isAutoId()) {
+            val hashCodeX = key.itsHashCode()
+            val readTableCache = readTableCache(table, true) as ReadHashCodeTableCache
+            if (readTableCache.containsHashCode(hashCodeX)) {
+                val objects = readTableCache.getHashCodeObjects(hashCodeX)!!
+                key.toObjectKey(objects.withIndex().find { it.value == key.theObject() }?.index ?: objects.size)
+            } else {
+                readDatabase(table, key, readTableCache, keyCreator, hashCodeX)
+            }
+        } else {
+            key.toObjectKey()
+        }
+    }
+
+    fun <T : Any> read(table: Persister.Table<T>, key: ObjectKey, keyCreator: KeyCreator): T? {
         val readCacheKey = InsertKey(table.tableName, key)
         val tableCache = if (!map.containsKey(readCacheKey.tableName)) {
-            val tableCache = ReadTableCache(readCacheKey.tableName)
+            val tableCache = if (readCacheKey.key.isAutoId())
+                ReadHashCodeTableCache(readCacheKey.tableName)
+            else
+                ReadTableCacheImpl(readCacheKey.tableName)
             map[readCacheKey.tableName] = tableCache
             tableCache
         } else {
             map[readCacheKey.tableName]!!
         }
         if (!tableCache.containsKey(readCacheKey)) {
-            val read = table.innerReadMultipleUseHashCode(key, this)
+            val read = table.innerReadMultipleUseHashCode(key, this, keyCreator)
             if (read != null) {
                 if (persisterPreference.useCache && map.size > persisterPreference.clearCacheAfterNumberOfStoredObjects) {
                     logger.info { "clearing cache, because more than ${persisterPreference.clearCacheAfterNumberOfStoredObjects} are stored (${map.size}" }
@@ -158,13 +252,17 @@ internal class ReadCache(val persisterPreference: PersisterPreference) : Persist
         return map[readCacheKey.tableName]?.get(readCacheKey) != null
     }
 
-    fun readTableCache(tableName: String): ReadTableCache {
+    fun readTableCache(tableName: String, isHashCodeTable: Boolean): ReadTableCache {
         if (!map.containsKey(tableName)) {
-            val r = ReadTableCache(tableName)
+            val r = if (isHashCodeTable) ReadHashCodeTableCache(tableName) else ReadTableCacheImpl(tableName)
             map[tableName] = r
             return r
         }
         return map[tableName]!!
+    }
+
+    fun <T : Any> readTableCache(table: Persister.Table<T>, isHashCodeTable: Boolean): ReadTableCache {
+        return readTableCache(table._tableName, isHashCodeTable)
     }
 
 //    operator fun set(insertKey: InsertKey, obj: Any) {
@@ -175,7 +273,7 @@ internal class ReadCache(val persisterPreference: PersisterPreference) : Persist
 //    }
 
     fun <T : Any> readNoNull(table: Persister.Table<T>, key: ObjectKey): T {
-        return read(table, key)
+        return read(table, key, allCheck)
                 ?: throw RuntimeException("did not find value for key $key in ${table._tableName}")
     }
 
@@ -197,6 +295,14 @@ internal class ReadCache(val persisterPreference: PersisterPreference) : Persist
 
     override fun onUpdate(tableName: String, key: List<Any>) {
         map.clear()
+    }
+
+    val allCheck = object : KeyCreator {
+        override val checkCacheOnly = false
+
+        override fun toObjectKey(table: Persister.Table<*>, key: ObjectKeyToWrite): ObjectKey {
+            return toObjectKey(table, key, this)
+        }
     }
 }
 

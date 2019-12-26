@@ -89,7 +89,7 @@ internal class AutoKeyProperty(val key: KeyHashCodeable) : PropertyData {
     override val type: KType = Any::class.createType()
     override val clazz: KClass<Any> = Any::class
     override val receiverType: KClass<Any>? = Any::class
-    override val name: String = "autoID"
+    override val name: String = autoIdName
     override fun getObject(r: Any): Int {
         try {
             return key.hashCodeX(r)
@@ -98,8 +98,12 @@ internal class AutoKeyProperty(val key: KeyHashCodeable) : PropertyData {
         }
     }
 
-    fun hashCodeX(r: Any): Int {
-        return key.hashCodeX(r)
+//    fun hashCodeX(r: Any): Int {
+//        return key.hashCodeX(r)
+//    }
+
+    companion object {
+        val autoIdName = "hashCodeXAutoID"
     }
 }
 //
