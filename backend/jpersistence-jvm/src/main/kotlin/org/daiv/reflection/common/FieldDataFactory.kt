@@ -159,7 +159,7 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
             return if (moreKeys.auto) {
                 val keyHashCodeable = clazz.createHashCodeableKey(HashCodeableProvider())
                 val autoIdField = KeyType(listOf(AutoKeyType(AutoKeyProperty(keyHashCodeable), prefix),
-                                                 ReadSimpleType(SimpleTypeProperty(Int::class.createType(), "hashCodeXCounter"), null)))
+                                                 ReadSimpleType(SimpleTypeProperty(Int::class.createType(), "hashCodeXCounter"), prefix)))
                 val keyType = KeyType(autoIdField!!.fields, keyHashCodeable, idField)
                 val fields = (listOf(keyType) + fields)
                 fields.forEach { it.onIdField(keyType) }
