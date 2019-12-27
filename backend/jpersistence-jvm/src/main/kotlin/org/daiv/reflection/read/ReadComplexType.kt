@@ -37,11 +37,6 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
                                            override val prefix: String?) : NoList {
     val providerKey = ProviderKey(propertyData.clazz, prefixedName)
 
-    //    private val persisterData: ReadPersisterData<T, Any> = ReadPersisterData(propertyData.clazz,
-//                                                                             persister,
-//                                                                             persisterProvider,
-//                                                                             prefix = prefixedName,
-//                                                                             parentTableName = manyToOne.tableName)
     init {
         persisterProvider.register(providerKey)
     }
@@ -94,18 +89,8 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
     val clazz = propertyData.clazz
     override fun getColumnValue(resultSet: ReadValue) = persisterData.readKey(resultSet)
 
-//    override fun joinNames(clazzSimpleName: String, keyName: String): List<JoinName> {
-//        return persisterData.onFields {
-//            joinNames(this@ReadComplexType.prefixedName, clazzSimpleName, persisterData.keyName())
-//        }
-//                .flatMap { it }
-//    }
-
     override fun keySimpleType(r: Any) = persisterData.keySimpleType(propertyData.getObject(r))
 
-//    override fun foreignKey(): ForeignKey {
-//        return ForeignKey(name, "${clazz.simpleName}(${persisterData.keyName()})")
-//    }
 
     override fun underscoreName(): String {
         return persisterData.key.underscoreName()!!
@@ -125,7 +110,6 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
 
     override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
         val nextSize = persisterData.key.getKeyValue(readCache, readValue, number)
-//        val nextSize = persisterData.key.getValue(readCache, readValue, number, key)
         if (nextSize.t.t == null) {
             return NextSize(ReadAnswer(null) as ReadAnswer<Any>, nextSize.i)
         }
@@ -137,11 +121,6 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
             return n.transform { b -> ReadAnswer(r(b)) }
         }
         val read = readCache.readNoNull(table, nextSize.t.t)
-//        val read = table.readMultipleUseHashCode(nextSize.t)
-//                ?: throw RuntimeException("did not find value for key ${nextSize.t}")
-
-//        val value = readValue.read(table, nextSize.t)
-//        val value = table.read(nextSize.t)!!
         return NextSize(ReadAnswer(read), nextSize.i)
     }
 
@@ -157,15 +136,4 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
         val objectKey = persisterData.mapObjectToKey(objectValue, keyCreator, table)
         return persisterData.key.insertObject(objectKey.keys(), keyCreator)
     }
-
-
-//    override fun hashCodeXIfAutoKey(t: R): T {
-//        val obj = getObject(t)
-//        return persisterData.key.plainHashCodeXIfAutoKey(obj) as T
-////        return super.hashCodeXIfAutoKey(t)
-//    }
-//
-//    override fun plainHashCodeXIfAutoKey(t: T): T {
-//        return persisterData.key.plainHashCodeXIfAutoKey(t) as T
-//    }
 }

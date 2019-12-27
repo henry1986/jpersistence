@@ -75,7 +75,9 @@ internal class InterfaceField(override val propertyData: PropertyData,
     }
 
     override fun fNEqualsValue(o: Any, sep: String, keyCreator: KeyCreator): String {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        val name = nameOfObj(o)
+        val p = possibleClasses[name]!!
+        return p.fieldData.fNEqualsValue(o, sep, keyCreator)
     }
 
     override fun plainType(name: String): SimpleReadObject? {
@@ -93,9 +95,10 @@ internal class InterfaceField(override val propertyData: PropertyData,
                 .recIndexed { i, pair, list ->
                     pair.first to pair.second.fieldData.getValue(readCache, readValue, list.lastOrNull()?.second?.i ?: number, key)
                 }
-        val name = readSimpleType.getValue(readCache, readValue, res.last().second.i, key).t.t as String
+        val textNextSize = readSimpleType.getValue(readCache, readValue, res.last().second.i, key)
+        val name = textNextSize.t.t as String
 //        val name = res.last().second.t.t as String
-        return res.toMap()[name]!!
+        return NextSize(res.toMap()[name]!!.t, textNextSize.i)
     }
 
     override fun insertObject(o: Any?, keyCreator: KeyCreator): List<InsertObject> {

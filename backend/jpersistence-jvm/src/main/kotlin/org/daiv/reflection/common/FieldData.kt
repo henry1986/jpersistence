@@ -92,7 +92,7 @@ internal interface FieldData : FieldCollection, FieldReadable {
 //    fun tableName(): List<String> = emptyList()
 
     fun isType(a: Any): Boolean {
-        return propertyData.clazz == a::class
+        return propertyData.clazz == a::class || propertyData.clazz.java.isInterface && propertyData.clazz.isInstance(a)
     }
 
     /**

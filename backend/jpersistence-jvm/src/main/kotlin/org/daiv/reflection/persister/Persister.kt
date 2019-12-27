@@ -392,6 +392,10 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return read(fieldName, id, readCache(), persister.defaultKeyCreator(), orderOrder).map { it }
         }
 
+        fun clearCache() {
+            readCache().clear()
+        }
+
         fun readOrdered(fieldName: String, id: Any): List<R> {
             return read(fieldName,
                         id,

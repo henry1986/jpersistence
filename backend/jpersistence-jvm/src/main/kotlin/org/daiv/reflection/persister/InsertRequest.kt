@@ -277,24 +277,26 @@ internal class ReadCache(val persisterPreference: PersisterPreference) : Persist
                 ?: throw RuntimeException("did not find value for key $key in ${table._tableName}")
     }
 
+    fun clear() = map.clear()
+
     override fun onDelete(tableName: String, key: List<Any>) {
-        map.clear()
+        clear()
     }
 
     override fun onClear(tableName: String) {
-        map.clear()
+        clear()
     }
 
     override fun onDelete(tableName: String) {
-        map.clear()
+        clear()
     }
 
     override fun onUpdate(tableName: String) {
-        map.clear()
+        clear()
     }
 
     override fun onUpdate(tableName: String, key: List<Any>) {
-        map.clear()
+        clear()
     }
 
     val allCheck = object : KeyCreator {
