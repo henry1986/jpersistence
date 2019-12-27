@@ -81,7 +81,8 @@ internal class InterfaceField(override val propertyData: PropertyData,
     }
 
     override fun plainType(name: String): SimpleReadObject? {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        return possibleClasses.map { it.value.fieldData.plainType(name) }
+                .find { it != null }
     }
 
     override fun getColumnValue(readValue: ReadValue): Any {

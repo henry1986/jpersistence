@@ -1,6 +1,7 @@
 package org.daiv.reflection.persistence.kotlin
 
 import mu.KotlinLogging
+import org.daiv.reflection.annotations.IFaceForObject
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.plain.*
@@ -15,12 +16,17 @@ class PlainReadTest :
                  @MoreKeys(2)
                  data class MyObject(val long: Long, val x: Int, val string: X1, val isTrue: Boolean)
 
+                 data class MyObject2(val y: Int, override val x: Int) : TheInterface
+
                  data class MyCObject(val long: Long, val myObject: MyObject)
+                 data class MyCObject2(val long: Long, @IFaceForObject([MyObject2::class]) val myObject: TheInterface)
+
                  data class MyResult0(val long: Long, val myObject: Long, val myObject_x_Int: Int)
                  data class MyResult1(val long: Long)
                  data class MyResult2(val long: Long, val x: Int)
                  data class MyResult3(val long: Long, val x: Int, val enum: X1)
                  data class MyResult4(val long: Long, val x: Int, val enum: X1, val isTrue: Boolean)
+                 data class MyResult5(val long: Int)
 
                  val logger = KotlinLogging.logger {}
                  describe("testPlain") {
@@ -75,6 +81,19 @@ class PlainReadTest :
 //                                     .p("myObject_x")
                                      .read()
                              assertEquals(listOf(MyResult0(5L, 9L, 4), MyResult0(6L, 7L, 5)), res)
+                         }
+                     }
+                     on("test Interface") {
+                         val table = persister.Table(MyCObject2::class)
+                         table.persist()
+                         table.insert(MyCObject2(5L, MyObject2(5, 4)))
+                         table.insert(MyCObject2(6L, MyObject2(4, 6)))
+                         it("test plain") {
+                             val res = table.requestBuilder("MyObject2_y") {
+                                 MyResult5(it[0] as Int)
+                             }
+                                     .read()
+                             assertEquals(listOf(MyResult5(5), MyResult5(4)), res)
                          }
                      }
                      afterGroup { persister.delete() }
