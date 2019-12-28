@@ -137,7 +137,7 @@ internal class ReadHashCodeTableCache(val tableName: String) : ReadTableCache {
 
     override operator fun get(insertKey: InsertKey): Any? {
         val key = insertKey.hashCodeKey()
-        return map[key.hashCodeX]?.get(key.hashCodeCounter)
+        return map[key.hashCodeX]?.getOrNull(key.hashCodeCounter)
     }
 
     override operator fun set(insertKey: InsertKey, any: Any) {
