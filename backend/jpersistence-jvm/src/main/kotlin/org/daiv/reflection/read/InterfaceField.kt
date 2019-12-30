@@ -2,7 +2,7 @@ package org.daiv.reflection.read
 
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
-import org.daiv.reflection.persister.KeyCreator
+import org.daiv.reflection.persister.KeyGetter
 import org.daiv.reflection.persister.ReadCache
 import org.daiv.reflection.plain.ObjectKey
 import org.daiv.reflection.plain.SimpleReadObject
@@ -74,10 +74,10 @@ internal class InterfaceField(override val propertyData: PropertyData,
         return onAllFlat { subFields() }
     }
 
-    override fun fNEqualsValue(o: Any, sep: String, keyCreator: KeyCreator): String {
+    override fun fNEqualsValue(o: Any, sep: String, keyGetter: KeyGetter): String? {
         val name = nameOfObj(o)
         val p = possibleClasses[name]!!
-        return p.fieldData.fNEqualsValue(o, sep, keyCreator)
+        return p.fieldData.fNEqualsValue(o, sep, keyGetter)
     }
 
     override fun plainType(name: String): SimpleReadObject? {
@@ -102,14 +102,14 @@ internal class InterfaceField(override val propertyData: PropertyData,
         return NextSize(res.toMap()[name]!!.t, textNextSize.i)
     }
 
-    override fun insertObject(o: Any?, keyCreator: KeyCreator): List<InsertObject> {
+    override fun insertObject(o: Any?, keyGetter: KeyGetter): List<InsertObject> {
         if (o == null) {
-            return onAllFlat { insertObject(null, keyCreator) }
+            return onAllFlat { insertObject(null, keyGetter) }
         }
         val name = nameOfObj(o)
         return possibleClasses.flatMap {
-            if (it.key == name) it.value.fieldData.insertObject(o, keyCreator) else it.value.fieldData.insertObject(null, keyCreator)
-        } + readSimpleType.insertObject(name, keyCreator)
+            if (it.key == name) it.value.fieldData.insertObject(o, keyGetter) else it.value.fieldData.insertObject(null, keyGetter)
+        } + readSimpleType.insertObject(name, keyGetter)
     }
 
     override fun underscoreName(): String? {

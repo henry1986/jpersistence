@@ -51,6 +51,7 @@ class BarTest
 
                data class ListHolder(val x: Int, val list: List<ComplexObject>)
 
+               data class WaveHolder(val wave: Wave)
 
                data class RawWave(val id: Int, val wavePoints: List<WavePoint>) {
                    constructor(wavePoints: List<WavePoint>) : this(wavePoints.hashCode(), wavePoints)
@@ -79,7 +80,7 @@ class BarTest
                val logger = KotlinLogging.logger { }
                describe("BarTest") {
                    val persister = persister("BarTest.db")
-                   val doubleRefPersister = Persister("BarTestDoubleRef.db", PersisterPreference(true, 1000000))
+                   val doubleRefPersister = Persister("BarTestDoubleRef.db", PersisterPreference( 1000000))
                    on("from to") {
                        val list = (0 until 100).map { Bar(it, " - $it - ") }
                                .toList()
@@ -212,6 +213,7 @@ class BarTest
                            val wp3 = WavePoint(Tick(620000L, 1.9, OfferSide.BID), true, m1)
                            val wave1 = Wave(listOf(wp1, wp2, wp3))
                            table.insert(wave1)
+                           table.clearCache()
                            val read = table.read(listOf(wp1, wp2, wp3))
                            assertEquals(wave1, read)
                        }
@@ -350,7 +352,7 @@ class BarTest
                            val hash1 = listOf(1, 32).hashCodeX() + 31
                            val hash2 = listOf(2, 1).hashCodeX() + 31
                            logger.trace { "h1: $hash1, h2: $hash2" }
-                           val hashCodeRead = table.readHashCode(1055, persister.readCache(), persister.readCache().allCheck)
+                           val hashCodeRead = table.readHashCode(1055, persister.readCache())
 //                           logger.trace { "hashCodeRead: $hashCodeRead" }
                            hashCodeRead.log(logger, "hashCodeRead")
                            assertEquals(list, read)
@@ -400,6 +402,23 @@ class BarTest
                        it("test ReadComplex by read from key") {
                            assertEquals(r1, table.read(c1))
                            assertEquals(r2, table.read(c2))
+                       }
+                   }
+                   on("read autoKey Object as key") {
+                       val table = persister.Table(WaveHolder::class)
+                       table.persist()
+                       val wp1 = WavePoint(Tick(1600000L, 0.5, OfferSide.BID), true, m1)
+                       val wp2 = WavePoint(Tick(1650000L, 0.9, OfferSide.BID), false, m1)
+                       val wp3 = WavePoint(Tick(1680000L, 1.9, OfferSide.BID), true, m1)
+                       val wp4 = WavePoint(Tick(1820000L, 1.9, OfferSide.BID), false, m1)
+                       val w1 = WaveHolder(Wave(listOf(wp1, wp2, wp3)))
+                       val w2 = WaveHolder(Wave(listOf(wp2, wp3, wp4)))
+                       val list = listOf(w1, w2)
+                       it("test read") {
+                           table.insert(list)
+                           table.clearCache()
+                           val read = table.readAll()
+                           assertEquals(list.toSet(), read.toSet())
                        }
                    }
                    afterGroup { persister.delete(); doubleRefPersister.delete() }

@@ -7,7 +7,7 @@ internal interface IsAutoId {
 
 internal interface ObjectKey : IsAutoId {
     fun keys(): List<Any>
-    fun hashCounter(): Int
+    fun hashCounter(): Int?
 
     companion object {
         val empty: ObjectKey = PersistenceKey(emptyList())
@@ -28,11 +28,9 @@ internal data class PersistenceKey(val keys: List<Any>) : ObjectKey {
     override fun hashCounter() = throw RuntimeException("no autoKey")
 }
 
-internal data class HashCodeKey(val keys: List<Any>, val hashCodeX: Int, val hashCodeCounter: Int) : ObjectKey {
+internal data class HashCodeKey constructor(val keys: List<Any>, val hashCodeX: Int, val hashCodeCounter: Int) : ObjectKey {
     override fun isAutoId() = true
-
-    override fun keys(): List<Any> = listOf(hashCodeX, hashCodeCounter)
-
+    override fun keys(): List<Any> = hashCodeCounter?.let { listOf(hashCodeX, hashCodeCounter) }
     override fun hashCounter() = hashCodeCounter
 }
 

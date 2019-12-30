@@ -20,12 +20,12 @@ internal interface PersisterProvider {
 
     fun table(clazz: KClass<out Any>): Table<*>
 
-    fun tableNamesIncludingPrefix(): Map<KClass<out Any>, String>
+    fun allTables():Map<KClass<out Any>, Persister.InternalTable>
 
     fun isAutoIdTable(clazz: KClass<out Any>): Boolean
 
     fun rename(clazz: KClass<out Any>, newTableName: String)
-    fun registerHelperTableName(helperTableName: String)
+    fun registerHelperTableName(helperTableName: Persister.InternalTable)
     fun exists(clazz: KClass<out Any>): Boolean
 
     operator fun set(clazz: KClass<out Any>, newTableName: String) {
@@ -40,7 +40,7 @@ internal interface PersisterProvider {
         }
     }
 
-    fun getHelperTableNames(): Collection<String>
+    fun getHelperTableNames(): Collection<Persister.InternalTable>
 
     fun setAutoTableId(clazz: KClass<out Any>, autoId: Boolean, table: Table<*>)
 }
@@ -54,11 +54,11 @@ internal class PersisterProviderImpl constructor(val persister: Persister, val t
     //            = _tableNames.map { it.key.java.name to it.value }
 //            .toMap()
 //            .toMutableMap()
-    private val helperTableNames = mutableSetOf<String>()
+    private val helperTableNames = mutableSetOf<Persister.InternalTable>()
 
     override fun getHelperTableNames() = helperTableNames
 
-    override fun registerHelperTableName(helperTableName: String) {
+    override fun registerHelperTableName(helperTableName: Persister.InternalTable) {
         helperTableNames.add(helperTableName)
     }
 
@@ -82,10 +82,8 @@ internal class PersisterProviderImpl constructor(val persister: Persister, val t
 
     private fun toPrefixedName(tableName: String) = tableNamePrefix?.let { "${it}_$tableName" } ?: tableName
 
-    override fun tableNamesIncludingPrefix(): Map<KClass<out Any>, String> {
-        return tableNames.map { it.key to toPrefixedName(it.value) }
-                .toMap()
-//        return tableNames.map { toPrefixedName(it.value) } + helperTableNames
+    override fun allTables(): Map<KClass<out Any>, Persister.InternalTable> {
+        return tableMap
     }
 
     override fun tableName(clazz: KClass<out Any>): String {

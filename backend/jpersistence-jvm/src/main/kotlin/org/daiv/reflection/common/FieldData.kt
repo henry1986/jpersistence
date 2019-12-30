@@ -24,7 +24,7 @@
 package org.daiv.reflection.common
 
 import org.daiv.reflection.persister.InsertMap
-import org.daiv.reflection.persister.KeyCreator
+import org.daiv.reflection.persister.KeyGetter
 import org.daiv.reflection.persister.Persister.HelperTable
 import org.daiv.reflection.persister.ReadCache
 import org.daiv.reflection.plain.ObjectKey
@@ -50,17 +50,17 @@ internal interface FieldCollection {
      * returns "[fieldName] = [id]" for primitive Types, or the complex variant
      * for complex types, the [sep] is needed
      */
-    fun fNEqualsValue(o: Any, sep: String, keyCreator: KeyCreator): String
+    fun fNEqualsValue(o: Any, sep: String, keyGetter: KeyGetter): String?
 
-    fun whereClause(id: Any, sep: String, keyCreator: KeyCreator): String {
-        return "WHERE ${fNEqualsValue(id, sep, keyCreator)}"
+    fun whereClause(id: Any, sep: String, keyGetter: KeyGetter): String? {
+        return fNEqualsValue(id, sep, keyGetter)?.let { "WHERE $it" }
     }
 
     fun plainType(name: String): SimpleReadObject?
 
     fun getColumnValue(readValue: ReadValue): Any
     fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>>
-    fun insertObject(o: Any?, keyCreator: KeyCreator): List<InsertObject>
+    fun insertObject(o: Any?, keyGetter: KeyGetter): List<InsertObject>
     fun underscoreName(): String?
 }
 
@@ -177,13 +177,11 @@ internal interface FieldData : FieldCollection, FieldReadable {
 
     fun isAlsoKeyField() = false
 
-    fun insertObjects(o: Any, keyCreator: KeyCreator): List<List<InsertObject>> = listOf(insertObject(o, keyCreator))
+    fun insertObjects(o: Any, keyGetter: KeyGetter): List<List<InsertObject>> = listOf(insertObject(o, keyGetter))
     fun readFromList(list: List<List<ReadFieldValue>>): Any? = list.first().first().value
 
 //    fun makeString(any: R): String
 }
-
-internal data class ToStoreManyToOneObjects(val field: FieldData, val any: Any)
 
 internal interface NoList : FieldData {
     override fun createTableForeign(tableName: Set<String>) = tableName
@@ -208,7 +206,7 @@ internal interface SimpleCollectionFieldData : FieldData {
     override fun copyTableName() = emptyMap<String, String>()
 
 
-    override fun insertObject(o: Any?, keyCreator: KeyCreator): List<InsertObject> = listOf()
+    override fun insertObject(o: Any?, keyGetter: KeyGetter): List<InsertObject> = emptyList()
 }
 
 internal interface CollectionFieldData : SimpleCollectionFieldData {
@@ -255,7 +253,7 @@ internal interface SimpleTypes : NoList {
 
     override fun underscoreName() = name(prefix)
 
-    override fun insertObject(t: Any?, keyCreator: KeyCreator): List<InsertObject> {
+    override fun insertObject(t: Any?, keyGetter: KeyGetter): List<InsertObject> {
         return listOf(object : InsertObject {
             override fun insertValue(): String {
                 return t?.let { makeString(it) } ?: "null"
@@ -270,7 +268,7 @@ internal interface SimpleTypes : NoList {
     fun makeString(t: Any): String
     fun makeStringOnEqualsValue(t: Any): String = makeString(t)
 
-    override fun fNEqualsValue(o: Any, sep: String, keyCreator: KeyCreator): String {
+    override fun fNEqualsValue(o: Any, sep: String, keyGetter: KeyGetter): String {
         return "$prefixedName = ${makeStringOnEqualsValue(o)}"
 //        return "$prefixedName = ${makeString(o)}"
     }

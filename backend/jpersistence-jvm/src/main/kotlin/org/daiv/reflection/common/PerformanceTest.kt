@@ -126,7 +126,7 @@ private fun WorkData<Collector>.checkCollector(all: List<Collector>) {
 
 fun main(args: Array<String>) {
     System.setProperty("logback.configurationFile", "logback.xml")
-    val persister = Persister("PerformanceTest.db", PersisterPreference(true, 1000000))
+    val persister = Persister("PerformanceTest.db", PersisterPreference(1000000))
     try {
         val w = persister.createCollector()
 //        val w = persister.createCandle()

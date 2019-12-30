@@ -62,18 +62,17 @@ internal class MapType constructor(override val propertyData: CollectionProperty
         val p = r.map { key -> key to propertyData.getObject(key) }
         p.forEach { x ->
             val id1 = idField.keyToWrite(x.first)
-            val objectKey = if (id1.isAutoId()) {
-                insertMap.toObjectKey(persisterProvider.table(propertyData.receiverType), id1)
-            } else {
-                id1.toObjectKey()
-            }
+//            val objectKey = if (id1.isAutoId()) {
+//                insertMap.toObjectKey(persisterProvider.table(propertyData.receiverType), id1)
+//            } else {
+//                id1.toObjectKey()
+//            }
 //            val id1 = idField.hashCodeXIfAutoKey(x.first)
-            insertMap.toBuild(RequestTask(InsertKey(helperTableName, objectKey), {
-                val b = idField.insertObject(objectKey.keys(), insertMap)
-                valueField.insertObjects(x.second, insertMap)
-                        .map {
-                            InsertRequest(b + it)
-                        }
+            insertMap.toBuild(HelperRequestTask(InsertKey(helperTable, id1), {
+                val objectKey = insertMap.readCache.keyForObjectFromCache(persisterProvider.table(propertyData.receiverType), id1)!!
+                val b = idField.insertObject(objectKey.keys(), insertMap.readCache)
+                valueField.insertObjects(x.second, insertMap.readCache)
+                        .map { InsertRequest(b + it) }
             }) {
                 valueField.toStoreData(insertMap, listOf(x.second))
             })
@@ -91,11 +90,11 @@ internal class MapType constructor(override val propertyData: CollectionProperty
                                        if (valueField.isAlsoKeyField()) emptyList() else listOf(valueField),
                                        { innerTableName },
                                        { helperTableName })
-        persisterProvider.registerHelperTableName(helperTableName)
+        persisterProvider.registerHelperTableName(helper)
     }
 
-    override fun fNEqualsValue(o: Any, sep: String, keyCreator: KeyCreator): String {
-        return valueField.fNEqualsValue(o, sep, keyCreator)
+    override fun fNEqualsValue(o: Any, sep: String, keyGetter: KeyGetter): String? {
+        return valueField.fNEqualsValue(o, sep, keyGetter)
     }
 
     override fun createTableForeign(tableNames: Set<String>): Set<String> {
@@ -111,7 +110,7 @@ internal class MapType constructor(override val propertyData: CollectionProperty
         if (key.isEmpty()) {
             throw NullPointerException("a Collection with no autoId cannot be a key")
         }
-        val fn = idField.autoIdFNEqualsValue(key, " AND ", readCache.allCheck)
+        val fn = idField.autoIdFNEqualsValue(key, " AND ", readCache)
         val read = helperTable.readIntern(fn, readCache)
         val x = valueField.readFromList(read.map { it.drop(1) })
         return NextSize(ReadAnswer(x), number)

@@ -80,6 +80,7 @@ class PersisterTest :
                      val readValues = listOf(ReadValue(5, "HalloX"), ReadValue(6, "HollaY"), ReadValue(7, "neu"))
                      val changed6 = ReadValue(6, "neu")
                      readValues.forEach(table::insert)
+                     persister.clearCache()
                      it("read from column") {
                          val read = table.read("string", "HalloX")
                          assertEquals(readValues[0], read[0])
@@ -149,6 +150,7 @@ class PersisterTest :
                          list.persist()
                          val c = ComplexHostSet(5, setOf(e1, e2), setOf(e2, e3))
                          list.insert(c)
+                         persister.clearCache()
                          assertEquals(c, list.read(5))
                      }
                      it("on map") {
@@ -182,6 +184,7 @@ class PersisterTest :
                          table.insert(L1(5, "hello"))
                          table.insert(L1(6, "hello"))
                          table.insert(L1(7, "hello"))
+                         persister.clearCache()
                          val keys = table.readAllKeys<Int>()
                          assertEquals(listOf(5, 6, 7), keys)
                      }

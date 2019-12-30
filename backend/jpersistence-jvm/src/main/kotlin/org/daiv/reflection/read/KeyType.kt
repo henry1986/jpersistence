@@ -2,7 +2,7 @@ package org.daiv.reflection.read
 
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
-import org.daiv.reflection.persister.KeyCreator
+import org.daiv.reflection.persister.KeyGetter
 import org.daiv.reflection.persister.ReadCache
 import org.daiv.reflection.plain.*
 import org.daiv.util.recIndexed
@@ -53,24 +53,42 @@ internal class KeyType constructor(val fields: List<FieldData>,
                 .joinToString(", ")
     }
 
-    fun keyToWrite(t: Any): ObjectKeyToWrite {
-        return object : ObjectKeyToWrite {
-            override fun theObject() = t
+    class ObjectKeyToWriteImpl(val t: Any, val keyType: KeyType):ObjectKeyToWrite{
+        override fun theObject() = t
 
-            override fun itsKey() = getObject(t) as List<Any>
+        override fun itsKey() = keyType.getObject(t) as List<Any>
 
-            override fun itsHashCode() = key!!.plainHashCodeX(itsKey())
+        override fun itsHashCode() = keyType.key!!.plainHashCodeX(itsKey())
 
-            override fun keyToWrite(counter: Int?) = hashCodeXIfAutoKey(t, counter)
+        override fun keyToWrite(counter: Int?) = keyType.hashCodeXIfAutoKey(t, counter)
 
-            override fun isAutoId() = this@KeyType.isAuto()
+        override fun isAutoId() = keyType.isAuto()
 
-            override fun toObjectKey(hashCounter: Int?) =
-                    if (isAutoId())
-                        HashCodeKey(keyToWrite(hashCounter), itsHashCode(), hashCounter!!)
-                    else
-                        PersistenceKey(keyToWrite(null))
+        override fun toObjectKey(hashCounter: Int?) =
+                if (isAutoId())
+                    HashCodeKey(keyToWrite(hashCounter), itsHashCode(), hashCounter!!)
+                else
+                    PersistenceKey(keyToWrite(null))
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as ObjectKeyToWriteImpl
+
+            if (t != other.t) return false
+            if (keyType != other.keyType) return false
+
+            return true
         }
+
+        override fun hashCode(): Int {
+            return t.hashCode()
+        }
+    }
+
+    fun keyToWrite(t: Any): ObjectKeyToWrite {
+        return ObjectKeyToWriteImpl(t, this)
     }
 
     fun toObjectKey(t: Any, hashCounter: Int?) = if (isAuto()) {
@@ -99,7 +117,11 @@ internal class KeyType constructor(val fields: List<FieldData>,
         propertyData.receiverType
         val obj = getObject(t)
         return key?.let {
-            listOf(it.plainHashCodeX(obj), counter!!)
+            try {
+                listOf(it.plainHashCodeX(obj), counter!!)
+            } catch(t:Throwable){
+                throw t
+            }
         } ?: obj as List<Any>
     }
 
@@ -147,12 +169,12 @@ internal class KeyType constructor(val fields: List<FieldData>,
         return NextSize(ReadAnswer(list), ret.last().i) as NextSize<ReadAnswer<Any>>
     }
 
-    override fun fNEqualsValue(o: Any, sep: String, keyCreator: KeyCreator): String {
+    override fun fNEqualsValue(o: Any, sep: String, keyGetter: KeyGetter): String {
         try {
             o as List<Any>
             return fields.mapIndexed { i, e ->
                 val obj = o[i]
-                e.fNEqualsValue(obj, sep, keyCreator)
+                e.fNEqualsValue(obj, sep, keyGetter)
             }
                     .joinToString(sep)
         } catch (t: Throwable) {
@@ -163,12 +185,12 @@ internal class KeyType constructor(val fields: List<FieldData>,
     /**
      * if autoId, the value must already be the hashCodeX
      */
-    fun autoIdFNEqualsValue(o: List<Any>, sep: String, keyCreator: KeyCreator): String {
+    fun autoIdFNEqualsValue(o: List<Any>, sep: String, keyGetter: KeyGetter): String {
         return fields.mapIndexed { i, e ->
             if (e is AutoKeyType) {
                 e.autoIdFNEqualsValue(o[i])
             } else {
-                e.fNEqualsValue(o[i], sep, keyCreator)
+                e.fNEqualsValue(o[i], sep, keyGetter)
             }
         }
                 .joinToString(sep)
@@ -196,14 +218,14 @@ internal class KeyType constructor(val fields: List<FieldData>,
 
     override fun toString() = "$name - $fields"
 
-    override fun insertObject(o: Any?, keyCreator: KeyCreator): List<InsertObject> {
+    override fun insertObject(o: Any?, keyGetter: KeyGetter): List<InsertObject> {
         try {
             if (o == null) {
-                return fields.map { it.insertObject(null, keyCreator) }
+                return fields.map { it.insertObject(null, keyGetter) }
                         .flatten()
             }
             val x = o as List<Any?>
-            return fields.mapIndexed { i, e -> e.insertObject(x[i], keyCreator) }
+            return fields.mapIndexed { i, e -> e.insertObject(x[i], keyGetter) }
                     .flatten()
         } catch (t: Throwable) {
             throw t

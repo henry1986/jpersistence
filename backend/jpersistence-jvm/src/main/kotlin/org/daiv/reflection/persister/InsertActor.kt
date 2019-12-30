@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.actor
 import kotlinx.coroutines.launch
 import mu.KotlinLogging
+import org.daiv.reflection.plain.ObjectKey
 
 internal interface ActorHandlerInterface {
     val map: Map<InsertKey, () -> List<InsertRequest>>
@@ -88,19 +89,34 @@ internal class InsertActor(private val actorHandler: ActorHandler) :
 //    val toDo: suspend () -> Unit
 //}
 
-internal class RequestTask(val insertKey: InsertKey,
-                                  val obj: Any? = null,
-                                  val toBuild: () -> List<InsertRequest>,
-                                  val toDo: suspend () -> Unit)  {
-    constructor(insertKey: InsertKey, toBuild: () -> List<InsertRequest>, toDo: suspend () -> Unit) :
-            this(insertKey, null, toBuild, toDo)
+internal interface RequestTask {
+    val insertKey: InsertKey
+    val toDo: suspend () -> Unit
+    fun put(map: MutableMap<InsertKey, () -> List<InsertRequest>>, readTableCache: ReadTableCache): Boolean
+}
 
-    fun put(map: MutableMap<InsertKey, () -> List<InsertRequest>>, readTableCache: ReadTableCache): Boolean {
+internal class HelperRequestTask(override val insertKey: InsertKey,
+                                 val toBuild: () -> List<InsertRequest>,
+                                 override val toDo: suspend () -> Unit) : RequestTask {
+    override fun put(map: MutableMap<InsertKey, () -> List<InsertRequest>>, readTableCache: ReadTableCache): Boolean {
         if (!map.containsKey(insertKey)) {
             map[insertKey] = toBuild
-            obj?.let {
-                readTableCache[insertKey] = it
-            }
+            return true
+        }
+        return false
+    }
+}
+
+internal class DefaultRequestTask constructor(override val insertKey: InsertKey,
+                                              val obj: Any,
+                                              val toBuild: (ObjectKey) -> List<InsertRequest>,
+                                              override val toDo: suspend () -> Unit) : RequestTask {
+
+    override fun put(map: MutableMap<InsertKey, () -> List<InsertRequest>>, readTableCache: ReadTableCache): Boolean {
+        if (!map.containsKey(insertKey)) {
+            val readKey = readTableCache.createReadKey(insertKey.key)
+            map[insertKey] = { toBuild(readKey.key) }
+            readTableCache[readKey] = obj
             return true
         }
         return false

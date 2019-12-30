@@ -61,8 +61,8 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
             val key = persisterData.key.keyToWrite(obj)
 
 //            val key = persisterData.key.hashCodeXIfAutoKey(obj)
-            insertMap.nextTask(table, key) {
-                table.readPersisterData.putInsertRequests(table._tableName, insertMap, listOf(obj), listOf(it))
+            insertMap.nextTask(table, key) { keyToWrite ->
+                table.readPersisterData.putInsertRequests(table, insertMap, listOf(obj), listOf(keyToWrite))
             }
         }
     }
@@ -124,16 +124,21 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
         return NextSize(ReadAnswer(read), nextSize.i)
     }
 
-    override fun fNEqualsValue(objectValue: Any, sep: String, keyCreator: KeyCreator): String {
-        val objectKey = persisterData.mapObjectToKey(objectValue, keyCreator, table)
-        return persisterData.key.fNEqualsValue(objectKey.keys(), sep, keyCreator)
+    override fun fNEqualsValue(objectValue: Any, sep: String, keyGetter: KeyGetter): String? {
+//        val objectKey = persisterData.mapObjectToKey(objectValue, keyCreator, table)
+        val objectKey = keyGetter.keyForObject(table, persisterData.key.keyToWrite(objectValue))
+                ?: return null
+        return persisterData.key.fNEqualsValue(objectKey.keys(), sep, keyGetter)
     }
 
-    override fun insertObject(objectValue: Any?, keyCreator: KeyCreator): List<InsertObject> {
+    override fun insertObject(objectValue: Any?, keyGetter: KeyGetter): List<InsertObject> {
         if (objectValue == null) {
-            return persisterData.key.insertObject(null, keyCreator)
+            return persisterData.key.insertObject(null, keyGetter)
         }
-        val objectKey = persisterData.mapObjectToKey(objectValue, keyCreator, table)
-        return persisterData.key.insertObject(objectKey.keys(), keyCreator)
+//        val objectKey = persisterData.mapObjectToKey(objectValue, table)
+        val key = persisterData.key.keyToWrite(objectValue)
+        return persisterData.key.insertObject(keyGetter.keyForObjectFromCache(table, key)?.keys()
+                                                      ?: throw RuntimeException("did not find key for $table and $key")
+                                              , keyGetter)
     }
 }

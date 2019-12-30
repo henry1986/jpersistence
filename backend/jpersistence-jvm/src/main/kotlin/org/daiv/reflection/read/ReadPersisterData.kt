@@ -26,6 +26,7 @@ package org.daiv.reflection.read
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.*
 import org.daiv.reflection.plain.ObjectKey
+import org.daiv.reflection.plain.ObjectKeyToWrite
 import kotlin.reflect.KClass
 import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.isAccessible
@@ -62,12 +63,12 @@ internal interface InternalRPD {
         fields.forEach { it.dropHelper() }
     }
 
-    fun fromWhere(fieldName: String, id: Any, sep: String, keyCreator: KeyCreator): String {
+    fun fromWhere(fieldName: String, id: Any, sep: String, keyGetter: KeyGetter): String? {
         try {
             return if (key.fieldName == fieldName) {
-                key.whereClause(id as List<Any>, sep, keyCreator)
+                key.whereClause(id as List<Any>, sep, keyGetter)
             } else {
-                field(fieldName).whereClause(id, sep, keyCreator)
+                field(fieldName).whereClause(id, sep, keyGetter)
             }
         } catch (t: Throwable) {
             throw t
@@ -233,30 +234,32 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
 
     fun keySimpleType(r: Any) = key.simpleType(r)
 
-    suspend fun trueInsert(tableName: String, insertMap: InsertMap, it: Any, objectKey: ObjectKey) {
-        val insertKey = InsertKey(tableName, key.toObjectKey(it, 0))
+    suspend fun trueInsert(table: Persister.Table<*>, insertMap: InsertMap, o: Any, objectKey: ObjectKeyToWrite) {
+        val insertKey = InsertKey(table, objectKey)
 //        val insertKey = InsertKey(tableName, key.hashCodeXIfAutoKey(it))
-        val request = RequestTask(insertKey, it, { listOf(InsertRequest(insertObject(it, objectKey, insertMap))) }) {
-            fields.forEach { f -> f.toStoreData(insertMap, listOf(it)) }
+        val request = DefaultRequestTask(insertKey, o, { listOf(InsertRequest(insertObject(o, it, insertMap))) }) {
+            fields.forEach { f -> f.toStoreData(insertMap, listOf(o)) }
         }
         insertMap.toBuild(request)
     }
+//
+//    fun mapObjectToKey(o: Any, insertMap: KeyCreator, table: Persister.Table<*>): ObjectKey {
+//        val key = key.keyToWrite(o)
+//        return insertMap.toObjectKey(table, key)
+//    }
 
-    fun mapObjectToKey(o: Any, insertMap: KeyCreator, table: Persister.Table<*>): ObjectKey {
-        val key = key.keyToWrite(o)
-        return insertMap.toObjectKey(table, key)
+    suspend fun putInsertRequests(insertMap: InsertMap, o: List<Any>, table: Persister.Table<*>) {
+//        val keys = o.map { mapObjectToKey(it, insertMap, table) }
+        val keys = o.map { key.keyToWrite(it) }
+//        val keys = o.map { insertMap.readCache.keyForObject(table, key.keyToWrite(it)) }
+        putInsertRequests(table, insertMap, o, keys)
     }
 
-    suspend fun putInsertRequests(tableName: String, insertMap: InsertMap, o: List<Any>, table: Persister.Table<*>) {
-        val keys = o.map { mapObjectToKey(it, insertMap, table) }
-        putInsertRequests(tableName, insertMap, o, keys)
-    }
-
-    suspend fun putInsertRequests(tableName: String, insertMap: InsertMap, o: List<Any>, keys: List<ObjectKey>) {
+    suspend fun putInsertRequests(table: Persister.Table<*>, insertMap: InsertMap, o: List<Any>, keys: List<ObjectKeyToWrite>) {
         o.mapIndexed { i, it ->
             insertMap.actors.values.first()
                     .launch {
-                        trueInsert(tableName, insertMap, it, keys[i])
+                        trueInsert(table, insertMap, it, keys[i])
                     }
         }
     }
@@ -272,7 +275,7 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
             } else {
                 it.hashCodeXIfAutoKey(o)
             }
-            it.insertObject(x as Any?, insertMap)
+            it.insertObject(x as Any?, insertMap.readCache)
         }
     }
 

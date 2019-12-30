@@ -5,6 +5,7 @@ import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
 import org.daiv.reflection.annotations.ManyToOne
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.persister.Persister
+import org.daiv.util.json.log
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
@@ -91,6 +92,7 @@ class AlterTableTest :
                              table.persist()
                              val assert = BeforeList(1, listOf(Before(1, "hello"), Before(2, "wow")))
                              table.insert(assert)
+                             persister.clearCache()
                              persister.Table(Before::class)
                                      .change(After2::class, mapOf("z" to "0.0"))
                                      .rename("After2")
@@ -105,6 +107,7 @@ class AlterTableTest :
                      }
                      on("refactore object with list and adding key") {
                          it("to After") {
+                             persister.clearCache()
                              val table = persister.Table(NextBeforeList::class, "NextAfterList")
                              table.persist()
                              val b = Before(1, "hello")
@@ -125,7 +128,7 @@ class AlterTableTest :
                              val rassert2 = NextAfterList(2, b3, b2, 2, listOf(Before(2, "2hello"), Before(8, "8wow")))
                              val rassert3 = NextAfterList(3, b, b2, 3, listOf(Before(3, "3hello"), Before(5, "5wow")))
                              val rassert = listOf(rassert1, rassert2, rassert3)
-                             assertEquals(rassert, read)
+                             assertEquals(rassert.toSet(), read.toSet())
                          }
                      }
                  }
