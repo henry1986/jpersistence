@@ -77,13 +77,17 @@ internal class KeyType constructor(val fields: List<FieldData>,
             other as ObjectKeyToWriteImpl
 
             if (t != other.t) return false
-            if (keyType != other.keyType) return false
 
             return true
         }
 
+
         override fun hashCode(): Int {
             return t.hashCode()
+        }
+
+        override fun toString(): String {
+            return t.toString()
         }
     }
 

@@ -30,7 +30,10 @@ import org.daiv.reflection.common.*
 import org.daiv.reflection.database.DatabaseHandler
 import org.daiv.reflection.database.DatabaseInterface
 import org.daiv.reflection.isPrimitiveOrWrapperOrString
-import org.daiv.reflection.plain.*
+import org.daiv.reflection.plain.ObjectKey
+import org.daiv.reflection.plain.RequestBuilder
+import org.daiv.reflection.plain.SimpleReadObject
+import org.daiv.reflection.plain.readPlainMapper
 import org.daiv.reflection.read.InternalRPD
 import org.daiv.reflection.read.KeyType
 import org.daiv.reflection.read.ReadFieldValue
@@ -139,22 +142,78 @@ class Persister(private val databaseInterface: DatabaseInterface,
     })
             .toMap()
 
-    inner class CommonCache(coroutineScope: CoroutineScope,
-                            requestScope: CoroutineScope,
-                            completable: Boolean,
-                            insertCachePreference: InsertCachePreference = innerCachePreference(),
-                            tableNamePrefix: String? = null) {
-        private val p = persisterProviderMap[tableNamePrefix]!!
-        private val actors = coroutineScope.actors(requestScope, completable, p)
-        internal val i = InsertMap(this@Persister, insertCachePreference, actors, readCache())
+    interface CommonCache {
+        fun <R : Any> onTable(table: Table<R>): InsertCache<R>
+        fun showCacheList(table: Table<*>): Map<List<Any>, Any>
+        fun showCacheDoubleList(table: Table<*>): Map<List<Any>, List<Any>>
+        fun showDoublesOnly(table: Table<*>) = showCacheDoubleList(table).filter { it.value.size > 1 }
+        fun commit()
+    }
 
-        fun <R : Any> onTable(table: Table<R>): InsertCache<R> {
-            return table.insertCacheParallel(this)
+    internal interface InternalCommonCache : CommonCache {
+        val persister: Persister
+        val actors: Map<InternalTable, TableHandler>
+        val i: InsertMap
+
+        override fun showCacheList(table: Table<*>): Map<List<Any>, Any> {
+            val actor = actors[table]!!
+            return actor.debugList()
         }
 
-        fun commit() {
+        override fun showCacheDoubleList(table: Table<*>): Map<List<Any>, List<Any>> {
+            val actor = actors[table]!!
+            return actor.doubleList()
+        }
+
+
+        override fun commit() {
             i.insertAll()
-            event()
+            persister.event()
+        }
+    }
+
+    inner class ParallelCommonCache private constructor(private val internalParallelCommonCache: InternalParallelCommonCache) :
+            CommonCache by internalParallelCommonCache {
+        constructor(coroutineScope: CoroutineScope,
+                    requestScope: CoroutineScope,
+                    completable: Boolean,
+                    insertCachePreference: InsertCachePreference = innerCachePreference(),
+                    tableNamePrefix: String? = null) :
+                this(InternalParallelCommonCache(coroutineScope, requestScope, completable, insertCachePreference, tableNamePrefix))
+    }
+
+    inner class SeriellCommonCache private constructor(private val internalSerialCommonCache: InternalSerialCommonCache) :
+            CommonCache by internalSerialCommonCache {
+        constructor(insertCachePreference: InsertCachePreference = innerCachePreference(),
+                    tableNamePrefix: String? = null) : this(InternalSerialCommonCache(insertCachePreference, tableNamePrefix))
+    }
+
+    internal inner class InternalParallelCommonCache(coroutineScope: CoroutineScope,
+                                                     requestScope: CoroutineScope,
+                                                     completable: Boolean,
+                                                     insertCachePreference: InsertCachePreference = innerCachePreference(),
+                                                     tableNamePrefix: String? = null) : InternalCommonCache {
+        private val p = persisterProviderMap[tableNamePrefix]!!
+        override val persister: Persister
+            get() = this@Persister
+        override val actors = coroutineScope.actors(requestScope, completable, p)
+        override val i = InsertMap(this@Persister, insertCachePreference, actors, readCache())
+
+        override fun <R : Any> onTable(table: Table<R>): InsertCache<R> {
+            return table.insertCache(this, true)
+        }
+    }
+
+    internal inner class InternalSerialCommonCache(insertCachePreference: InsertCachePreference = innerCachePreference(),
+                                                   tableNamePrefix: String? = null) : InternalCommonCache {
+        override val persister: Persister
+            get() = this@Persister
+        private val p = persisterProviderMap[tableNamePrefix]!!
+        override val actors = tableHandlers(p)
+        override val i = InsertMap(this@Persister, insertCachePreference, actors, readCache())
+
+        override fun <R : Any> onTable(table: Table<R>): InsertCache<R> {
+            return table.insertCache(this, false)
         }
     }
 
@@ -488,13 +547,9 @@ class Persister(private val databaseInterface: DatabaseInterface,
         inner class InsertCacheSeriell(val insertCachePreference: InsertCachePreference = innerCachePreference()) :
                 InsertCache<R> by insertCache(insertCachePreference, tableHandlers(persisterProvider), false)
 
-        fun insertCacheParallel(commonCache: CommonCache): InsertCache<R> {
-            return InsertCacheHandler(commonCache.i, readPersisterData, this, true)
+        internal fun insertCache(commonCache: InternalCommonCache, isParallel: Boolean): InsertCache<R> {
+            return InsertCacheHandler(commonCache.i, readPersisterData, this, isParallel)
         }
-
-//        fun insertCacheSeriell(commonCache: CommonCache):InsertCache<R>{
-//            return InsertCacheHandler(commonCache.i, readPersisterData, this, false)
-//        }
 
         fun insert(o: List<R>, innerCachePreference: InsertCachePreference = innerCachePreference()) {
             if (o.isEmpty()) {

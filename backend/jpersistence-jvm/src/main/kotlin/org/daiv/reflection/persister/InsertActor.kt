@@ -1,24 +1,38 @@
 package org.daiv.reflection.persister
 
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.actor
-import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import org.daiv.reflection.plain.ObjectKey
 
 internal interface ActorHandlerInterface {
     val map: Map<InsertKey, () -> List<InsertRequest>>
-    suspend fun launch(block: suspend () -> Unit)
+    suspend fun launch(block: suspend () -> Unit): Job?
+
 
 }
 
 internal interface TableHandler : ActorHandlerInterface {
     suspend fun send(requestTask: RequestTask)
+
+    fun debugList(): Map<List<Any>, Any> {
+        val x = map.keys.map { it.key.itsKey() to it.key.theObject() }
+                .toMap()
+        return x
+    }
+
+    fun doubleList(): Map<List<Any>, List<Any>> {
+        val list = map.keys.map { it.key.itsKey() to it.key.theObject() }
+        val group = map.keys.groupBy { it.key.itsKey() }
+                .map { it.key to (it.value.map { it.key.theObject() }) }
+                .toMap()
+        return group
+    }
 }
 
 internal class SequentialTableHandler(val readTableCache: ReadTableCache) : TableHandler {
     override val map: MutableMap<InsertKey, () -> List<InsertRequest>> = mutableMapOf()
+    val logger = KotlinLogging.logger {}
 
     override suspend fun send(requestTask: RequestTask) {
         if (requestTask.put(map, readTableCache)) {
@@ -26,8 +40,9 @@ internal class SequentialTableHandler(val readTableCache: ReadTableCache) : Tabl
         }
     }
 
-    override suspend fun launch(block: suspend () -> Unit) {
+    override suspend fun launch(block: suspend () -> Unit): Job? {
         block()
+        return null
     }
 }
 
@@ -43,14 +58,19 @@ internal class ActorHandler(val actorScope: CoroutineScope,
 
     private val internalMap: MutableMap<InsertKey, () -> List<InsertRequest>> = mutableMapOf()
 
-    fun check(requestTask: RequestTask) {
+    suspend fun check(requestTask: RequestTask) {
         if (requestTask.put(internalMap, readTableCache)) {
             requestScope.launch { requestTask.toDo() }
         }
     }
 
-    override suspend fun launch(block: suspend () -> Unit) {
-        block()
+    override suspend fun launch(block: suspend () -> Unit): Job? {
+//        return actorScope.async {
+//        requestScope.launch {
+            block()
+//        }
+        return null
+//        }
     }
 }
 
@@ -92,13 +112,13 @@ internal class InsertActor(private val actorHandler: ActorHandler) :
 internal interface RequestTask {
     val insertKey: InsertKey
     val toDo: suspend () -> Unit
-    fun put(map: MutableMap<InsertKey, () -> List<InsertRequest>>, readTableCache: ReadTableCache): Boolean
+    suspend fun put(map: MutableMap<InsertKey, () -> List<InsertRequest>>, readTableCache: ReadTableCache): Boolean
 }
 
 internal class HelperRequestTask(override val insertKey: InsertKey,
                                  val toBuild: () -> List<InsertRequest>,
                                  override val toDo: suspend () -> Unit) : RequestTask {
-    override fun put(map: MutableMap<InsertKey, () -> List<InsertRequest>>, readTableCache: ReadTableCache): Boolean {
+    override suspend fun put(map: MutableMap<InsertKey, () -> List<InsertRequest>>, readTableCache: ReadTableCache): Boolean {
         if (!map.containsKey(insertKey)) {
             map[insertKey] = toBuild
             return true
@@ -112,7 +132,7 @@ internal class DefaultRequestTask constructor(override val insertKey: InsertKey,
                                               val toBuild: (ObjectKey) -> List<InsertRequest>,
                                               override val toDo: suspend () -> Unit) : RequestTask {
 
-    override fun put(map: MutableMap<InsertKey, () -> List<InsertRequest>>, readTableCache: ReadTableCache): Boolean {
+    override suspend fun put(map: MutableMap<InsertKey, () -> List<InsertRequest>>, readTableCache: ReadTableCache): Boolean {
         if (!map.containsKey(insertKey)) {
             val readKey = readTableCache.createReadKey(insertKey.key)
             map[insertKey] = { toBuild(readKey.key) }
@@ -122,6 +142,10 @@ internal class DefaultRequestTask constructor(override val insertKey: InsertKey,
         return false
     }
 
+    override fun toString(): String {
+        return insertKey.key.theObject()
+                .toString()
+    }
 }
 
 //internal class ListRequestTask(val insertKey: InsertKey,

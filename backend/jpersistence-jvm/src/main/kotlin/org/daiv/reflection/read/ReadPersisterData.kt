@@ -257,10 +257,11 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
 
     suspend fun putInsertRequests(table: Persister.Table<*>, insertMap: InsertMap, o: List<Any>, keys: List<ObjectKeyToWrite>) {
         o.mapIndexed { i, it ->
-            insertMap.actors.values.first()
-                    .launch {
+//            insertMap.actors[table]!!.launch {
+//            insertMap.actors.values.first()
+//                    .launch {
                         trueInsert(table, insertMap, it, keys[i])
-                    }
+//                    }
         }
     }
 
