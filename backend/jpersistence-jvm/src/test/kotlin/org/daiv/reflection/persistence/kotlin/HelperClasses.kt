@@ -8,8 +8,27 @@ enum class X2(private val s: String) {
     B1("1"), B2("2"), B3("3");
 }
 
-interface TheInterface{
-    val x:Int
+interface TheInterface {
+    val x: Int
+}
+
+interface RunX {
+    fun testX(): Boolean
+}
+
+data class RunXImpl(val z:Int):RunX{
+    override fun testX(): Boolean {
+        return true
+    }
+}
+
+object TestSingleton:RunX {
+    override fun testX(): Boolean {
+        return false
+    }
+    override fun toString(): String {
+        return "MyTestSingleton"
+    }
 }
 
 enum class OfferSide {

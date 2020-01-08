@@ -284,6 +284,7 @@ internal data class ReadPersisterData private constructor(override val key: KeyT
         fun <T : Any> readValue(clazz: KClass<T>): (List<ReadFieldValue>) -> T {
             return { values ->
                 try {
+
                     val primaryConstructor = clazz.primaryConstructor!!
                     primaryConstructor.isAccessible = true
                     primaryConstructor.callBy(

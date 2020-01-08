@@ -5,6 +5,7 @@ import org.daiv.immutable.utils.persistence.annotations.DatabaseWrapper
 import org.daiv.reflection.annotations.Including
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.FieldDataFactory
+import org.daiv.reflection.common.asList
 import org.daiv.reflection.common.createHashCode
 import org.daiv.reflection.common.hashCodeX
 import org.daiv.reflection.database.persister
@@ -15,6 +16,7 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
+import kotlin.reflect.KClass
 import kotlin.test.assertEquals
 
 class BarTest
@@ -26,6 +28,9 @@ class BarTest
 
                @MoreKeys(1, true)
                data class Wave(val wavePoints: List<WavePoint>)
+
+               @MoreKeys(2)
+               data class CWaveSet(val wave1:Wave, val wave2: Wave)
 
                @MoreKeys(1, true)
                data class TickList(val ticks: List<Tick>)
@@ -101,7 +106,8 @@ class BarTest
                            assertEquals(100, table.size())
                        }
                        it("readLastBefore") {
-                           assertEquals(list.take(10), table.readLastBefore(10, 10))
+                           val taken = list.take(10)
+                           assertEquals(taken, table.readLastBefore(10, 10))
                        }
                        it("readLastBefore 2") {
                            assertEquals(list.subList(5, 10), table.readLastBefore(5, 10))
@@ -420,6 +426,30 @@ class BarTest
                            val read = table.readAll()
                            assertEquals(list.toSet(), read.toSet())
                        }
+                   }
+
+                   on("insert ComplexKey"){
+                       persister.clearCache()
+                       val table = persister.Table(CWaveSet::class)
+                       table.persist()
+                       val wp1 = WavePoint(Tick(1600000L, 0.5, OfferSide.BID), true, m1)
+                       val wp2 = WavePoint(Tick(1650000L, 0.9, OfferSide.BID), false, m1)
+                       val wp3 = WavePoint(Tick(1680000L, 1.9, OfferSide.BID), true, m1)
+                       val wp4 = WavePoint(Tick(1820000L, 1.9, OfferSide.BID), false, m1)
+                       val wave1 = Wave(listOf(wp1, wp2))
+                       val wave2 = Wave(listOf(wp3, wp4))
+                       val waveSet = CWaveSet(wave1, wave2)
+                       it("test complex hashCodeX Key") {
+                           table.insert(waveSet)
+                           persister.clearCache()
+                           val read = table.readAll()
+                           assertEquals(waveSet.asList(), read)
+                       }
+                   }
+                   on("TestSingleton"){
+                       val clazz = TestSingleton::class as KClass<Any>
+                       val objectInstance = clazz.objectInstance
+                       logger.trace { "object: $objectInstance" }
                    }
                    afterGroup { persister.delete(); doubleRefPersister.delete() }
                }

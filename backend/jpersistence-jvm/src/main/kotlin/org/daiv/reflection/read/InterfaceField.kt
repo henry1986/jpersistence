@@ -25,7 +25,7 @@ internal class InterfaceField(override val propertyData: PropertyData,
     private val readSimpleType = ReadSimpleType(SimpleTypeProperty(String::class.createType(), "InterfaceFieldClassName"), prefix)
 
     override fun toTableHead(nullable: Boolean): String? {
-        return (possibleClasses.map { it.value.fieldData.toTableHead(true) }
+        return (possibleClasses.map { it.value.fieldData.toTableHead(true) }.filterNotNull()
                 + readSimpleType.toTableHead(nullable)).joinToString(", ")
     }
 

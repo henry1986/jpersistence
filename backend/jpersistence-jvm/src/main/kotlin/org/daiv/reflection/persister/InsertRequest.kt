@@ -332,10 +332,10 @@ internal class ReadCache constructor(val persisterPreference: PersisterPreferenc
         if (!tableCache.containsKey(readCacheKey)) {
             val read = table.innerReadMultipleUseHashCode(key, this)
             if (read != null) {
-                if (map.size > persisterPreference.clearCacheAfterNumberOfStoredObjects) {
-                    logger.info { "clearing cache, because more than ${persisterPreference.clearCacheAfterNumberOfStoredObjects} are stored (${map.size}" }
-                    map.clear()
-                }
+//                if (map.size > persisterPreference.clearCacheAfterNumberOfStoredObjects) {
+//                    logger.info { "clearing cache, because more than ${persisterPreference.clearCacheAfterNumberOfStoredObjects} are stored (${map.size}" }
+//                    map.clear()
+//                }
                 tableCache[readCacheKey] = read
                 return read
             } else {

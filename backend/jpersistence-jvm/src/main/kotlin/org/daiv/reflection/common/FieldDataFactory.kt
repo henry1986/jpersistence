@@ -173,6 +173,8 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
         private fun createWithoutInterface(thisClass: KClass<Any>, property: KProperty1<Any, Any>): FieldData? {
             return when {
                 thisClass.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property, clazz), prefix)
+                thisClass.objectInstance != null ->
+                    ObjectField(DefProperty(property, clazz, thisClass.createType(), true, thisClass.simpleName!!), prefix)
                 thisClass.isEnum() -> EnumType(DefProperty(property, clazz), prefix)
                 thisClass.isNoMapAndNoListAndNoSet() -> {
                     val propertyData = DefProperty(property, clazz, thisClass.createType(), true, thisClass.simpleName!!)
@@ -188,6 +190,7 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
             val kClass = property.toKClass()
             return when {
                 kClass.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property, clazz), prefix)
+                kClass.objectInstance != null -> ObjectField(DefProperty(property, clazz), prefix)
                 kClass.isEnum() -> EnumType(DefProperty(property, clazz), prefix)
                 kClass.java.isInterface && kClass.isNoMapAndNoListAndNoSet() -> {
                     val map = property.toMap(kClass) { s, c ->
