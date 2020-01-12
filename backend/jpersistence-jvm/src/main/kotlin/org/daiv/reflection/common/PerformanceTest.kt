@@ -145,12 +145,12 @@ private data class WorkData<T : Any>(val table: Table<T>, val list: List<T>, val
         val cache = runBlocking(Dispatchers.Default) {
             logger.info { "start Caching ${if (!sequential) "parallel" else "sequential"}, numberOfWP: $numberOfWP, numberOfCollectors: $numberOfCollectors" }
             val r = if (sequential) {
-                table.InsertCacheSeriell(InsertCachePreference(true))
+                table.InsertCacheSeriell(InsertCachePreference(true, false))
             } else {
                 table.InsertCacheParallel(CoroutineScope(newFixedThreadPoolContext(8, "actorContext")),
                                           this,
                                           completable,
-                                          InsertCachePreference(true))
+                                          InsertCachePreference(true, false))
             }
             logger.info { "start inserting" }
             r.insert(list)

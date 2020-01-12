@@ -1,10 +1,8 @@
 package org.daiv.reflection.persister
 
 import mu.KotlinLogging
-import org.daiv.reflection.plain.HashCodeKey
-import org.daiv.reflection.plain.IsAutoId
-import org.daiv.reflection.plain.ObjectKey
-import org.daiv.reflection.plain.ObjectKeyToWrite
+import org.daiv.reflection.common.TableHandlerCreator
+import org.daiv.reflection.plain.*
 import org.daiv.reflection.read.InsertObject
 import org.daiv.reflection.read.insertHeadString
 import org.daiv.reflection.read.insertValueString
@@ -19,7 +17,9 @@ internal data class InsertRequest(val insertObjects: List<InsertObject>)
  * if [checkCacheOnly] is activated, before inserting it is only checked, if the value is already in the readCache.
  * if not, the database is read
  */
-data class InsertCachePreference(val checkCacheOnly: Boolean)
+data class InsertCachePreference(val checkCacheOnly: Boolean, val check4Same: Boolean)
+
+data class InsertPartialAnswer(val objectsThatShouldHaveBeenWritten: List<Any>, val writtenSuccess: Boolean, val t: Throwable? = null)
 
 internal data class InsertMap constructor(val persister: Persister,
                                           val insertCachePreference: InsertCachePreference,
@@ -56,9 +56,21 @@ internal data class InsertMap constructor(val persister: Persister,
 //        val objectKey = readCache.toObjectKey(table, key, this)
 //        objectKey?.let {
         if (insertCachePreference.checkCacheOnly) {
-            if (readCache.isInCache(table, key)) {
+            if (insertCachePreference.check4Same) {
+                val read = readCache.readCacheOnly(table, key)
+                if (read != null && read != key.theObject()) {
+                    throw RuntimeException("object that is already in Cache $read \n is not same as to be insert: ${key.theObject()}")
+                }
+                if (read != null) {
+                    return
+                }
+            } else if (readCache.isInCache(table, key)) {
                 return
             }
+//            if (readCache.isInCache(table, key)) {
+//                return
+//            }
+
         } else {
             val read = readCache.read(table, key)
             if (read != null) {
@@ -77,9 +89,26 @@ internal data class InsertMap constructor(val persister: Persister,
 
     }
 
+    fun insertPartial(table: Persister.Table<*>, block: (Int, Any) -> Boolean): InsertPartialAnswer {
+        val actor = actors[table]!!
+        val map = actor.map.map {
+            it.key.key.theObject() to it.value().map { it.insertObjects }
+        }
+                .filter { it.second.isNotEmpty() }
+        val taken = map.filterIndexed { i, e -> block(i, e.first) }
+        val s = "INSERT INTO `${table._tableName}` ${insertListBy(taken.map { it.second })} "
+        val objects = taken.map { it.first }
+        try {
+            persister.write(s)
+        } catch (t: Throwable) {
+            return InsertPartialAnswer(objects, false, t)
+        }
+        return InsertPartialAnswer(objects, true)
+    }
+
     fun insertAll() {
 //        val map = mutableMapOf<InsertKey, InsertRequest>()
-        val x = actors.map { it.key to it.value.map.map { it } }
+        val x = actors.map { it.key to it.value.map }
         logger.trace { "size of map: ${actors.map { it.value.map.size }.sum()}" }
         logger.trace { "size of maps: ${actors.map { it.key to it.value.map.size }}" }
 //        val group = map.map { it }
@@ -90,12 +119,12 @@ internal data class InsertMap constructor(val persister: Persister,
                         .map { it.insertObjects }
             }.filter { it.isNotEmpty() }
         }
-                .filter { !it.second.isEmpty() }
+        val z = res.filter { !it.second.isEmpty() }
                 .map { "INSERT INTO `${it.first._tableName}` ${insertListBy(it.second)} " }
 
 //                .toMap()
         logger.trace { "done converting" }
-        res.map { persister.write(it) }
+        z.map { persister.write(it) }
     }
 }
 
@@ -111,8 +140,15 @@ internal interface PersisterListener {
     fun onUpdate(tableName: String, key: List<Any>)
 }
 
+
 internal class ReadHashCodeTableCache(val table: Persister.InternalTable) : ReadTableCache {
     private val map: MutableMap<Int, MutableMap<Int, Any>> = mutableMapOf()
+    private val keyMap: MutableMap<PersistenceKey, Any> = mutableMapOf()
+
+    override fun readWithOriginalKey(itsKey: List<Any>): Any? {
+        return keyMap[PersistenceKey(itsKey)]
+//        return map.values.find { it.values.find { it.hashCodeKey.keys == itsKey } }
+    }
 
     private fun ReadKey.hashCodeKey(): HashCodeKey {
         if (this.key.isAutoId()) {
@@ -168,6 +204,7 @@ internal class ReadHashCodeTableCache(val table: Persister.InternalTable) : Read
             throw RuntimeException("this key $insertKey is not fitting to $table")
         }
         val key = insertKey.hashCodeKey()
+        keyMap[PersistenceKey(insertKey.key.keys())] = any
         if (map.containsKey(key.hashCodeX)) {
             map[key.hashCodeX]!![key.hashCodeCounter] = any
         } else {
@@ -180,17 +217,21 @@ internal interface ReadTableCache {
     fun containsKey(insertKey: ReadKey): Boolean
 
     fun createReadKey(keyToWrite: ObjectKeyToWrite): ReadKey
-
     fun containsObject(key: ObjectKeyToWrite): Boolean
     fun keyForObject(key: ObjectKeyToWrite): ObjectKey?
 
     operator fun get(insertKey: ReadKey): Any?
 
     operator fun set(insertKey: ReadKey, any: Any)
+    fun readWithOriginalKey(itsKey: List<Any>): Any?
 }
 
 internal class ReadTableCacheImpl(val table: Persister.InternalTable) : ReadTableCache {
     private val map: MutableMap<ObjectKey, Any> = mutableMapOf()
+
+    override fun readWithOriginalKey(itsKey: List<Any>): Any? {
+        return map[PersistenceKey(itsKey)]
+    }
 
     override fun createReadKey(keyToWrite: ObjectKeyToWrite): ReadKey {
         return ReadKey(table, keyToWrite.toObjectKey())
@@ -238,6 +279,13 @@ internal interface KeyGetter {
 internal class ReadCache constructor(val persisterPreference: PersisterPreference) : PersisterListener, KeyGetter {
     private val logger = KotlinLogging.logger {}
     private val map: MutableMap<Persister.InternalTable, ReadTableCache> = mutableMapOf()
+
+    fun tableHandlers(persisterProvider: TableHandlerCreator) = (persisterProvider.allTables().map {
+        it.value to SequentialTableHandler(this.readTableCache(it.value, persisterProvider.isAutoIdTable(it.key)))
+    } + persisterProvider.getHelperTableNames().map {
+        it to SequentialTableHandler(this.readTableCache(it, false))
+    })
+            .toMap()
 
     private fun readDatabase(table: Persister.Table<*>,
                              key: ObjectKeyToWrite,
@@ -312,6 +360,12 @@ internal class ReadCache constructor(val persisterPreference: PersisterPreferenc
         }
         return tableCache
     }
+
+    fun readCacheOnly(table: Persister.Table<*>, key: ObjectKeyToWrite): Any? {
+        val tableCache = map[table] ?: return null
+        return tableCache.readWithOriginalKey(key.itsKey())
+    }
+
 
     fun read(table: Persister.Table<*>, key: ObjectKeyToWrite): Any? {
         val tableCache = getTableCache(table, key)

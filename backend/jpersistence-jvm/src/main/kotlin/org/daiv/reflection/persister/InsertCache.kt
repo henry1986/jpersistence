@@ -16,6 +16,10 @@ class InsertCacheHandler<R : Any> internal constructor(internal val map: InsertM
         }
     }
 
+    override fun insertPartial(table: Persister.Table<*>, block: (Int, Any) -> Boolean): InsertPartialAnswer {
+        return map.insertPartial(table, block)
+    }
+
     override fun commit() {
         map.insertAll()
         table.tableEvent()
@@ -26,5 +30,6 @@ class InsertCacheHandler<R : Any> internal constructor(internal val map: InsertM
 interface InsertCache<R : Any> {
     val isParallel: Boolean
     suspend fun insert(o: List<R>)
+    fun insertPartial(table: Persister.Table<*>, block: (Int, Any) -> Boolean): InsertPartialAnswer
     fun commit()
 }

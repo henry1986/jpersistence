@@ -22,7 +22,7 @@ internal interface TableHandler : ActorHandlerInterface {
     }
 
     fun doubleList(): Map<List<Any>, List<Any>> {
-        val list = map.keys.map { it.key.itsKey() to it.key.theObject() }
+//        val list = map.keys.map { it.key.itsKey() to it.key.theObject() }
         val group = map.keys.groupBy { it.key.itsKey() }
                 .map { it.key to (it.value.map { it.key.theObject() }) }
                 .toMap()

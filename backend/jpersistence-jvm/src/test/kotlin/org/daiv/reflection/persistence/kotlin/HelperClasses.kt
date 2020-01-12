@@ -1,6 +1,10 @@
 package org.daiv.reflection.persistence.kotlin
 
 import org.daiv.reflection.annotations.MoreKeys
+import org.daiv.reflection.plain.HashCodeKey
+import org.daiv.reflection.plain.ObjectKey
+import org.daiv.reflection.plain.ObjectKeyToWrite
+import org.daiv.reflection.plain.PersistenceKey
 
 
 enum class X1 { B1, B2, B3 }
@@ -19,6 +23,34 @@ interface RunX {
 data class RunXImpl(val z:Int):RunX{
     override fun testX(): Boolean {
         return true
+    }
+}
+internal data class ObjectKeyToWriteForTest(val isAuto: Boolean,
+                                   val theKey: List<Any>,
+                                   val theObject: Any,
+                                   val theHashCode: Int? = null) : ObjectKeyToWrite {
+    override fun isAutoId(): Boolean {
+        return isAuto
+    }
+
+    override fun theObject(): Any {
+        return theObject
+    }
+
+    override fun itsKey(): List<Any> {
+        return theKey
+    }
+
+    override fun itsHashCode(): Int {
+        return theHashCode!!
+    }
+
+    override fun keyToWrite(counter: Int?): List<Any> {
+        return if (isAuto) listOf(theHashCode!!, counter!!) else theKey
+    }
+
+    override fun toObjectKey(hashCounter: Int?): ObjectKey {
+        return if (isAuto) HashCodeKey(theKey, theHashCode!!, hashCounter!!) else PersistenceKey(theKey)
     }
 }
 

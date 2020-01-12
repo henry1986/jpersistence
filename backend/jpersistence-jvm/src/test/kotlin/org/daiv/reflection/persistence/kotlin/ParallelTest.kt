@@ -36,7 +36,7 @@ class ParallelTest
                        val n = newFixedThreadPoolContext(8, "hello")
                        val cache = runBlocking {
                            val mainScope = CoroutineScope(n)
-                           val cache = persister.ParallelCommonCache(mainScope, this, true, InsertCachePreference(true))
+                           val cache = persister.ParallelCommonCache(mainScope, this, true, InsertCachePreference(true, false))
 //                           val cache = persister.SeriellCommonCache(InsertCachePreference(true))
                            val cacheOuter = cache.onTable(tableOuter)
                            logger.trace { "start 1" }

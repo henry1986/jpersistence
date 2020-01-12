@@ -123,7 +123,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         }
     }
 
-    private fun innerCachePreference() = InsertCachePreference(false)
+    private fun innerCachePreference() = InsertCachePreference(false, true)
     private fun CoroutineScope.actors(requestScope: CoroutineScope,
                                       completable: Boolean,
                                       persisterProvider: PersisterProvider) = (persisterProvider.allTables().map {
@@ -135,18 +135,13 @@ class Persister(private val databaseInterface: DatabaseInterface,
     })
             .toMap()
 
-    private fun tableHandlers(persisterProvider: PersisterProvider) = (persisterProvider.allTables().map {
-        it.value to SequentialTableHandler(readCache().readTableCache(it.value, persisterProvider.isAutoIdTable(it.key)))
-    } + persisterProvider.getHelperTableNames().map {
-        it to SequentialTableHandler(readCache().readTableCache(it, false))
-    })
-            .toMap()
 
     interface CommonCache {
         fun <R : Any> onTable(table: Table<R>): InsertCache<R>
         fun showCacheList(table: Table<*>): Map<List<Any>, Any>
         fun showCacheDoubleList(table: Table<*>): Map<List<Any>, List<Any>>
         fun showDoublesOnly(table: Table<*>) = showCacheDoubleList(table).filter { it.value.size > 1 }
+        fun insertPartial(table: Table<*>, block: (Int, Any) -> Boolean): InsertPartialAnswer
         fun commit()
     }
 
@@ -165,6 +160,10 @@ class Persister(private val databaseInterface: DatabaseInterface,
             return actor.doubleList()
         }
 
+
+        override fun insertPartial(table: Table<*>, block: (Int, Any) -> Boolean): InsertPartialAnswer {
+            return i.insertPartial(table, block)
+        }
 
         override fun commit() {
             i.insertAll()
@@ -209,7 +208,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
         override val persister: Persister
             get() = this@Persister
         private val p = persisterProviderMap[tableNamePrefix]!!
-        override val actors = tableHandlers(p)
+        override val actors = readCache().tableHandlers(p)
         override val i = InsertMap(this@Persister, insertCachePreference, actors, readCache())
 
         override fun <R : Any> onTable(table: Table<R>): InsertCache<R> {
@@ -352,6 +351,10 @@ class Persister(private val databaseInterface: DatabaseInterface,
     private fun createPersisterProvider(tableNamePrefix: String?) = PersisterProviderImpl(this@Persister, tableNamePrefix)
 
     private val persisterProviderMap = mutableMapOf<String?, PersisterProvider>(null to createPersisterProvider(null))
+
+    internal fun persisterProviderForTest(tableNamePrefix: String?): PersisterProvider? {
+        return persisterProviderMap[tableNamePrefix]
+    }
 
     internal fun <R : Any> getPersisterProvider(clazz: KClass<R>,
                                                 tableName: String,
@@ -545,7 +548,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
                                               true)
 
         inner class InsertCacheSeriell(val insertCachePreference: InsertCachePreference = innerCachePreference()) :
-                InsertCache<R> by insertCache(insertCachePreference, tableHandlers(persisterProvider), false)
+                InsertCache<R> by insertCache(insertCachePreference, readCache().tableHandlers(persisterProvider), false)
 
         internal fun insertCache(commonCache: InternalCommonCache, isParallel: Boolean): InsertCache<R> {
             return InsertCacheHandler(commonCache.i, readPersisterData, this, isParallel)
@@ -556,7 +559,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
                 return
             }
             runBlocking {
-                val map = InsertMap(persister, innerCachePreference, tableHandlers(persisterProvider), readCache())
+                val map = InsertMap(persister, innerCachePreference, readCache().tableHandlers(persisterProvider), readCache())
                 readPersisterData.putInsertRequests(map, o, this@Table)
                 map.insertAll()
             }

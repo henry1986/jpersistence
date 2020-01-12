@@ -2,14 +2,21 @@ package org.daiv.reflection.common
 
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.Table
+import org.daiv.reflection.persister.ReadCache
+import org.daiv.reflection.persister.SequentialTableHandler
 import org.daiv.reflection.read.KeyHashCodeable
 import org.daiv.reflection.read.ReadPersisterData
 import kotlin.reflect.KClass
 
 internal data class ProviderKey constructor(val clazz: KClass<out Any>, val prefixedName: String)
 
+internal interface TableHandlerCreator {
+    fun allTables(): Map<KClass<out Any>, Persister.InternalTable>
+    fun isAutoIdTable(clazz: KClass<out Any>): Boolean
+    fun getHelperTableNames(): Collection<Persister.InternalTable>
+}
 
-internal interface PersisterProvider {
+internal interface PersisterProvider : TableHandlerCreator {
     fun readPersisterData(providerKey: ProviderKey): ReadPersisterData
     fun register(providerKey: ProviderKey)
     fun innerTableName(clazz: KClass<out Any>): String
@@ -19,10 +26,6 @@ internal interface PersisterProvider {
     }
 
     fun table(clazz: KClass<out Any>): Table<*>
-
-    fun allTables():Map<KClass<out Any>, Persister.InternalTable>
-
-    fun isAutoIdTable(clazz: KClass<out Any>): Boolean
 
     fun rename(clazz: KClass<out Any>, newTableName: String)
     fun registerHelperTableName(helperTableName: Persister.InternalTable)
@@ -39,8 +42,6 @@ internal interface PersisterProvider {
             set(clazz, newTableName)
         }
     }
-
-    fun getHelperTableNames(): Collection<Persister.InternalTable>
 
     fun setAutoTableId(clazz: KClass<out Any>, autoId: Boolean, table: Table<*>)
 }
