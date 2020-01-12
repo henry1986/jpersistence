@@ -21,6 +21,8 @@ data class InsertCachePreference(val checkCacheOnly: Boolean, val check4Same: Bo
 
 data class InsertPartialAnswer(val objectsThatShouldHaveBeenWritten: List<Any>, val writtenSuccess: Boolean, val t: Throwable? = null)
 
+class DifferentObjectSameKeyException(message: String?, val objectFromCache: Any, val objectToInsert: Any) : RuntimeException(message)
+
 internal data class InsertMap constructor(val persister: Persister,
                                           val insertCachePreference: InsertCachePreference,
                                           val actors: Map<Persister.InternalTable, TableHandler>,
@@ -40,7 +42,7 @@ internal data class InsertMap constructor(val persister: Persister,
     private fun <T : Any> T.checkDBValue(objectValue: T, key: ObjectKeyToWrite): T {
         if (this != objectValue) {
             val firstTryMsg = "values are not the same -> " +
-                    "databaseValue:       $this \n vs manyToOne Value: $objectValue"
+                    "databaseValue:       \n$this \n vs manyToOne Value: \n$objectValue"
             val msg = if (firstTryMsg.length > 1000) {
                 "values of class ${this::class} are not fitting. Object is too big to print - key: $key"
             } else {
@@ -58,8 +60,10 @@ internal data class InsertMap constructor(val persister: Persister,
         if (insertCachePreference.checkCacheOnly) {
             if (insertCachePreference.check4Same) {
                 val read = readCache.readCacheOnly(table, key)
-                if (read != null && read != key.theObject()) {
-                    throw RuntimeException("object that is already in Cache $read \n is not same as to be insert: ${key.theObject()}")
+                val theObject = key.theObject()
+                if (read != null && read != theObject) {
+                    val errorMessage = "object that is already in Cache \n$read \n is not same as to be insert: \n$theObject"
+                    throw DifferentObjectSameKeyException(errorMessage, read, theObject)
                 }
                 if (read != null) {
                     return

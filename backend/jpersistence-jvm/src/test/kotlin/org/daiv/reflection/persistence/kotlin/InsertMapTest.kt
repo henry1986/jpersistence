@@ -7,10 +7,7 @@ import io.mockk.verifyAll
 import kotlinx.coroutines.runBlocking
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.common.TableHandlerCreator
-import org.daiv.reflection.persister.InsertCachePreference
-import org.daiv.reflection.persister.InsertMap
-import org.daiv.reflection.persister.Persister
-import org.daiv.reflection.persister.ReadKey
+import org.daiv.reflection.persister.*
 import org.daiv.reflection.plain.HashCodeKey
 import org.daiv.reflection.plain.ObjectKey
 import org.daiv.reflection.plain.ObjectKeyToWrite
@@ -21,6 +18,7 @@ import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
 import kotlin.reflect.KClass
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.fail
 
@@ -73,10 +71,14 @@ internal class InsertMapTest :
                          it("test exception for double object") {
                              readCache.readTableCache(table, false)[ReadKey(table, PersistenceKey(listOf(5)))] = first
                              val objectWithWrongKey = FirstTestObject(5, "Wow")
-                             assertFailsWith<RuntimeException>("object that is already in Cache $first \n is not same as to be insert: $objectWithWrongKey") {
-                                 runBlocking {
+                             runBlocking {
+                                 try {
                                      insertMap.nextTask(table, ObjectKeyToWriteForTest(false, listOf(5), objectWithWrongKey)) {
                                      }
+                                     fail("exception should have been thrown")
+                                 } catch (t: DifferentObjectSameKeyException) {
+                                     assertEquals(first, t.objectFromCache)
+                                     assertEquals(objectWithWrongKey, t.objectToInsert)
                                  }
                              }
                          }
@@ -107,10 +109,14 @@ internal class InsertMapTest :
                          }
                          it("test exception for double object") {
                              readCache.readTableCache(cTable, true)[ReadKey(cTable, PersistenceKey(listOf(firstKey)))] = first
-                             assertFailsWith<RuntimeException>("object that is already in Cache $first \n is not same as to be insert: $objectWithWrongKey") {
-                                 runBlocking {
+                             runBlocking {
+                                 try {
                                      insertMap.nextTask(cTable, ObjectKeyToWriteForTest(true, listOf(firstKey), objectWithWrongKey, 5)) {
                                      }
+                                     fail("exception should have been thrown")
+                                 } catch (t: DifferentObjectSameKeyException) {
+                                     assertEquals(first, t.objectFromCache)
+                                     assertEquals(objectWithWrongKey, t.objectToInsert)
                                  }
                              }
                          }
