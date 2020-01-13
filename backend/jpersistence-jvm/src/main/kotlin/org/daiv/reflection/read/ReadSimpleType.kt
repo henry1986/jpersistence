@@ -54,7 +54,12 @@ internal class ReadSimpleType constructor(override val propertyData: PropertyDat
     override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
         try {
             val any = if (propertyData.clazz == Long::class) {
-                readValue.resultSet.getLong(number)
+                val x = readValue.resultSet.getLong(number)
+                if(readValue.resultSet.wasNull()){
+                    null
+                } else {
+                    x
+                }
             } else {
                 readValue.getObject(number)
             }
@@ -72,8 +77,8 @@ internal class ReadSimpleType constructor(override val propertyData: PropertyDat
     override fun makeString(any: Any): String {
         val s = any.toString()
         return when {
-            any::class == String::class -> "\"" + s + "\""
-            any::class == Boolean::class -> if (s.toBoolean()) "1" else "0"
+            propertyData.clazz == String::class -> "\"" + s + "\""
+            propertyData.clazz == Boolean::class -> if (s.toBoolean()) "1" else "0"
 //            any::class.isEnum() -> "\"${(any as Enum<*>).name}\""
             else -> s
         }

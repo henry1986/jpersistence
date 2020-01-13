@@ -53,7 +53,7 @@ internal class KeyType constructor(val fields: List<FieldData>,
                 .joinToString(", ")
     }
 
-    class ObjectKeyToWriteImpl(val t: Any, val keyType: KeyType):ObjectKeyToWrite{
+    class ObjectKeyToWriteImpl(val t: Any, val keyType: KeyType) : ObjectKeyToWrite {
         override fun theObject() = t
 
         override fun itsKey() = keyType.getObject(t) as List<Any>
@@ -123,7 +123,7 @@ internal class KeyType constructor(val fields: List<FieldData>,
         return key?.let {
             try {
                 listOf(it.plainHashCodeX(obj), counter!!)
-            } catch(t:Throwable){
+            } catch (t: Throwable) {
                 throw t
             }
         } ?: obj as List<Any>
@@ -248,17 +248,17 @@ internal class KeyType constructor(val fields: List<FieldData>,
 
     fun simpleType(r: Any) = fields.first().keySimpleType(r)
 
-    fun name() = fields.first()
+    fun firstColumnName() = fields.first()
             .key()
 
     fun columnName() = fields.first().prefixedName
 
-    fun <X> onKey(f: FieldData.() -> X): X {
-        return (fields.first())
-                .f()
-    }
+//    fun <X> onKey(f: FieldData.() -> X): X {
+//        return (fields.first())
+//                .f()
+//    }
 
     fun keyString() = fields.map { it.key() }.joinToString(", ")//fields.first().key()
 
-    fun toPrimaryKey() = fields.joinToString(", ") { it.key() }
+    fun toPrimaryKey() = fields.mapNotNull { it.key() }.joinToString(", ")
 }

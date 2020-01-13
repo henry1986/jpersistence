@@ -1,9 +1,8 @@
 package org.daiv.reflection.persistence.kotlin
 
 import mu.KotlinLogging
-import org.daiv.reflection.annotations.IFaceForList
-import org.daiv.reflection.annotations.Including
 import org.daiv.reflection.annotations.IFaceForObject
+import org.daiv.reflection.annotations.Including
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.persister.Persister
 import org.daiv.util.json.log
@@ -35,6 +34,13 @@ class InterfaceTest :
 
                  @MoreKeys(auto = true)
                  data class ObjectHashCodeTest(@IFaceForObject([RunXImpl::class, TestSingleton::class]) val key: RunX, val z: String)
+
+                 data class ObjectKeyTest(@IFaceForObject([TestSingleton::class, RunXImpl::class]) val key: RunX, val z: String)
+
+                 data class ObjectHolder(val objectKeyTest: ObjectKeyTest, val value: ObjectKeyTest?, val string: String)
+
+                 @MoreKeys(2)
+                 data class ObjectHolder2(val x: Long, val objectKeyTest: ObjectKeyTest, val value: ObjectKeyTest?, val string: String)
 
                  describe("InterfaceTest") {
                      val logger = KotlinLogging.logger {}
@@ -141,7 +147,7 @@ class InterfaceTest :
                              assertEquals(cx3, table.read(s3))
                          }
                      }
-                     on("test HashCode"){
+                     on("test HashCode") {
                          val table = persister.Table(ObjectHashCodeTest::class)
                          table.persist()
                          val testImpl = RunXImpl(5)
@@ -149,12 +155,75 @@ class InterfaceTest :
                          val x1 = ObjectHashCodeTest(testImpl, "Hello")
                          val x2 = ObjectHashCodeTest(testImpl2, "Hello1")
                          val x3 = ObjectHashCodeTest(TestSingleton, "Hello2")
-                         val list = listOf(x1,x2,x3)
+                         val list = listOf(x1, x2, x3)
                          it("test insert and read") {
                              table.insert(list)
                              persister.clearCache()
                              val read = table.readAll()
                              assertEquals(list.toSet(), read.toSet())
+                         }
+                     }
+                     on("test as key") {
+                         val table = persister.Table(ObjectKeyTest::class)
+                         table.persist()
+                         val testImpl = RunXImpl(5)
+                         val testImpl2 = RunXImpl(6)
+                         val x1 = ObjectKeyTest(testImpl, "Hello")
+                         val x2 = ObjectKeyTest(testImpl2, "Hello1")
+                         val x3 = ObjectKeyTest(TestSingleton, "Hello2")
+                         val list = listOf(x1, x2, x3)
+                         it("test insert and read") {
+                             table.insert(list)
+                             persister.clearCache()
+                             val read = table.readAll()
+                             assertEquals(list.toSet(), read.toSet())
+                         }
+
+                     }
+                     on("test as included null") {
+                         val table = persister.Table(ObjectHolder::class)
+                         table.persist()
+                         val testImpl = RunXImpl(5)
+                         val testImpl2 = RunXImpl(6)
+                         val x1 = ObjectKeyTest(testImpl, "Hello")
+                         val x2 = ObjectKeyTest(testImpl2, "Hello1")
+                         val x3 = ObjectKeyTest(TestSingleton, "Hello2")
+                         val o1 = ObjectHolder(x1, x2, "t1")
+                         val o2 = ObjectHolder(x3, null, "t2")
+                         val o3 = ObjectHolder(x2, null, "t3")
+                         val list = listOf(o1, o2, o3)
+                         it("test insert and read") {
+                             table.insert(list)
+                             persister.clearCache()
+                             val read = table.readAll()
+                             assertEquals(list.toSet(), read.toSet())
+                         }
+
+                     }
+                     on("test as multiple keys") {
+                         val table = persister.Table(ObjectHolder2::class)
+                         table.persist()
+                         val testImpl = RunXImpl(5)
+                         val testImpl2 = RunXImpl(6)
+                         val x1 = ObjectKeyTest(testImpl, "Hello")
+                         val x2 = ObjectKeyTest(testImpl2, "Hello1")
+                         val x3 = ObjectKeyTest(TestSingleton, "Hello2")
+                         val o1 = ObjectHolder2(1, x1, x2, "t1")
+                         val o2 = ObjectHolder2(1, x3, null, "t2")
+                         val o3 = ObjectHolder2(2, x2, null, "t3")
+                         val list = listOf(o1, o2, o3)
+                         table.insert(list)
+                         it("test readAll") {
+                             persister.clearCache()
+                             val read = table.readAll()
+                             assertEquals(list.toSet(), read.toSet())
+                         }
+                         it("test read") {
+                             persister.clearCache()
+                             val read = table.read(listOf(1L, x1))
+                             assertEquals(o1, read)
+                             val read2 = table.read(listOf(1L, x3))
+                             assertEquals(o2, read2)
                          }
 
                      }

@@ -157,7 +157,7 @@ internal interface FieldData : FieldCollection, FieldReadable {
     fun clearLists()
     fun createTableForeign(tableName: Set<String>): Set<String>
 
-    fun key(): String
+    fun key(): String?
 
     fun size() = 1
 

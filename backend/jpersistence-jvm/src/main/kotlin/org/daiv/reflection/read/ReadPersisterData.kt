@@ -103,7 +103,8 @@ internal interface InternalRPD {
     }
 
     fun createTableKeyData(): String {
-        return fields.joinToString(separator = ", ", transform = { it.key() })
+        return key.toPrimaryKey()
+//        return fields.joinToString(separator = ", ", transform = { it.key() })
     }
 
     fun getIdName() = key.fieldName
@@ -140,8 +141,10 @@ internal interface InternalRPD {
     }
 
     fun keyName(): String {
-        return key.name()
+        return key.toPrimaryKey()
     }
+
+    fun firstColumnName() = key.firstColumnName()
 
     fun keyColumnName() = key.columnName()
 

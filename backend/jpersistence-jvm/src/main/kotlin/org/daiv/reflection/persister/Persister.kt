@@ -717,7 +717,7 @@ class Persister(private val databaseInterface: DatabaseInterface,
 //        }
 
         private fun timespread(whereClause: String): List<R> {
-            return this@Persister.read("select * from $tableName where ${readPersisterData.keyName()} $whereClause") {
+            return this@Persister.read("select * from $tableName where ${readPersisterData.firstColumnName()} $whereClause") {
                 it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) } as List<R>
             }
         }

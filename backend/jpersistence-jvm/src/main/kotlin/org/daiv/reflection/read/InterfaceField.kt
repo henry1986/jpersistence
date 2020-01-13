@@ -54,7 +54,8 @@ internal class InterfaceField(override val propertyData: PropertyData,
     }
 
     override fun key(): String {
-        return onAll { key() }.joinToString(", ")
+        return onAll { key() }.filterNotNull()
+                .joinToString(", ")
     }
 
     private fun error(name: String) = "it's not possible to store an object of type $name " +
@@ -77,6 +78,9 @@ internal class InterfaceField(override val propertyData: PropertyData,
     override fun fNEqualsValue(o: Any, sep: String, keyGetter: KeyGetter): String? {
         val name = nameOfObj(o)
         val p = possibleClasses[name]!!
+        if (p.fieldData is ObjectField) {
+            return readSimpleType.fNEqualsValue(p.fieldData.simpleName, sep, keyGetter)
+        }
         return p.fieldData.fNEqualsValue(o, sep, keyGetter)
     }
 
@@ -97,6 +101,9 @@ internal class InterfaceField(override val propertyData: PropertyData,
                     pair.first to pair.second.fieldData.getValue(readCache, readValue, list.lastOrNull()?.second?.i ?: number, key)
                 }
         val textNextSize = readSimpleType.getValue(readCache, readValue, res.last().second.i, key)
+        if(textNextSize.t.t == null){
+            return NextSize(ReadAnswer(null) as ReadAnswer<Any>, textNextSize.i)
+        }
         val name = textNextSize.t.t as String
 //        val name = res.last().second.t.t as String
         return NextSize(res.toMap()[name]!!.t, textNextSize.i)
