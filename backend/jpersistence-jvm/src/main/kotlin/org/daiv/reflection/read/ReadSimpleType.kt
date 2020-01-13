@@ -36,6 +36,7 @@ internal class ReadSimpleType constructor(override val propertyData: PropertyDat
     companion object {
         private val valueMappingJavaSQL = mapOf("long" to "bigInt", "String" to "Text")
     }
+
     override fun toString() = "$name - $typeName"
 
     override val typeName by lazy {
@@ -183,21 +184,39 @@ internal class SetHashCodeable(val valueHashCodeable: HashCodeable, setReadable:
     }
 }
 
-internal class InterfaceHashCodeable(val possibleHashImplementation: Map<String, PossibleHashImplementation>, readable: FieldReadable) :
-        HashCodeable, FieldReadable by readable {
+internal class ObjectHashCodeable(val any: Any) : HashCodeable {
 
-    private fun hashCodeCalc(plain: Any, tFromGetObject: Any): Int {
-        val name = InterfaceField.nameOfObj(tFromGetObject)
-        val p = possibleHashImplementation[name] ?: throw RuntimeException("type unknown: $name - maybe no InterfaceField Annotation used?")
-        return p.hashCodeable.hashCodeX(plain)
+    private val hashCode = any.toString()
+            .hashCodeX()
+
+    override fun getObject(o: Any): Any {
+        return any
     }
 
     override fun hashCodeX(t: Any): Int {
-        return hashCodeCalc(t, getObject(t))
+        return hashCode
     }
 
     override fun plainHashCodeX(t: Any): Int {
-        return hashCodeCalc(t, t)
+        return hashCode
+    }
+}
+
+internal class InterfaceHashCodeable(val possibleHashImplementation: Map<String, PossibleHashImplementation>, readable: FieldReadable) :
+        HashCodeable, FieldReadable by readable {
+
+    private fun hashCodeCalc(tFromGetObject: Any, block: (HashCodeable) -> Int): Int {
+        val name = InterfaceField.nameOfObj(tFromGetObject)
+        val p = possibleHashImplementation[name] ?: throw RuntimeException("type unknown: $name - maybe no InterfaceField Annotation used?")
+        return block(p.hashCodeable)
+    }
+
+    override fun hashCodeX(t: Any): Int {
+        return hashCodeCalc(getObject(t)) { it.hashCodeX(t) }
+    }
+
+    override fun plainHashCodeX(t: Any): Int {
+        return hashCodeCalc(t) { it.plainHashCodeX(t) }
     }
 
 }

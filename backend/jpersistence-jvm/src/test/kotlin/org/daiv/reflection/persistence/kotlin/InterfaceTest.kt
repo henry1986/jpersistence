@@ -32,6 +32,10 @@ class InterfaceTest :
 
                  @MoreKeys(1, true)
                  data class ListAutoClass(@IFaceForObject([SimpleClass::class, AnotherClass2::class]) val interf: List<TheInterface>)
+
+                 @MoreKeys(auto = true)
+                 data class ObjectHashCodeTest(@IFaceForObject([RunXImpl::class, TestSingleton::class]) val key: RunX, val z: String)
+
                  describe("InterfaceTest") {
                      val logger = KotlinLogging.logger {}
                      val persister = Persister("InterfaceTest.db")
@@ -136,6 +140,23 @@ class InterfaceTest :
                              assertEquals(cx2, table.read(s2))
                              assertEquals(cx3, table.read(s3))
                          }
+                     }
+                     on("test HashCode"){
+                         val table = persister.Table(ObjectHashCodeTest::class)
+                         table.persist()
+                         val testImpl = RunXImpl(5)
+                         val testImpl2 = RunXImpl(6)
+                         val x1 = ObjectHashCodeTest(testImpl, "Hello")
+                         val x2 = ObjectHashCodeTest(testImpl2, "Hello1")
+                         val x3 = ObjectHashCodeTest(TestSingleton, "Hello2")
+                         val list = listOf(x1,x2,x3)
+                         it("test insert and read") {
+                             table.insert(list)
+                             persister.clearCache()
+                             val read = table.readAll()
+                             assertEquals(list.toSet(), read.toSet())
+                         }
+
                      }
                      afterGroup { persister.delete() }
                  }
