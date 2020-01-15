@@ -75,6 +75,16 @@ internal fun <T : Any> KProperty1<*, *>.toMap(clazz: KClass<*>,
 
 }
 
+internal fun <T : Any> KClass<*>.sealedClasses(createFct: (String, KClass<*>) -> T): Map<String, T> {
+    val map = sealedSubclasses.map {
+        val name = InterfaceField.nameOfClass(it)
+        name to createFct(name, it)
+    }
+            .toMap()
+    return map
+
+}
+
 internal class KeyAnnotation(private val property: KProperty1<*, *>) : CheckAnnotation {
     override fun manyToOne(): ManyToOne {
         return property.findAnnotation() ?: getManyToOne()
@@ -171,13 +181,14 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
         }
 
         private fun createWithoutInterface(thisClass: KClass<Any>, property: KProperty1<Any, Any>): FieldData? {
+            val name = "${property.name}_${thisClass.simpleName!!}"
             return when {
                 thisClass.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property, clazz), prefix)
                 thisClass.objectInstance != null ->
-                    ObjectField(DefProperty(property, clazz, thisClass.createType(), true, thisClass.simpleName!!), prefix)
+                    ObjectField(DefProperty(property, clazz, thisClass.createType(), true, name), prefix)
                 thisClass.isEnum() -> EnumType(DefProperty(property, clazz), prefix)
                 thisClass.isNoMapAndNoListAndNoSet() -> {
-                    val propertyData = DefProperty(property, clazz, thisClass.createType(), true, thisClass.simpleName!!)
+                    val propertyData = DefProperty(property, clazz, thisClass.createType(), true, name)
                     ReadComplexType(propertyData, moreKeys, propertyData.clazz.including(), persisterProvider, prefix)
                 }
                 else -> {
@@ -186,16 +197,22 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
             }
         }
 
+        private fun convert(property: KProperty1<Any, Any>): (String, KClass<*>) -> PossibleImplementation {
+            return { s, c -> PossibleImplementation(s, createWithoutInterface(c as KClass<Any>, property)!!) }
+        }
+
         fun create(property: KProperty1<Any, Any>): FieldData? {
             val kClass = property.toKClass()
             return when {
                 kClass.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(DefProperty(property, clazz), prefix)
                 kClass.objectInstance != null -> ObjectField(DefProperty(property, clazz), prefix)
+                kClass.isSealed -> {
+                    val map = kClass.sealedClasses(convert(property))
+                    InterfaceField(InterfaceProperty(property, clazz), prefix, map)
+                }
                 kClass.isEnum() -> EnumType(DefProperty(property, clazz), prefix)
                 kClass.java.isInterface && kClass.isNoMapAndNoListAndNoSet() -> {
-                    val map = property.toMap(kClass) { s, c ->
-                        PossibleImplementation(s, createWithoutInterface(c as KClass<Any>, property)!!)
-                    }
+                    val map = property.toMap(kClass, convert(property))
                     InterfaceField(InterfaceProperty(property, clazz), prefix, map)
                 }
                 kClass.isNoMapAndNoListAndNoSet() -> {
@@ -290,17 +307,24 @@ internal fun KProperty1<*, *>.createForInterface(provider: HashCodeableProvider,
 
 }
 
+private fun KProperty1<*, *>.convertHash(provider: HashCodeableProvider): (String, KClass<*>) -> PossibleHashImplementation {
+    return { name, clazz -> PossibleHashImplementation(name, createForInterface(provider, clazz)) }
+}
+
 internal fun KProperty1<*, *>.createHashCodeable(provider: HashCodeableProvider): HashCodeable {
     val kClass = this.toKClass()
     return when {
         kClass.java.isPrimitiveOrWrapperOrString() -> SimpleHashCodeable(DefaultProperyReader(this as KProperty1<Any, Any>))
         kClass.isEnum() -> EnumHashCodeable
+        kClass.isSealed -> {
+            val pReader = DefaultProperyReader(this as KProperty1<Any, Any>)
+            val map = kClass.sealedClasses(convertHash(provider))
+            InterfaceHashCodeable(map, pReader)
+        }
         kClass.objectInstance != null -> ObjectHashCodeable(kClass.objectInstance!!)
         kClass.java.isInterface && kClass.isNoMapAndNoListAndNoSet() -> {
             val pReader = DefaultProperyReader(this as KProperty1<Any, Any>)
-            val map = toMap(kClass) { name, clazz ->
-                PossibleHashImplementation(name, createForInterface(provider, clazz))
-            }
+            val map = toMap(kClass, convertHash(provider))
             InterfaceHashCodeable(map, pReader)
         }
         kClass.isNoMapAndNoListAndNoSet() ->

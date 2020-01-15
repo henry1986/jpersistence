@@ -12,9 +12,9 @@ import kotlin.reflect.full.createType
 
 internal data class PossibleImplementation(val key: String, val fieldData: FieldData)
 
-internal class InterfaceField(override val propertyData: PropertyData,
-                              override val prefix: String?,
-                              val possibleClasses: Map<String, PossibleImplementation>) : NoList {
+internal class InterfaceField constructor(override val propertyData: PropertyData,
+                                          override val prefix: String?,
+                                          val possibleClasses: Map<String, PossibleImplementation>) : NoList {
 
 
     companion object {
@@ -22,7 +22,7 @@ internal class InterfaceField(override val propertyData: PropertyData,
         fun nameOfObj(obj: Any) = obj::class.simpleName!!
     }
 
-    private val readSimpleType = ReadSimpleType(SimpleTypeProperty(String::class.createType(), "InterfaceFieldClassName"), prefix)
+    private val readSimpleType = ReadSimpleType(SimpleTypeProperty(String::class.createType(), "${name}_InterfaceFieldClassName"), prefix)
 
     override fun toTableHead(nullable: Boolean): String? {
         return (possibleClasses.map { it.value.fieldData.toTableHead(true) }.filterNotNull()
@@ -63,7 +63,10 @@ internal class InterfaceField(override val propertyData: PropertyData,
             " - possible solution: Use @IFaceForObject annotation and declare $name in ${propertyData.receiverType?.simpleName}"
 
     override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<Any>) {
-        val res = objectValue.groupBy { nameOfObj(getObject(it)) }
+        val res = objectValue.map { it to getObject(it) }
+                .filterNot { propertyData.isNullable && it.second == null }
+                .groupBy { nameOfObj(it.second) }
+                .map { it.key to it.value.map { it.first } }.toMap()
         res.map {
             val possibleImplementation = possibleClasses[it.key]
                     ?: throw RuntimeException(error(it.key))
@@ -101,7 +104,7 @@ internal class InterfaceField(override val propertyData: PropertyData,
                     pair.first to pair.second.fieldData.getValue(readCache, readValue, list.lastOrNull()?.second?.i ?: number, key)
                 }
         val textNextSize = readSimpleType.getValue(readCache, readValue, res.last().second.i, key)
-        if(textNextSize.t.t == null){
+        if (textNextSize.t.t == null) {
             return NextSize(ReadAnswer(null) as ReadAnswer<Any>, textNextSize.i)
         }
         val name = textNextSize.t.t as String

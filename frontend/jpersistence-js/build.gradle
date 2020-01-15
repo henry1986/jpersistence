@@ -29,11 +29,7 @@ buildscript {
         maven { url "https://dl.bintray.com/kotlin/kotlinx" }
     }
 
-    dependencies {
-        classpath "org.jetbrains.kotlin:kotlin-serialization:$kotlin_version"
-    }
 }
-apply plugin: 'kotlinx-serialization'
 compileKotlin2Js {
 //    kotlinOptions.moduleKind = "amd"
     kotlinOptions.sourceMap = true

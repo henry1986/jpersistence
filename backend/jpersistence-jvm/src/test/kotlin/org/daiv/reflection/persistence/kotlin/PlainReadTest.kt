@@ -89,7 +89,7 @@ class PlainReadTest :
                          table.insert(MyCObject2(5L, MyObject2(5, 4)))
                          table.insert(MyCObject2(6L, MyObject2(4, 6)))
                          it("test plain") {
-                             val res = table.requestBuilder("MyObject2_y") {
+                             val res = table.requestBuilder("myObject_MyObject2_y") {
                                  MyResult5(it[0] as Int)
                              }
                                      .read()

@@ -23,7 +23,6 @@
 
 package org.daiv.reflection.annotations
 
-import kotlinx.serialization.Serializable
 import kotlin.reflect.KClass
 
 @Target(AnnotationTarget.PROPERTY)
@@ -51,30 +50,3 @@ annotation class IFaceForObject(val classesNames: Array<KClass<*>>, val depth: I
 @Retention(AnnotationRetention.RUNTIME)
 annotation class IFaceForList(val ifaceForObject: Array<IFaceForObject>)
 
-@Serializable
-data class TableData(val tableName: String, val db: String, val header: List<String>, val values: List<List<String>>) {
-
-    fun identifier() = "$db - $tableName"
-//    fun insertCmd() = "INSERT INTO $tableName ${header.joinToString(", ", "(", ")")} VALUES" +
-//            " ${values.joinToString(", ", postfix = ";") { it.joinToString(", ", "(", ")") }};"
-//
-//    fun insertCmd(index: Int) = "INSERT INTO $tableName ${header.joinToString(", ", "(", ")")} VALUES" +
-//            " ${values[index].joinToString(", ", "(", ")")};"
-//
-//    fun deleteCmd(index: Int) = "DELETE FROM $tableName WHERE ${header.first()} = ${values[index].first()};"
-//
-//    fun existsCmd(index: Int) =
-//        "SELECT EXISTS( SELECT 1 FROM $tableName WHERE ${header.first()} = ${values[index].first()} LIMIT 1);"
-//
-//    fun canAppend(list: List<String>): Boolean {
-//        val key = list.first()
-//        return values.none { it.first() == key }
-//    }
-}
-
-fun TableData.appendValues(list: List<String>) = copy(values = values.plus(element = list))
-
-@Serializable
-data class AllTables(val tableData: TableData, val helper: List<TableData>, val keyTables: List<TableData>) {
-    val all = listOf(tableData) + helper + keyTables
-}

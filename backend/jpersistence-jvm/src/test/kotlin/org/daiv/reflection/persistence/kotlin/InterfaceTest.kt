@@ -227,6 +227,50 @@ class InterfaceTest :
                          }
 
                      }
+                     on("test as sealedHolder") {
+                         val table = persister.Table(SealedHolder::class)
+                         table.persist()
+                         val testImpl = SealedHolder(5L, SealedObject)
+                         val testImpl2 = SealedHolder(6L, SealedData(5L))
+                         val list = listOf(testImpl, testImpl2)
+                         it("test insert and read") {
+                             table.insert(list)
+                             persister.clearCache()
+                             val read = table.readAll()
+                             assertEquals(list.toSet(), read.toSet())
+                         }
+
+                     }
+                     on("test as sealedKeyHolder") {
+                         val table = persister.Table(SealedKeyHolder::class)
+                         table.persist()
+                         val testImpl = SealedKeyHolder(SealedObject, SealedObject, "")
+                         val testImpl2 = SealedKeyHolder(SealedObject, SealedData(5L), "")
+                         val r3 = SealedKeyHolder(SealedObject, SealedData(6L), "")
+                         val list = listOf(testImpl, testImpl2, r3)
+                         it("test insert and read") {
+                             table.insert(list)
+                             persister.clearCache()
+                             val read = table.readAll()
+                             assertEquals(list.toSet(), read.toSet())
+                         }
+
+                     }
+                     on("test nullability of interfaceField") {
+                         val table = persister.Table(SealedKeyHolder2::class)
+                         table.persist()
+                         val testImpl = SealedKeyHolder2(SealedObject, null, "wow")
+                         val testImpl2 = SealedKeyHolder2(SealedData(5L), null, "hello")
+                         val r3 = SealedKeyHolder2(SealedData(6L), SealedObject, "no")
+                         val list = listOf(testImpl, testImpl2, r3)
+                         it("test insert and read") {
+                             table.insert(list)
+                             persister.clearCache()
+                             val read = table.readAll()
+                             assertEquals(list.toSet(), read.toSet())
+                         }
+
+                     }
                      afterGroup { persister.delete() }
                  }
              })

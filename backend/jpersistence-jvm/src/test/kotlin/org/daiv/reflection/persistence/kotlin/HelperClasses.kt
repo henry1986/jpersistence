@@ -20,15 +20,28 @@ interface RunX {
     fun testX(): Boolean
 }
 
-data class RunXImpl(val z:Int):RunX{
+data class RunXImpl(val z: Int) : RunX {
     override fun testX(): Boolean {
         return true
     }
 }
+
+sealed class SealedInterface
+
+object SealedObject : SealedInterface()
+
+data class SealedData(val x: Long) : SealedInterface()
+
+data class SealedHolder(val key: Long, val sealedInterface: SealedInterface)
+@MoreKeys(2)
+data class SealedKeyHolder(val key: SealedInterface, val y: SealedInterface, val x: String)
+
+data class SealedKeyHolder2(val key: SealedInterface, val y: SealedInterface?, val x: String)
+
 internal data class ObjectKeyToWriteForTest(val isAuto: Boolean,
-                                   val theKey: List<Any>,
-                                   val theObject: Any,
-                                   val theHashCode: Int? = null) : ObjectKeyToWrite {
+                                            val theKey: List<Any>,
+                                            val theObject: Any,
+                                            val theHashCode: Int? = null) : ObjectKeyToWrite {
     override fun isAutoId(): Boolean {
         return isAuto
     }
@@ -54,10 +67,11 @@ internal data class ObjectKeyToWriteForTest(val isAuto: Boolean,
     }
 }
 
-object TestSingleton:RunX {
+object TestSingleton : RunX {
     override fun testX(): Boolean {
         return false
     }
+
     override fun toString(): String {
         return "MyTestSingleton"
     }
