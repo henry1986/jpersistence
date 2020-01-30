@@ -51,8 +51,11 @@ internal class EnumType constructor(override val propertyData: PropertyData, ove
 
     override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
         try {
-            val any = readValue.getObject(number) as String
-            return NextSize(ReadAnswer(getEnumValue(propertyData.clazz.java, any)), number + 1)
+            val obj = readValue.getObject(number)
+            if (obj !is String?) {
+                throw RuntimeException("expected a string, but got $obj")
+            }
+            return NextSize(ReadAnswer(getEnumValue(propertyData.clazz.java, obj)), number + 1)
         } catch (e: SQLException) {
             throw RuntimeException(e)
         }
@@ -63,8 +66,8 @@ internal class EnumType constructor(override val propertyData: PropertyData, ove
     }
 
     companion object {
-        internal fun <T : Any> getEnumValue(clazz: Class<T>, s: String): T {
-            return clazz.enumConstants.filterIsInstance(Enum::class.java).first { it.name == s } as T
+        internal fun <T> getEnumValue(clazz: Class<T>, s: String?): T {
+            return s?.let { clazz.enumConstants.filterIsInstance(Enum::class.java).first { it.name == s } } as T
         }
     }
 }

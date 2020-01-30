@@ -7,20 +7,24 @@ import org.daiv.reflection.plain.ObjectKeyToWrite
 import org.daiv.reflection.plain.PersistenceKey
 
 
-enum class X1 { B1, B2, B3 }
-enum class X2(private val s: String) {
-    B1("1"), B2("2"), B3("3");
+internal enum class X1 { B1, B2, B3 }
+
+internal data class JustIt(val y: Int, val x: String)
+internal enum class X2(val s: String, y:String) {
+    B1("1", "one"), B2("2", "two"), B3("3", "three");
+
+    val justIt = JustIt(this.ordinal, y)
 }
 
-interface TheInterface {
+internal interface TheInterface {
     val x: Int
 }
 
-interface RunX {
+internal interface RunX {
     fun testX(): Boolean
 }
 
-data class RunXImpl(val z: Int) : RunX {
+internal data class RunXImpl(val z: Int) : RunX {
     override fun testX(): Boolean {
         return true
     }

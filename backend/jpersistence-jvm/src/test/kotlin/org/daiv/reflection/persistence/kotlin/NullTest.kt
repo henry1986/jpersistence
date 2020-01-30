@@ -38,6 +38,7 @@ class NullTest : Spek({
 
                           data class IncludingTheComplexWithList(val id: Int, val includingAComplex: IncludingAComplex)
 
+                          data class EnumHolder(val x: X1, val x2: X1?)
 
                           val logger = KotlinLogging.logger {}
                           describe("null test") {
@@ -105,6 +106,7 @@ class NullTest : Spek({
                                                                                     IncludingSimple(4, "Hello World"),
                                                                                     IncludingSimple(4, "World"))))
                                       table.insert(list)
+                                      persister.clearCache()
                                       val all = table.readAll()
                                       assertEquals(list, all)
                                   }
@@ -114,6 +116,7 @@ class NullTest : Spek({
                                       val list = listOf(IncludingTheComplex(2, IncludingAComplex(2, IncludingSimple(5, "what"))),
                                                         IncludingTheComplex(3, IncludingAComplex(2, IncludingSimple(5, "whatIs"))))
                                       table.insert(list)
+                                      persister.clearCache()
                                       val all = table.readAll()
                                       assertEquals(list, all)
                                   }
@@ -127,8 +130,19 @@ class NullTest : Spek({
                                                                                 listOf(IncludingAComplex(2, IncludingSimple(5, "whatIs")),
                                                                                        IncludingAComplex(2, IncludingSimple(5, "what")))))
                                       table.insert(list)
+                                      persister.clearCache()
                                       val all = table.readAll()
                                       assertEquals(list, all)
+                                  }
+                                  it("test null enum"){
+                                      val table = persister.Table(EnumHolder::class)
+                                      table.persist()
+                                      val enumHolder = EnumHolder(X1.B1, null)
+                                      val list = listOf(enumHolder)
+                                      table.insert(list)
+                                      persister.clearCache()
+                                      val read = table.readAll()
+                                      assertEquals(list, read)
                                   }
                               }
                               afterGroup { persister.delete() }

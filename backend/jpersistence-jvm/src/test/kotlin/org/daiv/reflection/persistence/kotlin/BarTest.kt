@@ -30,7 +30,7 @@ class BarTest
                data class Wave(val wavePoints: List<WavePoint>)
 
                @MoreKeys(2)
-               data class CWaveSet(val wave1:Wave, val wave2: Wave)
+               data class CWaveSet(val wave1: Wave, val wave2: Wave)
 
                @MoreKeys(1, true)
                data class TickList(val ticks: List<Tick>)
@@ -85,7 +85,7 @@ class BarTest
                val logger = KotlinLogging.logger { }
                describe("BarTest") {
                    val persister = persister("BarTest.db")
-                   val doubleRefPersister = Persister("BarTestDoubleRef.db", PersisterPreference( 1000000))
+                   val doubleRefPersister = Persister("BarTestDoubleRef.db", PersisterPreference(1000000))
                    on("from to") {
                        val list = (0 until 100).map { Bar(it, " - $it - ") }
                                .toList()
@@ -428,7 +428,7 @@ class BarTest
                        }
                    }
 
-                   on("insert ComplexKey"){
+                   on("insert ComplexKey") {
                        persister.clearCache()
                        val table = persister.Table(CWaveSet::class)
                        table.persist()
@@ -445,11 +445,6 @@ class BarTest
                            val read = table.readAll()
                            assertEquals(waveSet.asList(), read)
                        }
-                   }
-                   on("TestSingleton"){
-                       val clazz = TestSingleton::class as KClass<Any>
-                       val objectInstance = clazz.objectInstance
-                       logger.trace { "object: $objectInstance" }
                    }
                    afterGroup { persister.delete(); doubleRefPersister.delete() }
                }

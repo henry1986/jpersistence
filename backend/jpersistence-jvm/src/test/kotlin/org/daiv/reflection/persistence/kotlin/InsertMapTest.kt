@@ -122,5 +122,6 @@ internal class InsertMapTest :
                          }
                          runBlocking { }
                      }
+                     afterGroup { persister.delete() }
                  }
              })

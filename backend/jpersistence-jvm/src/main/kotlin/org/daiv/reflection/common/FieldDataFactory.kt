@@ -286,8 +286,14 @@ internal fun KClass<out Any>.createHashCodeables(provider: HashCodeableProvider,
     if (i < constructor.parameters.size && (maxSize != -1 || i < maxSize)) {
         val parameter = constructor.parameters[i]
         val property = this.declaredMemberProperties.find { it.name == parameter.name }
-        val hashCodeable = property!!.createHashCodeable(provider)
-        return createHashCodeables(provider, moreKeys, including, maxSize, i + 1, constructor, ret + hashCodeable)
+        val nextList = if (property == null) {
+            // it is a parameter, no property
+            ret
+        } else {
+            val hashCodeable = property.createHashCodeable(provider)
+            ret + hashCodeable
+        }
+        return createHashCodeables(provider, moreKeys, including, maxSize, i + 1, constructor, nextList)
     }
     return HashCodeableHandler(moreKeys, including, ret)
 
