@@ -305,7 +305,7 @@ internal fun KProperty1<*, *>.createForInterface(provider: HashCodeableProvider,
     return when {
         kClass.java.isPrimitiveOrWrapperOrString() -> SimpleHashCodeable(DefaultProperyReader(this as KProperty1<Any, Any>))
         kClass.isEnum() -> EnumHashCodeable
-        kClass.objectInstance != null -> ObjectHashCodeable(kClass.objectInstance!!)
+        kClass.objectInstance != null -> ObjectHashCodeable(kClass.objectInstance!!, kClass)
         kClass.isNoMapAndNoListAndNoSet() ->
             ComplexHashCodeable(kClass as KClass<Any>, provider, DefaultProperyReader(this as KProperty1<Any, Any>))
         else -> throw RuntimeException("type not supported: $kClass")
@@ -327,7 +327,7 @@ internal fun KProperty1<*, *>.createHashCodeable(provider: HashCodeableProvider)
             val map = kClass.sealedClasses(convertHash(provider))
             InterfaceHashCodeable(map, pReader)
         }
-        kClass.objectInstance != null -> ObjectHashCodeable(kClass.objectInstance!!)
+        kClass.objectInstance != null -> ObjectHashCodeable(kClass.objectInstance!!, kClass)
         kClass.java.isInterface && kClass.isNoMapAndNoListAndNoSet() -> {
             val pReader = DefaultProperyReader(this as KProperty1<Any, Any>)
             val map = toMap(kClass, convertHash(provider))

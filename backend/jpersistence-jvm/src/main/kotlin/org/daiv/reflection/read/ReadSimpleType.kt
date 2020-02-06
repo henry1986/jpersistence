@@ -55,7 +55,7 @@ internal class ReadSimpleType constructor(override val propertyData: PropertyDat
         try {
             val any = if (propertyData.clazz == Long::class) {
                 val x = readValue.resultSet.getLong(number)
-                if(readValue.resultSet.wasNull()){
+                if (readValue.resultSet.wasNull()) {
                     null
                 } else {
                     x
@@ -189,10 +189,9 @@ internal class SetHashCodeable(val valueHashCodeable: HashCodeable, setReadable:
     }
 }
 
-internal class ObjectHashCodeable(val any: Any) : HashCodeable {
+internal class ObjectHashCodeable(val any: Any, kClass: KClass<*>) : HashCodeable {
 
-    private val hashCode = any.toString()
-            .hashCodeX()
+    private val hashCode = kClass.simpleName!!.hashCodeX()
 
     override fun getObject(o: Any): Any {
         return any
