@@ -31,12 +31,15 @@ import kotlin.reflect.full.createType
 import kotlin.reflect.jvm.isAccessible
 
 internal interface PropertyData : FieldReadable {
-    val clazz: KClass<Any>
+    //    val clazz: KClass<Any>
     val type: KType
+    val clazz: KClass<Any>
+        get() = type.classifier as KClass<Any>
     val receiverType: KClass<Any>?
     val name: String
     val isNullable: Boolean
         get() = false
+
 }
 
 
@@ -53,9 +56,17 @@ object SimpleTypeReadable : FieldReadable {
     override fun getObject(o: Any) = o
 }
 
-data class SimpleTypeProperty constructor(override val type: KType, override val name: String) : SimpleProperty {
-    override val clazz: KClass<Any> = type.classifier as KClass<Any>
+internal interface OtherClassPropertyData : PropertyData {
+    fun otherClazz(clazz: KClass<Any>): PropertyData
+
+}
+
+internal data class SimpleTypeProperty constructor(override val type: KType, override val name: String) : SimpleProperty,
+                                                                                                          OtherClassPropertyData {
     override val receiverType: KClass<Any>? = null
+    override fun otherClazz(clazz: KClass<Any>): PropertyData {
+        return copy(clazz.createType())
+    }
 }
 
 
@@ -70,24 +81,23 @@ internal class InterfaceProperty(override val property: KProperty1<Any, Any>,
                                  override val receiverType: KClass<Any>,
                                  override val name: String = property.name) : PropertyData, PropertyReader {
     override val type: KType = property.returnType
-    override val clazz: KClass<Any> = type.classifier as KClass<Any>
+
     override val isNullable = property.returnType.isMarkedNullable
 }
 
-data class DefProperty(override val property: KProperty1<Any, Any>,
-                       override val receiverType: KClass<Any>,
-                       override val type: KType = property.returnType,
-                       override val isNullable: Boolean = property.returnType.isMarkedNullable,
-                       override val name: String = property.name) :
-        PropertyReader, PropertyData {
-
-    override val clazz: KClass<Any> = type.classifier as KClass<Any>
-
+internal data class DefProperty(override val property: KProperty1<Any, Any>,
+                                override val receiverType: KClass<Any>,
+                                override val type: KType = property.returnType,
+                                override val isNullable: Boolean = property.returnType.isMarkedNullable,
+                                override val name: String = property.name) :
+        PropertyReader, OtherClassPropertyData {
+    override fun otherClazz(clazz: KClass<Any>): PropertyData {
+        return copy(type = clazz.createType())
+    }
 }
 
 internal class AutoKeyProperty(val key: KeyHashCodeable) : PropertyData {
     override val type: KType = Any::class.createType()
-    override val clazz: KClass<Any> = Any::class
     override val receiverType: KClass<Any>? = Any::class
     override val name: String = autoIdName
     override fun getObject(r: Any): Int {
@@ -117,7 +127,6 @@ internal class AutoKeyProperty(val key: KeyHashCodeable) : PropertyData {
 
 internal class KeyTypeProperty(val fields: List<FieldData>) : PropertyData {
     override val type: KType = Any::class.createType()
-    override val clazz = Any::class
     override val receiverType: KClass<Any>? = Any::class
     override val name: String = fields.joinToString("_") { it.name }
     override fun getObject(r: Any): Any {

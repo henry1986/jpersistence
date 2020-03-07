@@ -2,9 +2,9 @@ package org.daiv.reflection.common
 
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.Persister.Table
-import org.daiv.reflection.persister.ReadCache
-import org.daiv.reflection.persister.SequentialTableHandler
+import org.daiv.reflection.read.DefaultMapper
 import org.daiv.reflection.read.KeyHashCodeable
+import org.daiv.reflection.read.Mapper
 import org.daiv.reflection.read.ReadPersisterData
 import kotlin.reflect.KClass
 
@@ -24,6 +24,11 @@ internal interface PersisterProvider : TableHandlerCreator {
     operator fun get(clazz: KClass<out Any>): String {
         return tableName(clazz)
     }
+
+    fun mapProviderClazz(propertyData: OtherClassPropertyData): PropertyData
+
+    fun map(any: Any?): Any?
+    fun backmap(any: Any?): Any?
 
     fun table(clazz: KClass<out Any>): Table<*>
 
@@ -59,6 +64,15 @@ internal class PersisterProviderImpl constructor(val persister: Persister, val t
 
     override fun getHelperTableNames() = helperTableNames
 
+    override fun mapProviderClazz(propertyData: OtherClassPropertyData): PropertyData {
+        val otherClazz = persister.clazzMapper[propertyData.clazz]
+        if (otherClazz == null) {
+            return propertyData
+        } else {
+            return propertyData.otherClazz(otherClazz as KClass<Any>)
+        }
+    }
+
     override fun registerHelperTableName(helperTableName: Persister.InternalTable) {
         helperTableNames.add(helperTableName)
     }
@@ -66,6 +80,24 @@ internal class PersisterProviderImpl constructor(val persister: Persister, val t
     override fun setAutoTableId(clazz: KClass<out Any>, autoId: Boolean, table: Table<*>) {
         isAutoKey[clazz] = autoId
         tableMap[clazz] = table
+    }
+
+    private fun mapper(clazz: KClass<*>): Mapper<Any, Any> {
+        return (persister.mapper[clazz] ?: DefaultMapper(clazz)) as Mapper<Any, Any>
+    }
+
+    private fun backmapper(clazz: KClass<*>): Mapper<Any, Any> {
+        return (persister.backmapper[clazz] ?: DefaultMapper(clazz)) as Mapper<Any, Any>
+    }
+
+    override fun map(any: Any?): Any? {
+        any ?: return null
+        return mapper(any::class).map(any)
+    }
+
+    override fun backmap(any: Any?): Any? {
+        any ?: return null
+        return backmapper(any::class).backwards(any)
     }
 
     override fun isAutoIdTable(clazz: KClass<out Any>): Boolean {

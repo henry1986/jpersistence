@@ -53,7 +53,8 @@ internal fun KType.createWithoutInterface(clazz: KClass<*>, persisterProvider: P
         clazz.java.isPrimitiveOrWrapperOrString() -> ReadSimpleType(SimpleTypeProperty(this, clazz.simpleName!!), prefix)
         clazz.isEnum() -> EnumType(SimpleTypeProperty(this, clazz.simpleName!!), prefix)
         clazz.isNoMapAndNoListAndNoSet() ->
-            ReadComplexType(SimpleTypeProperty(this, clazz.simpleName!!), clazz.moreKeys(), clazz.including(), persisterProvider, prefix)
+            ReadComplexType(SimpleTypeProperty(this, clazz.simpleName!!),
+                            clazz.moreKeys(), clazz.including(), persisterProvider, prefix)
         else -> throw RuntimeException("type unknown: $clazz in $this")
     }
 }
@@ -82,7 +83,11 @@ internal fun KType.toLowField(persisterProvider: PersisterProvider, depth: Int, 
             InterfaceField(SimpleTypeProperty(this, InterfaceField.nameOfClass(clazz)), prefix, map)
         }
         clazz.isNoMapAndNoListAndNoSet() ->
-            ReadComplexType(SimpleTypeProperty(this, clazz.simpleName!!), clazz.moreKeys(), clazz.including(), persisterProvider, prefix)
+            ReadComplexType(SimpleTypeProperty(this, clazz.simpleName!!),
+                            clazz.moreKeys(),
+                            clazz.including(),
+                            persisterProvider,
+                            prefix)
         clazz == List::class -> InnerMapType(SimpleListTypeProperty(this),
                                              depth,
                                              interf,

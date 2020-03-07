@@ -34,10 +34,7 @@ import org.daiv.reflection.plain.ObjectKey
 import org.daiv.reflection.plain.RequestBuilder
 import org.daiv.reflection.plain.SimpleReadObject
 import org.daiv.reflection.plain.readPlainMapper
-import org.daiv.reflection.read.InternalRPD
-import org.daiv.reflection.read.KeyType
-import org.daiv.reflection.read.ReadFieldValue
-import org.daiv.reflection.read.ReadPersisterData
+import org.daiv.reflection.read.*
 import org.daiv.util.DefaultRegisterer
 import org.daiv.util.Registerer
 import org.slf4j.MarkerFactory
@@ -53,14 +50,23 @@ private val persisterMarker = MarkerFactory.getMarker("Persister")
 /**
  * @author Martin Heinrich
  */
-class Persister(private val databaseInterface: DatabaseInterface,
-                val persisterPreference: PersisterPreference = defaultPersisterPreference(),
-                private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
+class Persister constructor(private val databaseInterface: DatabaseInterface,
+                            _mapper: List<Mapper<*, *>> = emptyList(),
+                            val persisterPreference: PersisterPreference = defaultPersisterPreference(),
+                            private val registerer: DefaultRegisterer<DBChangeListener> = DefaultRegisterer()) :
         Registerer<DBChangeListener> by registerer {
     constructor(dbPath: String, persisterPreference: PersisterPreference = defaultPersisterPreference()) :
-            this(DatabaseHandler(dbPath), persisterPreference)
+            this(DatabaseHandler(dbPath), emptyList(), persisterPreference)
+
+    constructor(dbPath: String, mapper: List<Mapper<*, *>>, persisterPreference: PersisterPreference = defaultPersisterPreference()) :
+            this(DatabaseHandler(dbPath), mapper, persisterPreference)
 
     fun close() = databaseInterface.close()
+    internal val mapper = (_mapper.map { it.origin to it })
+            .toMap()
+    internal val backmapper = (_mapper.map { it.mapped to it })
+            .toMap()
+    internal val clazzMapper = _mapper.map { it.origin to it.mapped }.toMap()
 
     val logger = KotlinLogging.logger {}
     //    val logger = KotlinLogging.logger("Persister. ${databaseInterface.path}")

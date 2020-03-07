@@ -29,12 +29,30 @@ import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.*
 import org.daiv.reflection.plain.ObjectKey
 import org.daiv.reflection.plain.SimpleReadObject
+import kotlin.reflect.KClass
 
-internal class ReadComplexType constructor(override val propertyData: PropertyData,
+
+interface Mapper<ORIGIN : Any, MAPPED : Any> {
+    val origin: KClass<ORIGIN>
+    val mapped: KClass<MAPPED>
+    fun map(origin: ORIGIN): MAPPED
+    fun backwards(mapped: MAPPED): ORIGIN
+}
+
+internal class DefaultMapper<T : Any>(override val origin: KClass<T>) : Mapper<T, T> {
+    override val mapped: KClass<T>
+        get() = origin
+
+    override fun map(origin: T) = origin
+    override fun backwards(mapped: T) = mapped
+}
+
+internal class ReadComplexType constructor(_propertyData: OtherClassPropertyData,
                                            val moreKeys: MoreKeys,
                                            val including: Including,
                                            val persisterProvider: PersisterProvider,
                                            override val prefix: String?) : NoList {
+    override val propertyData: PropertyData = persisterProvider.mapProviderClazz(_propertyData)
     val providerKey = ProviderKey(propertyData.clazz, prefixedName)
 
     init {
@@ -51,12 +69,15 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
 
     override suspend fun toStoreData(insertMap: InsertMap, objectValue: List<Any>) {
         objectValue.forEach {
-            val obj = getObject(it)
+            val obj = persisterProvider.map(getObject(it))
             if (propertyData.isNullable && obj == null) {
                 return
             }
             if (including.include) {
                 return
+            }
+            if (obj == null) {
+                throw NullPointerException()
             }
             val key = persisterData.key.keyToWrite(obj)
 
@@ -74,7 +95,6 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
                 .takeWhile { it != null }
                 .lastOrNull()
     }
-
 
     override fun createTableForeign(tableNames: Set<String>): Set<String> {
         if (including.include) {
@@ -120,7 +140,7 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
             val r = ReadPersisterData.readValue(clazz)
             return n.transform { b -> ReadAnswer(r(b)) }
         }
-        val read = readCache.readNoNull(table, nextSize.t.t)
+        val read = persisterProvider.backmap(readCache.readNoNull(table, nextSize.t.t))
         return NextSize(ReadAnswer(read), nextSize.i)
     }
 
@@ -136,7 +156,7 @@ internal class ReadComplexType constructor(override val propertyData: PropertyDa
             return persisterData.key.insertObject(null, keyGetter)
         }
 //        val objectKey = persisterData.mapObjectToKey(objectValue, table)
-        val key = persisterData.key.keyToWrite(objectValue)
+        val key = persisterData.key.keyToWrite(persisterProvider.map(objectValue) ?: throw NullPointerException())
         return persisterData.key.insertObject(keyGetter.keyForObjectFromCache(table, key)?.keys()
                                                       ?: throw RuntimeException("did not find key for $table and $key")
                                               , keyGetter)

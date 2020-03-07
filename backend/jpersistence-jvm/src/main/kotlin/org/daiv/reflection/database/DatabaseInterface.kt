@@ -25,6 +25,7 @@ package org.daiv.reflection.database
 
 import mu.KotlinLogging
 import org.daiv.reflection.persister.*
+import org.daiv.reflection.read.Mapper
 import org.slf4j.MarkerFactory
 import java.io.File
 import java.sql.Connection
@@ -116,5 +117,6 @@ class DatabaseHandler constructor(override val path: String) : DatabaseInterface
 }
 
 fun persister(path: String, persisterPreference: PersisterPreference = defaultPersisterPreference()) =
-        Persister(DatabaseHandler(path), persisterPreference)
+        Persister(DatabaseHandler(path), emptyList(), persisterPreference)
 
+fun mappedPersister(path: String, mapper: List<Mapper<*, *>>) = Persister(path, mapper)

@@ -105,7 +105,7 @@ class AlterTableTest :
                              assertEquals(AfterList(1, 0, listOf(After2(1, 0.0, "hello"), After2(2, 0.0, "wow"))), read)
                          }
                      }
-                     on("refactore object with list and adding key") {
+                     on("refactor object with list and adding key") {
                          it("to After") {
                              persister.clearCache()
                              val table = persister.Table(NextBeforeList::class, "NextAfterList")

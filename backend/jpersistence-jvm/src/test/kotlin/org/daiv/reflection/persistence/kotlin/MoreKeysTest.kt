@@ -4,6 +4,7 @@ import mu.KotlinLogging
 import org.daiv.reflection.annotations.Including
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.database.persister
+import org.daiv.reflection.persister.Persister
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
@@ -28,9 +29,13 @@ class MoreKeysTest :
                  @MoreKeys(auto = true)
                  data class X2Holder(val map: Map<X2, MKeyClass>, val z: String)
 
+                 @MoreKeys(auto = true)
+                 data class HoldX2Map(val x2Holder: X2Holder, val b: String)
+
 
                  @MoreKeys(auto = true)
                  data class X3Holder(val x2: X2, val z: String)
+
                  data class X3HolderNoAuto(val x2: X2, val z: String)
 
                  data class HolderHolder(val x3Holder: X3Holder, val z: String)
@@ -83,18 +88,23 @@ class MoreKeysTest :
                              assertEquals(c1, read)
                          }
                      }
+
                      on("Enum in Map test") {
-                         val table = persister.Table(X2Holder::class)
-                         table.persist()
+                         val keyX22 = mapOf(X2.B2 to MKeyClass(2, "2", "3"))
                          val x21 = X2Holder(mapOf(X2.B1 to MKeyClass(1, "2", "3"), X2.B2 to MKeyClass(3, "2", "3")), "4")
-                         val x22 = X2Holder(mapOf(X2.B2 to MKeyClass(2, "2", "3")), "4")
+                         val x22 = X2Holder(keyX22, "4")
                          val list = listOf(x21, x22)
-                         table.insert(list)
-                         it("test readAll") {
-                             persister.clearCache()
-                             val read = table.readAll()
-                             assertEquals(list.toSet(), read.toSet())
-                         }
+                         persister.testTable(this, X2Holder::class, list, listOf(keyX22), x22)
+                     }
+                     on("autokeys double in Map test") {
+                         val keyX22 = mapOf(X2.B2 to MKeyClass(2, "2", "3"))
+                         val x21 = X2Holder(mapOf(X2.B1 to MKeyClass(1, "2", "3"), X2.B2 to MKeyClass(3, "2", "3")), "4")
+                         val x22 = X2Holder(keyX22, "4")
+                         val h1 = HoldX2Map(x21, "hello")
+                         val h2 = HoldX2Map(x22, "world")
+                         val list = listOf(h1, h2)
+
+                         persister.testTable(this, HoldX2Map::class, list, listOf(x22), h2)
                      }
                      on("enum with parameter") {
                          val table = persister.Table(HolderHolder::class)

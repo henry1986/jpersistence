@@ -1,20 +1,48 @@
 package org.daiv.reflection.persistence.kotlin
 
 import org.daiv.reflection.annotations.MoreKeys
+import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.plain.HashCodeKey
 import org.daiv.reflection.plain.ObjectKey
 import org.daiv.reflection.plain.ObjectKeyToWrite
 import org.daiv.reflection.plain.PersistenceKey
+import org.jetbrains.spek.api.dsl.ActionBody
+import org.jetbrains.spek.api.dsl.SpecBody
+import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.api.dsl.on
+import kotlin.reflect.KClass
+import kotlin.test.assertEquals
 
 
 internal enum class X1 { B1, B2, B3 }
 
 internal data class JustIt(val y: Int, val x: String)
-internal enum class X2(val s: String, y:String) {
+internal enum class X2(val s: String, y: String) {
     B1("1", "one"), B2("2", "two"), B3("3", "three");
 
     val justIt = JustIt(this.ordinal, y)
 }
+
+internal fun <T : Any> ActionBody.testRead(table: Persister.Table<T>, list: List<T>, toAssert: T, key: List<Any>) {
+    it("test readAll") {
+        table.persister.clearCache()
+        val read = table.readAll()
+        assertEquals(list.toSet(), read.toSet())
+    }
+    it("test single read") {
+        table.persister.clearCache()
+        val read = table.read(key)
+        assertEquals(toAssert, read)
+    }
+}
+
+fun <T : Any> Persister.testTable(sBody: ActionBody, clazz: KClass<T>, listToInsert: List<T>, key: List<Any>, toAssert: T) {
+    val table: Persister.Table<T> = Table(clazz)
+    table.persist()
+    table.insert(listToInsert)
+    sBody.testRead(table, listToInsert, toAssert, key)
+}
+
 
 internal interface TheInterface {
     val x: Int
