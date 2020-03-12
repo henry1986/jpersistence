@@ -47,16 +47,20 @@ internal class DefaultMapper<T : Any>(override val origin: KClass<T>) : Mapper<T
     override fun backwards(mapped: T) = mapped
 }
 
-internal class ReadComplexType constructor(_propertyData: OtherClassPropertyData,
+internal class ReadComplexType constructor(val originPropertyData: OtherClassPropertyData,
                                            val moreKeys: MoreKeys,
                                            val including: Including,
                                            val persisterProvider: PersisterProvider,
                                            override val prefix: String?) : NoList {
-    override val propertyData: PropertyData = persisterProvider.mapProviderClazz(_propertyData)
+    override val propertyData: PropertyData = persisterProvider.mapProviderClazz(originPropertyData)
     val providerKey = ProviderKey(propertyData.clazz, prefixedName)
 
     init {
         persisterProvider.register(providerKey)
+    }
+
+    override fun isType(a: Any): Boolean {
+        return originPropertyData.clazz == a::class
     }
 
     private val persisterData
@@ -146,7 +150,7 @@ internal class ReadComplexType constructor(_propertyData: OtherClassPropertyData
 
     override fun fNEqualsValue(objectValue: Any, sep: String, keyGetter: KeyGetter): String? {
 //        val objectKey = persisterData.mapObjectToKey(objectValue, keyCreator, table)
-        val objectKey = keyGetter.keyForObject(table, persisterData.key.keyToWrite(objectValue))
+        val objectKey = keyGetter.keyForObject(table, persisterData.key.keyToWrite(persisterProvider.map(objectValue)!!))
                 ?: return null
         return persisterData.key.fNEqualsValue(objectKey.keys(), sep, keyGetter)
     }

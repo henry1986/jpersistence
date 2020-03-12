@@ -2,6 +2,7 @@ package org.daiv.reflection.persistence.kotlin
 
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.persister.Persister
+import org.daiv.reflection.persister.Persister.Table
 import org.daiv.reflection.plain.HashCodeKey
 import org.daiv.reflection.plain.ObjectKey
 import org.daiv.reflection.plain.ObjectKeyToWrite
@@ -23,7 +24,11 @@ internal enum class X2(val s: String, y: String) {
     val justIt = JustIt(this.ordinal, y)
 }
 
-internal fun <T : Any> ActionBody.testRead(table: Persister.Table<T>, list: List<T>, toAssert: T, key: List<Any>) {
+internal fun <T : Any> ActionBody.testRead(table: Table<T>,
+                                           list: List<T>,
+                                           toAssert: T,
+                                           key: List<Any>,
+                                           block: Table<T>.() -> Unit) {
     it("test readAll") {
         table.persister.clearCache()
         val read = table.readAll()
@@ -34,13 +39,19 @@ internal fun <T : Any> ActionBody.testRead(table: Persister.Table<T>, list: List
         val read = table.read(key)
         assertEquals(toAssert, read)
     }
+    table.block()
 }
 
-fun <T : Any> Persister.testTable(sBody: ActionBody, clazz: KClass<T>, listToInsert: List<T>, key: List<Any>, toAssert: T) {
-    val table: Persister.Table<T> = Table(clazz)
+fun <T : Any> Persister.testTable(sBody: ActionBody,
+                                  clazz: KClass<T>,
+                                  listToInsert: List<T>,
+                                  key: List<Any>,
+                                  toAssert: T,
+                                  block: Table<T>.() -> Unit = {}) {
+    val table: Table<T> = Table(clazz)
     table.persist()
     table.insert(listToInsert)
-    sBody.testRead(table, listToInsert, toAssert, key)
+    sBody.testRead(table, listToInsert, toAssert, key, block)
 }
 
 
