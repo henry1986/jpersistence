@@ -8,23 +8,50 @@ import org.daiv.reflection.plain.ObjectKey
 import org.daiv.reflection.plain.ObjectKeyToWrite
 import org.daiv.reflection.plain.PersistenceKey
 import kotlin.reflect.KClass
+import kotlin.test.Test
 import kotlin.test.assertEquals
 
 
-internal enum class X1 { B1, B2, B3 }
+enum class X1 { B1, B2, B3 }
 
-internal data class JustIt(val y: Int, val x: String)
-internal enum class X2(val s: String, y: String) {
+data class JustIt(val y: Int, val x: String)
+enum class X2(val s: String, y: String) {
     B1("1", "one"), B2("2", "two"), B3("3", "three");
 
     val justIt = JustIt(this.ordinal, y)
 }
 
-//internal fun <T : Any> ActionBody.testRead(table: Table<T>,
-//                                           list: List<T>,
-//                                           toAssert: T,
-//                                           key: List<Any>,
-//                                           block: Table<T>.() -> Unit) {
+class TestRead<T : Any>(
+    val table: Table<T>,
+    val list: List<T>,
+    val toAssert: T,
+    val key: List<Any>,
+    val block: Table<T>.() -> Unit
+) {
+    fun testAll() {
+        testReadAll()
+        testSingleRead()
+    }
+    private fun testReadAll() {
+        table.persister.clearCache()
+        val read = table.readAll()
+        assertEquals(list.toSet(), read.toSet())
+    }
+
+    private fun testSingleRead(){
+        table.persister.clearCache()
+        val read = table.read(key)
+        assertEquals(toAssert, read)
+    }
+}
+
+//internal fun <T : Any> ActionBody.testRead(
+//    table: Table<T>,
+//    list: List<T>,
+//    toAssert: T,
+//    key: List<Any>,
+//    block: Table<T>.() -> Unit
+//) {
 //    it("test readAll") {
 //        table.persister.clearCache()
 //        val read = table.readAll()
@@ -38,28 +65,29 @@ internal enum class X2(val s: String, y: String) {
 //    table.block()
 //}
 
-//fun <T : Any> Persister.testTable(sBody: ActionBody,
-//                                  clazz: KClass<T>,
-//                                  listToInsert: List<T>,
-//                                  key: List<Any>,
-//                                  toAssert: T,
-//                                  block: Table<T>.() -> Unit = {}) {
-//    val table: Table<T> = Table(clazz)
-//    table.persist()
-//    table.insert(listToInsert)
-//    sBody.testRead(table, listToInsert, toAssert, key, block)
-//}
+fun <T : Any> Persister.testTable(
+    clazz: KClass<T>,
+    listToInsert: List<T>,
+    key: List<Any>,
+    toAssert: T,
+    block: Table<T>.() -> Unit = {}
+) {
+    val table: Table<T> = Table(clazz)
+    table.persist()
+    table.insert(listToInsert)
+    TestRead(table, listToInsert, toAssert, key, block).testAll()
+}
 
 
-internal interface TheInterface {
+interface TheInterface {
     val x: Int
 }
 
-internal interface RunX {
+interface RunX {
     fun testX(): Boolean
 }
 
-internal data class RunXImpl(val z: Int) : RunX {
+data class RunXImpl(val z: Int) : RunX {
     override fun testX(): Boolean {
         return true
     }
@@ -72,15 +100,18 @@ object SealedObject : SealedInterface()
 data class SealedData(val x: Long) : SealedInterface()
 
 data class SealedHolder(val key: Long, val sealedInterface: SealedInterface)
+
 @MoreKeys(2)
 data class SealedKeyHolder(val key: SealedInterface, val y: SealedInterface, val x: String)
 
 data class SealedKeyHolder2(val key: SealedInterface, val y: SealedInterface?, val x: String)
 
-internal data class ObjectKeyToWriteForTest(val isAuto: Boolean,
-                                            val theKey: List<Any>,
-                                            val theObject: Any,
-                                            val theHashCode: Int? = null) : ObjectKeyToWrite {
+internal data class ObjectKeyToWriteForTest(
+    val isAuto: Boolean,
+    val theKey: List<Any>,
+    val theObject: Any,
+    val theHashCode: Int? = null
+) : ObjectKeyToWrite {
     override fun isAutoId(): Boolean {
         return isAuto
     }
