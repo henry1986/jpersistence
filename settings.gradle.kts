@@ -1,3 +1,3 @@
 
-rootProject.name = "jpersistance"
+rootProject.name = "jpersistence"
 

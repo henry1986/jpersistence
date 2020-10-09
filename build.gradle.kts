@@ -2,7 +2,6 @@ val coroutines_version = "1.3.9"
 val kutil_version = "0.3.0"
 val kotlin_version = "1.4.10"
 
-
 plugins {
     kotlin("multiplatform") version "1.4.10"
     id("com.jfrog.artifactory") version "4.17.2"
@@ -77,4 +76,21 @@ kotlin {
 //        val nativeMain by getting
 //        val nativeTest by getting
     }
+}
+
+artifactory {
+    setContextUrl("${project.findProperty("daiv_contextUrl")}")
+    publish(delegateClosureOf<org.jfrog.gradle.plugin.artifactory.dsl.PublisherConfig> {
+        repository(delegateClosureOf<groovy.lang.GroovyObject> {
+            setProperty("repoKey", "gradle-dev-local")
+            setProperty("username", project.findProperty("daiv_user"))
+            setProperty("password", project.findProperty("daiv_password"))
+            setProperty("maven", true)
+        })
+        defaults(delegateClosureOf<groovy.lang.GroovyObject> {
+            invokeMethod("publications", arrayOf("jvm", "js", "kotlinMultiplatform", "metadata", "linuxX64"))
+            setProperty("publishPom", true)
+            setProperty("publishArtifacts", true)
+        })
+    })
 }
