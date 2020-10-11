@@ -1,14 +1,15 @@
-val coroutines_version = "1.3.9"
-val kutil_version = "0.3.0"
-val kotlin_version = "1.4.10"
+//val coroutines_version = "1.3.9"
+//val kutil_version = "0.3.0"
+//val kotlin_version = "1.4.10"
 
 plugins {
     kotlin("multiplatform") version "1.4.10"
     id("com.jfrog.artifactory") version "4.17.2"
+    id("org.daiv.dependency") version ("0.0.8")
     `maven-publish`
 }
 group = "org.daiv.jpersistence"
-version = "0.9.0"
+version = "0.9.1"
 
 repositories {
     mavenCentral()
@@ -40,12 +41,13 @@ kotlin {
 //        else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
 //    }
 
+    val versions = org.daiv.dependency.Versions.versions1_4_0
 
     sourceSets {
         val commonMain by getting {
-            dependencies {
-                api("org.daiv.util:kutil:$kutil_version")
-                api("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines_version")
+            versions.deps(this){
+                kutil()
+                coroutines()
             }
         }
         val commonTest by getting {
@@ -55,16 +57,15 @@ kotlin {
             }
         }
         val jvmMain by getting {
-            dependencies {
-                api("org.jetbrains.kotlin:kotlin-reflect:$kotlin_version")
-                api("org.xerial:sqlite-jdbc:3.27.2.1")
-
+            versions.deps(this){
+                kotlinModule("reflect")
+                sqlite_jdbc()
             }
         }
         val jvmTest by getting {
-            dependencies {
-                implementation(kotlin("test-junit"))
-                api("io.mockk:mockk:1.9.2")
+            versions.deps(this){
+                kotlinModule("test-junit")
+                mockk()
             }
         }
         val jsMain by getting
@@ -73,8 +74,6 @@ kotlin {
                 implementation(kotlin("test-js"))
             }
         }
-//        val nativeMain by getting
-//        val nativeTest by getting
     }
 }
 
