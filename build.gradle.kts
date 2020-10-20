@@ -1,13 +1,21 @@
-//val coroutines_version = "1.3.9"
-//val kutil_version = "0.3.0"
-//val kotlin_version = "1.4.10"
+buildscript {
+    repositories {
+        gradlePluginPortal()
+        maven("https://daiv.org/artifactory/gradle-dev-local")
+    }
+    dependencies {
+        classpath("org.daiv.dependency:DependencyHandling:0.0.12")
+    }
+}
 
 plugins {
     kotlin("multiplatform") version "1.4.10"
     id("com.jfrog.artifactory") version "4.17.2"
-    id("org.daiv.dependency") version ("0.0.8")
     `maven-publish`
 }
+
+val versions = org.daiv.dependency.Versions.versions1_4_0
+
 group = "org.daiv.jpersistence"
 version = "0.9.1"
 
@@ -41,8 +49,6 @@ kotlin {
 //        else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
 //    }
 
-    val versions = org.daiv.dependency.Versions.versions1_4_0
-
     sourceSets {
         val commonMain by getting {
             versions.deps(this){
@@ -59,6 +65,7 @@ kotlin {
         val jvmMain by getting {
             versions.deps(this){
                 kotlinModule("reflect")
+                postgres_jdbc()
                 sqlite_jdbc()
             }
         }

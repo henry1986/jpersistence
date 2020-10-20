@@ -19,22 +19,29 @@ internal data class InsertRequest(val insertObjects: List<InsertObject>)
  */
 data class InsertCachePreference(val checkCacheOnly: Boolean, val check4Same: Boolean)
 
-data class InsertPartialAnswer(val objectsThatShouldHaveBeenWritten: List<Any>, val writtenSuccess: Boolean, val t: Throwable? = null)
+data class InsertPartialAnswer(
+    val objectsThatShouldHaveBeenWritten: List<Any>,
+    val writtenSuccess: Boolean,
+    val t: Throwable? = null
+)
 
-class DifferentObjectSameKeyException(message: String?, val objectFromCache: Any, val objectToInsert: Any) : RuntimeException(message)
+class DifferentObjectSameKeyException(message: String?, val objectFromCache: Any, val objectToInsert: Any) :
+    RuntimeException(message)
 
-internal data class InsertMap constructor(val persister: Persister,
-                                          val insertCachePreference: InsertCachePreference,
-                                          val actors: Map<Persister.InternalTable, TableHandler>,
-                                          val readCache: ReadCache) {
+internal data class InsertMap constructor(
+    val persister: Persister,
+    val insertCachePreference: InsertCachePreference,
+    val actors: Map<Persister.InternalTable, TableHandler>,
+    val readCache: ReadCache
+) {
     private val logger = KotlinLogging.logger {}
 
     private fun insertListBy(insertObjects: List<List<List<InsertObject>>>): String {
         val headString = insertObjects.first()
-                .first()
-                .insertHeadString()
+            .first()
+            .insertHeadString()
         val valueString = insertObjects.flatten()
-                .joinToString(separator = "), (") { it.insertValueString() }
+            .joinToString(separator = "), (") { it.insertValueString() }
         return "($headString ) VALUES ($valueString);"
     }
 
@@ -54,7 +61,11 @@ internal data class InsertMap constructor(val persister: Persister,
     }
 
 
-    suspend fun <T : Any> nextTask(table: Persister.Table<T>, key: ObjectKeyToWrite, nextTask: suspend (ObjectKeyToWrite) -> Unit) {
+    suspend fun <T : Any> nextTask(
+        table: Persister.Table<T>,
+        key: ObjectKeyToWrite,
+        nextTask: suspend (ObjectKeyToWrite) -> Unit
+    ) {
 //        val objectKey = readCache.toObjectKey(table, key, this)
 //        objectKey?.let {
         if (insertCachePreference.checkCacheOnly) {
@@ -62,7 +73,8 @@ internal data class InsertMap constructor(val persister: Persister,
                 val read = readCache.readCacheOnly(table, key)
                 val theObject = key.theObject()
                 if (read != null && read != theObject) {
-                    val errorMessage = "object that is already in Cache \n$read \n is not same as to be insert: \n$theObject"
+                    val errorMessage =
+                        "object that is already in Cache \n$read \n is not same as to be insert: \n$theObject"
                     throw DifferentObjectSameKeyException(errorMessage, read, theObject)
                 }
                 if (read != null) {
@@ -88,7 +100,7 @@ internal data class InsertMap constructor(val persister: Persister,
 
     suspend fun toBuild(requestTask: RequestTask) {
         val actor = actors[requestTask.insertKey.table]
-                ?: throw RuntimeException("actor for ${requestTask.insertKey} not found")
+            ?: throw RuntimeException("actor for ${requestTask.insertKey} not found")
         actor.send(requestTask)
 
     }
@@ -98,7 +110,7 @@ internal data class InsertMap constructor(val persister: Persister,
         val map = actor.map.map {
             it.key.key.theObject() to it.value().map { it.insertObjects }
         }
-                .filter { it.second.isNotEmpty() }
+            .filter { it.second.isNotEmpty() }
         val taken = map.filterIndexed { i, e -> block(i, e.first) }
         val s = "INSERT INTO `${table._tableName}` ${insertListBy(taken.map { it.second })} "
         val objects = taken.map { it.first }
@@ -120,15 +132,17 @@ internal data class InsertMap constructor(val persister: Persister,
         val res = x.map {
             it.first to it.second.map {
                 it.value()
-                        .map { it.insertObjects }
+                    .map { it.insertObjects }
             }.filter { it.isNotEmpty() }
         }
-        val z = res.filter { !it.second.isEmpty() }
-                .map { "INSERT INTO `${it.first._tableName}` ${insertListBy(it.second)} " }
+        val z = res.filter { it.second.isNotEmpty() }
+            .map { "INSERT INTO ${it.first.tableName} ${insertListBy(it.second)} " }
 
 //                .toMap()
         logger.trace { "done converting" }
-        z.map { persister.write(it) }
+        z.map {
+            persister.write(it)
+        }
     }
 }
 
@@ -173,7 +187,7 @@ internal class ReadHashCodeTableCache(val table: Persister.InternalTable) : Read
     override fun keyForObject(key: ObjectKeyToWrite): ObjectKey? {
         if (containsHashCode(key.itsHashCode())) {
             val x = getHashCodeObjects(key.itsHashCode())!!.toList()
-                    .find { it.second == key.theObject() }
+                .find { it.second == key.theObject() }
             return x?.let { key.toObjectKey(it.first) }
         } else {
             return null
@@ -289,12 +303,14 @@ internal class ReadCache constructor(val persisterPreference: PersisterPreferenc
     } + persisterProvider.getHelperTableNames().map {
         it to SequentialTableHandler(this.readTableCache(it, false))
     })
-            .toMap()
+        .toMap()
 
-    private fun readDatabase(table: Persister.Table<*>,
-                             key: ObjectKeyToWrite,
-                             readTableCache: ReadHashCodeTableCache,
-                             hashCodeX: Int = key.itsHashCode()): Pair<Int, Any?> {
+    private fun readDatabase(
+        table: Persister.Table<*>,
+        key: ObjectKeyToWrite,
+        readTableCache: ReadHashCodeTableCache,
+        hashCodeX: Int = key.itsHashCode()
+    ): Pair<Int, Any?> {
         val readHashCode = table.readHashCode(hashCodeX, this)
         readHashCode.forEach {
             readTableCache[ReadKey(table, key.toObjectKey(it.first))] = it.second
@@ -309,24 +325,28 @@ internal class ReadCache constructor(val persisterPreference: PersisterPreferenc
     override fun keyForObjectFromDB(table: Persister.Table<*>, key: ObjectKeyToWrite): ObjectKey? {
         return if (key.isAutoId()) {
             table.readHashCode(key.itsHashCode(), this)
-                    .find(key)
-                    ?.let { key.toObjectKey(it.first) }
+                .find(key)
+                ?.let { key.toObjectKey(it.first) }
         } else {
             key.toObjectKey()
         }
     }
 
-    private fun read(table: Persister.Table<*>,
-                     key: ObjectKeyToWrite,
-                     readTableCache: ReadHashCodeTableCache,
-                     hashCodeX: Int = key.itsHashCode()): Any? {
+    private fun read(
+        table: Persister.Table<*>,
+        key: ObjectKeyToWrite,
+        readTableCache: ReadHashCodeTableCache,
+        hashCodeX: Int = key.itsHashCode()
+    ): Any? {
         return readDatabase(table, key, readTableCache, hashCodeX).second
     }
 
-    private fun getCounter(table: Persister.Table<*>,
-                           key: ObjectKeyToWrite,
-                           readTableCache: ReadHashCodeTableCache,
-                           hashCodeX: Int = key.itsHashCode()): Int {
+    private fun getCounter(
+        table: Persister.Table<*>,
+        key: ObjectKeyToWrite,
+        readTableCache: ReadHashCodeTableCache,
+        hashCodeX: Int = key.itsHashCode()
+    ): Int {
         return readDatabase(table, key, readTableCache, hashCodeX).first
     }
 
@@ -435,7 +455,7 @@ internal class ReadCache constructor(val persisterPreference: PersisterPreferenc
 
     fun <T : Any> readNoNull(table: Persister.Table<T>, key: ObjectKey): T {
         return read(table, key)
-                ?: throw RuntimeException("did not find value for key $key in ${table._tableName}")
+            ?: throw RuntimeException("did not find value for key $key in ${table._tableName}")
     }
 
     fun clear() = map.clear()
