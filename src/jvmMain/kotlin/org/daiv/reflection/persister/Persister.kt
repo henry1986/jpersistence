@@ -37,6 +37,7 @@ import org.daiv.reflection.plain.readPlainMapper
 import org.daiv.reflection.read.*
 import org.daiv.util.DefaultRegisterer
 import org.daiv.util.Registerer
+import org.slf4j.Marker
 import org.slf4j.MarkerFactory
 import java.sql.ResultSet
 import java.sql.SQLException
@@ -77,7 +78,7 @@ class Persister constructor(
     val logger = KotlinLogging.logger {}
 
     //    val logger = KotlinLogging.logger("Persister. ${databaseInterface.path}")
-    val dbMarkerRead = MarkerFactory.getDetachedMarker("READ")
+    val dbMarkerRead: Marker = MarkerFactory.getDetachedMarker("READ")
     val dbMarkerWrite = MarkerFactory.getDetachedMarker("WRITE")
     val dbMarkerCreate = MarkerFactory.getDetachedMarker("CREATE")
 
@@ -680,7 +681,7 @@ class Persister constructor(
             try {
                 val list = read(fieldName, id)
                 this@Persister.write("DELETE ${fromWhere(fieldName, id, and)};")
-                list.forEach { readPersisterData.deleteLists(readPersisterData.keySimpleType(it).toList()) }
+                list.forEach { readPersisterData.deleteLists(readPersisterData.getKey(it).toList()) }
                 tableEvent()
             } catch (e: Throwable) {
                 throw e

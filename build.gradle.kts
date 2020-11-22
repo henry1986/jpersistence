@@ -1,23 +1,24 @@
 buildscript {
     repositories {
-        gradlePluginPortal()
+        maven { url = uri("https://repo.gradle.org/gradle/libs-releases") }
         maven("https://daiv.org/artifactory/gradle-dev-local")
     }
     dependencies {
-        classpath("org.daiv.dependency:DependencyHandling:0.0.12")
+        classpath("org.daiv.dependency:DependencyHandling:0.0.66")
     }
 }
 
 plugins {
     kotlin("multiplatform") version "1.4.10"
     id("com.jfrog.artifactory") version "4.17.2"
+    id("org.daiv.dependency.VersionsPlugin") version "0.1.3"
     `maven-publish`
 }
 
-val versions = org.daiv.dependency.Versions.versions1_4_0
+val versions = org.daiv.dependency.DefaultDependencyBuilder(org.daiv.dependency.Versions.current())
 
 group = "org.daiv.jpersistence"
-version = "0.9.1"
+version = versions.setVersion { jpersistence }
 
 repositories {
     mavenCentral()
@@ -51,10 +52,14 @@ kotlin {
 
     sourceSets {
         val commonMain by getting {
-            versions.deps(this){
-                kutil()
-                coroutines()
+            dependencies {
+                implementation(versions.kutil())
+                implementation(versions.coroutines())
             }
+            //            versions.deps(this){
+//                kutil()
+//                coroutines()
+//            }
         }
         val commonTest by getting {
             dependencies {
@@ -63,16 +68,16 @@ kotlin {
             }
         }
         val jvmMain by getting {
-            versions.deps(this){
-                kotlinModule("reflect")
-                postgres_jdbc()
-                sqlite_jdbc()
+            dependencies {
+                implementation(kotlin("reflect"))
+                implementation(versions.postgres_jdbc())
+                implementation(versions.sqlite_jdbc())
             }
         }
         val jvmTest by getting {
-            versions.deps(this){
-                kotlinModule("test-junit")
-                mockk()
+            dependencies {
+                implementation(kotlin("test-junit"))
+                implementation(versions.mockk())
             }
         }
         val jsMain by getting
@@ -99,4 +104,13 @@ artifactory {
             setProperty("publishArtifacts", true)
         })
     })
+}
+
+
+versionPlugin {
+    versionPluginBuilder = org.daiv.dependency.Versions.versionPluginBuilder {
+        versionMember = { jpersistence }
+        resetVersion = { copy(jpersistence = it) }
+    }
+    setDepending(tasks)
 }

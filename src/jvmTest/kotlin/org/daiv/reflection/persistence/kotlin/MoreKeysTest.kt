@@ -22,6 +22,8 @@ data class IncludingClass(val x: Int, val y: Int, val z: String)
 @MoreKeys(2)
 data class ComplexInclude(val includingClass: IncludingClass, val x: Int, val s: String)
 
+data class IncludingComplexKey(val mKeyClass: MKeyClass, val s: String)
+
 @MoreKeys(auto = true)
 data class X2Holder(val map: Map<X2, MKeyClass>, val z: String)
 
@@ -188,3 +190,28 @@ class EnumWithParameterNoAuto : MoreKeysTest() {
     }
 }
 
+class MKeyClassIncludedTest: MoreKeysTest(){
+    val table = persister.Table(IncludingComplexKey::class)
+    init {
+        table.persist()
+    }
+
+    val x1 = IncludingComplexKey(MKeyClass(5, "e", "z"), "s")
+    val x2 = IncludingComplexKey(MKeyClass(6, "b", "a"), "d")
+    init {
+        table.insert(listOf(x1))
+    }
+
+    @Test
+    fun testRead(){
+        persister.clearCache()
+        val read = table.read(x1.mKeyClass)
+        assertEquals(x1, read)
+    }
+
+    @Test
+    fun testDelete(){
+        table.delete(x1.mKeyClass)
+        assertEquals(emptyList(), table.readAll())
+    }
+}

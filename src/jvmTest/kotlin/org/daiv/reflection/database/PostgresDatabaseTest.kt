@@ -21,7 +21,8 @@ class PostgresDatabaseTest {
     val connectionData =
         TestConnectionData(PostgresConnectionData("localhost", 5432, "pguser", "12345"), "PostgresDatabaseTest")
 
-    @Test
+    // to test, it needs a postgres db running
+//    @Test
     fun startDb() {
         val p = connectionData.persister("startDB")
         try {
@@ -38,7 +39,7 @@ class PostgresDatabaseTest {
         }
     }
 
-    @Test
+//    @Test
     fun checkDBCreationAndDeletion() {
         val testDBName = "checkDBCreationAndDeletionDB"
         val buildName = connectionData.buildName(testDBName)
@@ -49,4 +50,5 @@ class PostgresDatabaseTest {
         assertTrue(def.listDBs().none { it == buildName })
         def.close()
     }
+
 }
