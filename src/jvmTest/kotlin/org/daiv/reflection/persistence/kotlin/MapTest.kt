@@ -2,6 +2,7 @@ package org.daiv.reflection.persistence.kotlin
 
 import kotlin.test.Test
 import mu.KotlinLogging
+import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.persister.Persister
 import kotlin.reflect.full.memberProperties
 import kotlin.test.AfterTest
@@ -54,6 +55,28 @@ open class MapTest {
     @AfterTest
     fun afterTest() {
         persister.delete()
+    }
+}
+
+@MoreKeys(2)
+data class ComplexForList(val x:Int, val y:Int)
+data class ComplexForListHolder(val c:ComplexForList, val l: List<ComplexForList>)
+class ComplexListTest:MapTest(){
+    val table = persister.Table(ComplexForListHolder::class)
+    init {
+        table.persist()
+    }
+
+    @Test
+    fun test(){
+        val c5 = ComplexForListHolder(ComplexForList(5, 5), listOf(ComplexForList(5, 6), ComplexForList(7, 8)))
+        table.insert(c5)
+        val c6 = ComplexForListHolder(ComplexForList(6, 6), listOf(ComplexForList(5, 6), ComplexForList(7, 8)))
+        table.insert(c6)
+
+        table.delete(c5.c)
+        val read = table.read(c6.c)
+        assertEquals(c6, read)
     }
 }
 

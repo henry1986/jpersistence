@@ -338,7 +338,7 @@ class Persister constructor(
         fun deleteBy(fieldName: String, id: List<Any>) {
             try {
                 onDelete(tableName, id)
-                persister.write("DELETE ${fromWhere(fieldName, id, comma)};")
+                persister.write("DELETE ${fromWhere(fieldName, id, and)};")
                 persister.event()
             } catch (e: Throwable) {
                 throw e
