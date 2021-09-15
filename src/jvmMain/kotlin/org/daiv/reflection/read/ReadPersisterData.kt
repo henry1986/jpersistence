@@ -56,7 +56,7 @@ internal interface InternalRPD {
         return fields.find { it.name == fieldName }
                 ?: fields.flatMap { it.subFields() }.find { it.name == fieldName }
                 ?: key.fields.find { it.name == fieldName }
-                ?: throw RuntimeException("couldn't find any fields with name: $fieldName")
+                ?: throw RuntimeException("couldn't find any fields with name: $fieldName, fields are: ${fields.map { it.name } + fields.flatMap{it.subFields()}.map { it.name }}")
     }
 
     fun dropHelper() {

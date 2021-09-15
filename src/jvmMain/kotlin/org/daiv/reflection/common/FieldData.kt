@@ -141,8 +141,10 @@ internal interface FieldData : FieldCollection, FieldReadable {
             val x = propertyData.getObject(o)
             return x
         } catch (t: Throwable) {
-            throw RuntimeException("could not read property $propertyData ${propertyData.clazz} " +
-                                           "and receiverType: ${propertyData.receiverType} of $o", t)
+            throw RuntimeException(
+                "could not read property $propertyData ${propertyData.clazz} " +
+                        "and receiverType: ${propertyData.receiverType} of $o", t
+            )
         }
     }
 
@@ -253,16 +255,23 @@ internal interface SimpleTypes : NoList {
 
     override fun underscoreName() = name(prefix)
 
-    override fun insertObject(t: Any?, keyGetter: KeyGetter): List<InsertObject> {
-        return listOf(object : InsertObject {
-            override fun insertValue(): String {
-                return t?.let { makeString(it) } ?: "null"
-            }
+    data class InsertObjectImpl(val head: String, val value: String) : InsertObject {
+        override fun insertHead() = head
 
-            override fun insertHead(): String {
-                return prefixedName
-            }
-        })
+        override fun insertValue() = value
+    }
+
+    override fun insertObject(t: Any?, keyGetter: KeyGetter): List<InsertObject> {
+        return listOf(InsertObjectImpl(prefixedName, t?.let { makeString(it) } ?: "null"))
+//        return listOf(object : InsertObject {
+//            override fun insertValue(): String {
+//                return t?.let { makeString(it) } ?: "null"
+//            }
+//
+//            override fun insertHead(): String {
+//                return prefixedName
+//            }
+//        })
     }
 
     fun makeString(t: Any): String

@@ -1,12 +1,12 @@
 package org.daiv.reflection.persistence.kotlin
 
-import kotlin.test.Test
 import mu.KotlinLogging
 import org.daiv.reflection.annotations.IFaceForObject
 import org.daiv.reflection.annotations.Including
 import org.daiv.reflection.annotations.MoreKeys
 import org.daiv.reflection.persister.Persister
 import org.daiv.util.json.log
+import org.junit.Test
 import kotlin.test.AfterTest
 import kotlin.test.assertEquals
 
@@ -17,7 +17,18 @@ data class ComplexObj(val x: Int, @IFaceForObject([SimpleClass::class, AnotherCl
 @Including
 data class AnotherClass2(override val x: Int, val z: Int, val y: String) : TheInterface
 
+interface EmptyInterface
+
+data class ImplEmpty(val x: Int) : EmptyInterface
+object ImplEmpty2 : EmptyInterface
+
 data class ComplexObj2(val x: Int, @IFaceForObject([SimpleClass::class, AnotherClass2::class]) val interf: TheInterface)
+
+data class ComplexObjEmpty(
+    val x: Int,
+    @IFaceForObject([ImplEmpty::class, ImplEmpty2::class]) val interf: EmptyInterface
+)
+
 data class ComplexObj3(@IFaceForObject([SimpleClass::class, AnotherClass2::class]) val interf: TheInterface, val x: Int)
 data class EmbeddedComplexObj(val x: Int, val complexObj2: ComplexObj2)
 data class EmbeddedComplexObj2(val complexObj2: ComplexObj2, val x: Int)
@@ -58,6 +69,16 @@ class TestTheInterface : InterfaceTest() {
         val table = persister.Table(ComplexObj::class)
         table.persist()
         val c = listOf(ComplexObj(5, SimpleClass(3, "Hello")), ComplexObj(6, AnotherClass(2, 6, "Hello")))
+        table.insert(c)
+        val read = table.readAll()
+        assertEquals(c, read)
+    }
+
+    @Test
+    fun testPersistEmpty() {
+        val table = persister.Table(ComplexObjEmpty::class)
+        table.persist()
+        val c = listOf(ComplexObjEmpty(5, ImplEmpty(5)), ComplexObjEmpty(6, ImplEmpty2))
         table.insert(c)
         val read = table.readAll()
         assertEquals(c, read)

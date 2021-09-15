@@ -97,7 +97,7 @@ class Persister constructor(
         registerer.forEach(DBChangeListener::onChange)
     }
 
-    private val internalReadCache = ReadCache(persisterPreference)
+    private val internalReadCache = ReadCache()
 
     internal fun readCache() = internalReadCache
 
@@ -257,7 +257,7 @@ class Persister constructor(
         if (tableName == "") clazz.tableName() else tableName
 
 
-    internal interface InternalTable : PersisterListener {
+    internal interface InternalTable : PersisterListener, Clearable {
         val readPersisterData: InternalRPD
         val innerTableName: String
         val tableName: String
@@ -324,10 +324,10 @@ class Persister constructor(
         ): List<List<ReadFieldValue>> {
 //            val req = "SELECT $selectHeader FROM $tableName $join ${whereClause(fieldName, id, and)};"
             val req = "SELECT * FROM $tableName WHERE $fnEqualsValue $orderOrder;"
-            return persister.read(req) { it.getList { readPersisterData.readWOObject(ReadValue(this), readCache) } }
+            return persister.read(req) { it.getList { readPersisterData.readWOObject(ReadValueImpl(this), readCache) } }
         }
 
-        fun clear() {
+        override fun clear() {
             persister.write("DELETE from $tableName;")
             readPersisterData.clearLists()
             onClear(tableName)
@@ -439,8 +439,8 @@ class Persister constructor(
     inner class Table<R : Any> internal constructor(
         override val readPersisterData: ReadPersisterData,
         val clazz: KClass<in R>
-    ) :
-        InternalTable, Registerer<DBChangeListener> by registerer, PersisterListener by internalReadCache {
+    ) : TableInterface<R>, InternalTable, Registerer<DBChangeListener> by registerer,
+        PersisterListener by internalReadCache {
         override val innerTableName: String
             get() = readPersisterData.persisterProvider.innerTableName(clazz)
         override val _tableName
@@ -541,11 +541,15 @@ class Persister constructor(
             return this@Persister.read(req) {
                 it.getList {
                     readPersisterData.evaluate(
-                        ReadValue(this),
+                        ReadValueImpl(this),
                         readCache
                     )
                 }
             } as List<R>
+        }
+
+        override fun read(fieldName: String, key: Any) :List<R>{
+            return read(fieldName, key, "")
         }
 
         fun read(fieldName: String, id: Any, orderOrder: String = ""): List<R> {
@@ -590,7 +594,7 @@ class Persister constructor(
             return read(idName, this, readCache()).firstOrNull()
         }
 
-        fun read(id: Any): R? {
+        override fun read(id: Any): R? {
             val key = id.toList()
             return key.toHashCodeX()
 //            return read(idName, id.toList().toHashCodeX(), readCache()).firstOrNull()
@@ -611,8 +615,19 @@ class Persister constructor(
             return internRead.map { it[1].value as Int to readPersisterData.method(it) } as List<Pair<Int, R>>
         }
 
-        fun insert(o: R) {
+        override fun insert(o: R) {
             insert(listOf(o))
+        }
+
+        fun readRequest(req: String): List<R> {
+            return this@Persister.read(req) {
+                it.getList {
+                    readPersisterData.evaluate(
+                        ReadValueImpl(this),
+                        readCache()
+                    )
+                }
+            } as List<R>
         }
 
         internal fun insertCache(
@@ -642,6 +657,10 @@ class Persister constructor(
 
         internal fun insertCache(commonCache: InternalCommonCache, isParallel: Boolean): InsertCache<R> {
             return InsertCacheHandler(commonCache.i, readPersisterData, this, isParallel)
+        }
+
+        override fun insert(list: List<R>) {
+            insert(list, innerCachePreference())
         }
 
         fun insert(o: List<R>, innerCachePreference: InsertCachePreference = innerCachePreference()) {
@@ -688,12 +707,12 @@ class Persister constructor(
             }
         }
 
-        fun delete(fieldName: String, id: Any) {
+        override fun delete(fieldName: String, id: Any) {
             onDelete(tableName)
             innerDelete(fieldName, id)
         }
 
-        fun delete(id: Any) {
+        override fun delete(id: Any) {
             val idAsList = id.toList()
             onDelete(tableName, idAsList)
             innerDelete(idName, idAsList)
@@ -749,7 +768,7 @@ class Persister constructor(
                     ReadPersisterData(clazz as KClass<Any>, this@Persister, readPersisterData.persisterProvider)
                 val key = readPersisterData.createTableKeyData()
 //                val key = readPersisterData.createTableKeyData(fieldName)
-                this@Persister.read(cmd(key)) { it.getList { readPersisterData.readKey(ReadValue(this)) } as List<T> }
+                this@Persister.read(cmd(key)) { it.getList { readPersisterData.readKey(ReadValueImpl(this)) } as List<T> }
             }
         }
 
@@ -766,7 +785,7 @@ class Persister constructor(
 
         private fun internReadAll(orderOrder: String = ""): List<R> {
             return this@Persister.read("SELECT * from $tableName $orderOrder;") {
-                it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) } as List<R>
+                it.getList { readPersisterData.evaluate(ReadValueImpl(this), readCache()) } as List<R>
             }
         }
 
@@ -774,7 +793,7 @@ class Persister constructor(
         /**
          * returns all data from the current Table [clazz], ordered by [ReadPersisterData.keyName]
          */
-        fun readAll() = internReadAll("order by ${readPersisterData.keyName()}")
+        override fun readAll() = internReadAll("order by ${readPersisterData.keyName()}")
 
         /**
          * same as [readAll], but there is no guarantee about the order
@@ -827,7 +846,7 @@ class Persister constructor(
 
         private fun timespread(whereClause: String): List<R> {
             return this@Persister.read("select * from $tableName where ${readPersisterData.firstColumnName()} $whereClause") {
-                it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) } as List<R>
+                it.getList { readPersisterData.evaluate(ReadValueImpl(this), readCache()) } as List<R>
             }
         }
 
@@ -845,7 +864,7 @@ class Persister constructor(
         fun <K : Comparable<K>> readLastBefore(last: Long, before: K): List<R> {
             val keyColumnName = readPersisterData.keyColumnName()
             return this@Persister.read("SELECT * FROM ( select * from $tableName where $keyColumnName < $before ORDER BY $keyColumnName DESC LIMIT $last ) X ORDER BY $keyColumnName ASC") {
-                it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) } as List<R>
+                it.getList { readPersisterData.evaluate(ReadValueImpl(this), readCache()) } as List<R>
             }
         }
 
@@ -859,13 +878,13 @@ class Persister constructor(
         fun last(): R? {
             val keyColumnName = readPersisterData.keyColumnName()
             val req = "SELECT * FROM $tableName WHERE $keyColumnName = (SELECT max($keyColumnName) from $tableName);"
-            val x = this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) } }
+            val x = this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValueImpl(this), readCache()) } }
             return x.firstOrNull() as R?
         }
 
         fun first(): R? {
             val req = "SELECT * FROM $tableName LIMIT 1;"
-            val x = this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValue(this), readCache()) } }
+            val x = this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValueImpl(this), readCache()) } }
             return x.firstOrNull() as R?
         }
 

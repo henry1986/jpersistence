@@ -294,7 +294,7 @@ internal interface KeyGetter {
 
 }
 
-internal class ReadCache constructor(val persisterPreference: PersisterPreference) : PersisterListener, KeyGetter {
+internal class ReadCache() : PersisterListener, KeyGetter {
     private val logger = KotlinLogging.logger {}
     private val map: MutableMap<Persister.InternalTable, ReadTableCache> = mutableMapOf()
 
@@ -341,14 +341,14 @@ internal class ReadCache constructor(val persisterPreference: PersisterPreferenc
         return readDatabase(table, key, readTableCache, hashCodeX).second
     }
 
-    private fun getCounter(
-        table: Persister.Table<*>,
-        key: ObjectKeyToWrite,
-        readTableCache: ReadHashCodeTableCache,
-        hashCodeX: Int = key.itsHashCode()
-    ): Int {
-        return readDatabase(table, key, readTableCache, hashCodeX).first
-    }
+//    private fun getCounter(
+//        table: Persister.Table<*>,
+//        key: ObjectKeyToWrite,
+//        readTableCache: ReadHashCodeTableCache,
+//        hashCodeX: Int = key.itsHashCode()
+//    ): Int {
+//        return readDatabase(table, key, readTableCache, hashCodeX).first
+//    }
 
 //    fun <T : Any> toObjectKey(table: Persister.Table<T>, key: ObjectKeyToWrite, keyCreator: KeyCreator): ObjectKey? {
 //        return if (key.isAutoId()) {
@@ -404,7 +404,7 @@ internal class ReadCache constructor(val persisterPreference: PersisterPreferenc
         }
     }
 
-    fun <T : Any> read(table: Persister.Table<T>, key: ObjectKey): T? {
+    private fun <T : Any> read(table: Persister.Table<T>, key: ObjectKey): T? {
         val readCacheKey = ReadKey(table, key)
         val tableCache = getTableCache(table, key)
         if (!tableCache.containsKey(readCacheKey)) {

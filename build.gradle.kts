@@ -1,10 +1,10 @@
 buildscript {
     repositories {
         maven { url = uri("https://repo.gradle.org/gradle/libs-releases") }
-        maven("https://daiv.org/artifactory/gradle-dev-local")
+        maven("https://artifactory.daiv.org/artifactory/gradle-dev-local")
     }
     dependencies {
-        classpath("org.daiv.dependency:DependencyHandling:0.0.69")
+        classpath("org.daiv.dependency:DependencyHandling:0.0.154")
     }
 }
 
@@ -22,7 +22,7 @@ version = versions.setVersion { jpersistence }
 
 repositories {
     mavenCentral()
-    maven("https://daiv.org/artifactory/gradle-dev-local")
+    maven("https://artifactory.daiv.org/artifactory/gradle-dev-local")
 }
 
 kotlin {

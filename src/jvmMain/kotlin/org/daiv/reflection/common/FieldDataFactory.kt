@@ -189,7 +189,7 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
                 thisClass.isEnum() -> EnumType(DefProperty(property, clazz), prefix)
                 thisClass.isNoMapAndNoListAndNoSet() -> {
                     val propertyData = DefProperty(property, clazz, thisClass.createType(), true, name)
-                    ReadComplexType(propertyData, moreKeys, propertyData.clazz.including(), persisterProvider, prefix)
+                    ReadComplexType(propertyData, propertyData.clazz.including(), persisterProvider, prefix)
                 }
                 else -> {
                     null
@@ -211,13 +211,16 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
                     InterfaceField(InterfaceProperty(property, clazz), prefix, map)
                 }
                 kClass.isEnum() -> EnumType(DefProperty(property, clazz), prefix)
+                property.findAnnotation<ObjectOnly>() != null && kClass.isNoMapAndNoListAndNoSet() -> {
+                    ObjectOnlyType(DefProperty(property, clazz), prefix)
+                }
                 kClass.java.isInterface && kClass.isNoMapAndNoListAndNoSet() -> {
                     val map = property.toMap(kClass, convert(property))
                     InterfaceField(InterfaceProperty(property, clazz), prefix, map)
                 }
                 kClass.isNoMapAndNoListAndNoSet() -> {
                     val propertyData = DefProperty(property, clazz)
-                    ReadComplexType(propertyData, moreKeys, propertyData.clazz.including(), persisterProvider, prefix)
+                    ReadComplexType(propertyData, propertyData.clazz.including(), persisterProvider, prefix)
                 }
                 else -> {
                     null
@@ -234,7 +237,7 @@ internal class FieldDataFactory constructor(val persisterProvider: PersisterProv
             val proClass = property.returnType.classifier as KClass<Any>
             return when {
                 proClass.isMapListOrSet() ->
-                    MapType(proClass.toProperty(property, clazz), persisterProvider, property.findAnnotation() ?: kotlin.run {
+                    MapType(proClass.toProperty(property, clazz), persisterProvider, property.findAnnotation(), property.findAnnotation() ?: kotlin.run {
                         property.findAnnotation<IFaceForObject>()
                                 ?.let { getIFaceForList(arrayOf(it)) }
                     }, prefix, persister, clazz)

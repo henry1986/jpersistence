@@ -29,6 +29,13 @@ internal data class PlainEnumObject<T : Enum<*>>(override val name: String, val 
     }
 }
 
+internal data class ObjectOnlyReadObject(override val name: String) : SimpleReadObject {
+    override fun resultMatch(resultSet: ResultSet, counter: Int): Any {
+        val text = resultSet.getString(counter)
+        return Class.forName(text).kotlin.objectInstance!!
+    }
+}
+
 internal data class PlainBooleanObject(override val name: String) : SimpleReadObject {
     override fun resultMatch(resultSet: ResultSet, counter: Int): Any {
         val i = resultSet.getInt(counter)
@@ -36,9 +43,11 @@ internal data class PlainBooleanObject(override val name: String) : SimpleReadOb
     }
 }
 
-class RequestBuilder<X : Any> internal constructor(private val list: MutableList<SimpleReadObject> = mutableListOf(),
-                                                   private val table: Persister.Table<out Any>,
-                                                   private val listener: (List<Any>) -> X) {
+class RequestBuilder<X : Any> internal constructor(
+    private val list: MutableList<SimpleReadObject> = mutableListOf(),
+    private val table: Persister.Table<out Any>,
+    private val listener: (List<Any>) -> X
+) {
 
 //    fun l(name: String): RequestBuilder<X> {
 //        list.add(PlainLongObject(name))
@@ -63,8 +72,10 @@ class RequestBuilder<X : Any> internal constructor(private val list: MutableList
     fun read(table: Persister.Table<out Any> = this.table) = table.readPlain(list, listener)
 }
 
-internal fun <X : Any> readPlainMapper(list: List<SimpleReadObject>,
-                                       listener: (List<Any>) -> X): (ResultSet) -> List<X> = { resultSet ->
+internal fun <X : Any> readPlainMapper(
+    list: List<SimpleReadObject>,
+    listener: (List<Any>) -> X
+): (ResultSet) -> List<X> = { resultSet ->
     val ret = mutableListOf<X>()
     while (resultSet.next()) {
         var counter = 1

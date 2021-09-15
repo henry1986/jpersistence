@@ -39,6 +39,8 @@ data class X3HolderNoAuto(val x2: X2, val z: String)
 data class HolderHolder(val x3Holder: X3Holder, val z: String)
 data class HolderHolderNoAuto(val x3Holder: X3HolderNoAuto, val z: String)
 
+@MoreKeys(3)
+data class ThreeKeys(val x1:Int, val x2:Int, val x3:Int, val x4:Int, val mKeyClass: MKeyClass)
 
 open class MoreKeysTest {
     val logger = KotlinLogging.logger { }
@@ -214,4 +216,31 @@ class MKeyClassIncludedTest: MoreKeysTest(){
         table.delete(x1.mKeyClass)
         assertEquals(emptyList(), table.readAll())
     }
+}
+
+class ThreeKeysTest: MoreKeysTest(){
+    val table = persister.Table(ThreeKeys::class)
+
+    init {
+        table.persist()
+    }
+
+    val x1 = ThreeKeys(5, 6, 7, 8, MKeyClass(5, "hello", "World"))
+    val x2 = ThreeKeys(9, 6, 7, 8, MKeyClass(5, "hello", "World2"))
+    init {
+        table.insert(listOf(x1, x2))
+    }
+
+    @Test
+    fun testRead(){
+        persister.clearCache()
+        val read = table.readRequest("select * from ThreeKeys where x1 = 5 and x2 = 6")
+        assertEquals(listOf(x1), read)
+    }
+
+//    @Test
+//    fun testDelete(){
+//        table.delete(x1.mKeyClass)
+//        assertEquals(emptyList(), table.readAll())
+//    }
 }

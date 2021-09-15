@@ -24,6 +24,7 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.annotations.IFaceForList
+import org.daiv.reflection.annotations.ObjectOnly
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.*
 import org.daiv.reflection.persister.Persister.HelperTable
@@ -32,13 +33,16 @@ import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
 
 
-internal class MapType constructor(override val propertyData: CollectionProperty,
-                                   val persisterProvider: PersisterProvider,
-                                   val iFaceForList: IFaceForList?,
-                                   override val prefix: String?,
-                                   val persister: Persister,
-                                   val parentClass: KClass<Any>) :
-        CollectionFieldData {
+internal class MapType constructor(
+    override val propertyData: CollectionProperty,
+    val persisterProvider: PersisterProvider,
+    val objectOnly: ObjectOnly?,
+    val iFaceForList: IFaceForList?,
+    override val prefix: String?,
+    val persister: Persister,
+    val parentClass: KClass<Any>
+) :
+    CollectionFieldData {
     override fun isType(a: Any): Boolean {
         return a::class.isSubclassOf(propertyData.type.classifier as KClass<*>)
     }
@@ -50,12 +54,13 @@ internal class MapType constructor(override val propertyData: CollectionProperty
     private lateinit var idField: KeyType
     private lateinit var helper: HelperTable
 
-    val innerTableName: String = "${persisterProvider.innerTableName(parentClass)}_${propertyData.receiverType.simpleName}_$name"
+    val innerTableName: String =
+        "${persisterProvider.innerTableName(parentClass)}_${propertyData.receiverType.simpleName}_$name"
 
     private val helperTableName
         get() = "${persisterProvider[parentClass]}_${propertyData.receiverType.simpleName}_$name"
 
-    private val valueField = propertyData.type.toLowField(persisterProvider, 0, "value", iFaceForList)
+    private val valueField = propertyData.type.toLowField(persisterProvider, 0, "value", objectOnly, iFaceForList)
 
 
     override suspend fun toStoreData(insertMap: InsertMap, r: List<Any>) {
@@ -69,10 +74,11 @@ internal class MapType constructor(override val propertyData: CollectionProperty
 //            }
 //            val id1 = idField.hashCodeXIfAutoKey(x.first)
             insertMap.toBuild(HelperRequestTask(InsertKey(helperTable, id1), {
-                val objectKey = insertMap.readCache.keyForObjectFromCache(persisterProvider.table(propertyData.receiverType), id1)!!
+                val objectKey =
+                    insertMap.readCache.keyForObjectFromCache(persisterProvider.table(propertyData.receiverType), id1)!!
                 val b = idField.insertObject(objectKey.keys(), insertMap.readCache)
                 valueField.insertObjects(x.second, insertMap.readCache)
-                        .map { InsertRequest(b + it) }
+                    .map { InsertRequest(b + it) }
             }) {
                 valueField.toStoreData(insertMap, listOf(x.second))
             })
@@ -86,10 +92,10 @@ internal class MapType constructor(override val propertyData: CollectionProperty
         val fields3 = listOf(idField, valueField)
         val keyFields = (listOf(idField) + valueField.additionalKeyFields())
         helper = persister.HelperTable(keyFields,
-                                       fields3,
-                                       if (valueField.isAlsoKeyField()) emptyList() else listOf(valueField),
-                                       { innerTableName },
-                                       { helperTableName })
+            fields3,
+            if (valueField.isAlsoKeyField()) emptyList() else listOf(valueField),
+            { innerTableName },
+            { helperTableName })
         persisterProvider.registerHelperTableName(helper)
     }
 
@@ -105,7 +111,12 @@ internal class MapType constructor(override val propertyData: CollectionProperty
         helperTable.deleteBy(idField.name, key)
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, objectKey: ObjectKey): NextSize<ReadAnswer<Any>> {
+    override fun getValue(
+        readCache: ReadCache,
+        readValue: ReadValue,
+        number: Int,
+        objectKey: ObjectKey
+    ): NextSize<ReadAnswer<Any>> {
         val key = objectKey.keys()
         if (key.isEmpty()) {
             throw NullPointerException("a Collection with no autoId cannot be a key")
@@ -124,11 +135,11 @@ internal class MapType constructor(override val propertyData: CollectionProperty
 internal val listConverter: (Any) -> Map<Any, Any> = {
     it as List<Any>
     it.mapIndexed { index, t -> index to t }
-            .toMap()
+        .toMap()
 }
 internal val listBackConverter: (Map<Any?, Any?>) -> Any = {
     it.toList()
-            .sortedBy { it.first as Int }
-            .map { it.second }
+        .sortedBy { it.first as Int }
+        .map { it.second }
 }
 

@@ -47,11 +47,12 @@ internal class DefaultMapper<T : Any>(override val origin: KClass<T>) : Mapper<T
     override fun backwards(mapped: T) = mapped
 }
 
-internal class ReadComplexType constructor(val originPropertyData: OtherClassPropertyData,
-                                           val moreKeys: MoreKeys,
-                                           val including: Including,
-                                           val persisterProvider: PersisterProvider,
-                                           override val prefix: String?) : NoList {
+internal class ReadComplexType constructor(
+    val originPropertyData: OtherClassPropertyData,
+    val including: Including,
+    val persisterProvider: PersisterProvider,
+    override val prefix: String?
+) : NoList {
     override val propertyData: PropertyData = persisterProvider.mapProviderClazz(originPropertyData)
     val providerKey = ProviderKey(propertyData.clazz, prefixedName)
 
@@ -94,10 +95,10 @@ internal class ReadComplexType constructor(val originPropertyData: OtherClassPro
 
     override fun plainType(name: String): SimpleReadObject? {
         return persisterData.fields.asSequence()
-                .map { it.plainType(name) }
-                .dropWhile { it == null }
-                .takeWhile { it != null }
-                .lastOrNull()
+            .map { it.plainType(name) }
+            .dropWhile { it == null }
+            .takeWhile { it != null }
+            .lastOrNull()
     }
 
     override fun createTableForeign(tableNames: Set<String>): Set<String> {
@@ -132,7 +133,12 @@ internal class ReadComplexType constructor(val originPropertyData: OtherClassPro
         return persisterData.key.copyTableName()
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
+    override fun getValue(
+        readCache: ReadCache,
+        readValue: ReadValue,
+        number: Int,
+        key: ObjectKey
+    ): NextSize<ReadAnswer<Any>> {
         val nextSize = persisterData.key.getKeyValue(readCache, readValue, number)
         if (nextSize.t.t == null) {
             return NextSize(ReadAnswer(null) as ReadAnswer<Any>, nextSize.i)
@@ -150,7 +156,8 @@ internal class ReadComplexType constructor(val originPropertyData: OtherClassPro
 
     override fun fNEqualsValue(objectValue: Any, sep: String, keyGetter: KeyGetter): String? {
 //        val objectKey = persisterData.mapObjectToKey(objectValue, keyCreator, table)
-        val objectKey = keyGetter.keyForObject(table, persisterData.key.keyToWrite(persisterProvider.map(objectValue)!!))
+        val objectKey =
+            keyGetter.keyForObject(table, persisterData.key.keyToWrite(persisterProvider.map(objectValue)!!))
                 ?: return null
         return persisterData.key.fNEqualsValue(objectKey.keys(), sep, keyGetter)
     }
@@ -161,8 +168,9 @@ internal class ReadComplexType constructor(val originPropertyData: OtherClassPro
         }
 //        val objectKey = persisterData.mapObjectToKey(objectValue, table)
         val key = persisterData.key.keyToWrite(persisterProvider.map(objectValue) ?: throw NullPointerException())
-        return persisterData.key.insertObject(keyGetter.keyForObjectFromCache(table, key)?.keys()
-                                                      ?: throw RuntimeException("did not find key for $table and $key")
-                                              , keyGetter)
+        return persisterData.key.insertObject(
+            keyGetter.keyForObjectFromCache(table, key)?.keys()
+                ?: throw RuntimeException("did not find key for $table and $key"), keyGetter
+        )
     }
 }

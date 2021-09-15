@@ -54,12 +54,7 @@ internal class ReadSimpleType constructor(override val propertyData: PropertyDat
     override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
         try {
             val any = if (propertyData.clazz == Long::class) {
-                val x = readValue.resultSet.getLong(number)
-                if (readValue.resultSet.wasNull()) {
-                    null
-                } else {
-                    x
-                }
+                readValue.getLong(number)
             } else {
                 readValue.getObject(number)
             }

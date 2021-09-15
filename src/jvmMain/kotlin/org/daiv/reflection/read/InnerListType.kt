@@ -1,19 +1,24 @@
 package org.daiv.reflection.read
 
 import org.daiv.reflection.annotations.IFaceForList
+import org.daiv.reflection.annotations.ObjectOnly
 import org.daiv.reflection.common.*
 import org.daiv.reflection.persister.InsertMap
 import org.daiv.reflection.persister.KeyGetter
 import org.daiv.reflection.persister.ReadCache
 import org.daiv.reflection.plain.ObjectKey
 
-internal class InnerSetType constructor(override val propertyData: SetProperty,
-                                        val depth: Int,
-                                        val persisterProvider: PersisterProvider,
-                                        override val prefix: String?) : SimpleCollectionFieldData {
+internal class InnerSetType constructor(
+    override val propertyData: SetProperty,
+    val objectOnly: ObjectOnly?,
+    val iFaceForList: IFaceForList?,
+    val depth: Int,
+    val persisterProvider: PersisterProvider,
+    override val prefix: String?
+) : SimpleCollectionFieldData {
 
     private fun fieldName(name: String) = if (depth == 0) name else "$name$depth"
-    private val valueField = propertyData.subType.toLowField(persisterProvider, depth + 1, fieldName("value"))
+    private val valueField = propertyData.subType.toLowField(persisterProvider, depth + 1, fieldName("value"), objectOnly, iFaceForList)
 
 
     override fun isAlsoKeyField() = true
@@ -42,10 +47,15 @@ internal class InnerSetType constructor(override val propertyData: SetProperty,
     override fun fNEqualsValue(o: Any, sep: String, keyGetter: KeyGetter): String {
         o as Set<Any>
         return sequenceOf(o.map { valueField.fNEqualsValue(it, sep, keyGetter) })
-                .joinToString(", ")
+            .joinToString(", ")
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
+    override fun getValue(
+        readCache: ReadCache,
+        readValue: ReadValue,
+        number: Int,
+        key: ObjectKey
+    ): NextSize<ReadAnswer<Any>> {
         val x = valueField.getValue(readCache, readValue, number, key)
         return NextSize(ReadAnswer(x.t.t), number)
     }
@@ -91,18 +101,22 @@ internal class InnerSetType constructor(override val propertyData: SetProperty,
 }
 
 
-internal class InnerMapType constructor(override val propertyData: MapProperty,
-                                        val depth: Int,
-                                        val iFaceForList: IFaceForList?,
-                                        val persisterProvider: PersisterProvider,
-                                        override val prefix: String?,
-                                        val converter: (Any) -> Map<Any, Any> = { it as Map<Any, Any> },
-                                        val backConverter: (Map<Any?, Any?>) -> Any = { it }) :
-        SimpleCollectionFieldData {
+internal class InnerMapType constructor(
+    override val propertyData: MapProperty,
+    val depth: Int,
+    val objectOnly: ObjectOnly?,
+    val iFaceForList: IFaceForList?,
+    val persisterProvider: PersisterProvider,
+    override val prefix: String?,
+    val converter: (Any) -> Map<Any, Any> = { it as Map<Any, Any> },
+    val backConverter: (Map<Any?, Any?>) -> Any = { it }
+) :
+    SimpleCollectionFieldData {
 
     private fun fieldName(name: String) = if (depth == 0) name else "$name$depth"
     private val keyField = propertyData.keyClazz.toLowField(persisterProvider, depth + 1, fieldName("key"))
-    private val valueField = propertyData.subType.toLowField(persisterProvider, depth + 1, fieldName("value"), iFaceForList)
+    private val valueField =
+        propertyData.subType.toLowField(persisterProvider, depth + 1, fieldName("value"), objectOnly, iFaceForList)
 
 
     override fun copyTableName(): Map<String, String> {
@@ -126,20 +140,25 @@ internal class InnerMapType constructor(override val propertyData: MapProperty,
 //        val x = o as Map<Any, Any>
         return x.flatMap { entry ->
             valueField.insertObjects(entry.value, keyGetter)
-                    .map {
-                        keyField.insertObject(entry.key, keyGetter) + it
-                    }
+                .map {
+                    keyField.insertObject(entry.key, keyGetter) + it
+                }
         }
     }
 
     override fun fNEqualsValue(o: Any, sep: String, keyGetter: KeyGetter): String {
         o as Map<Any, Any>
         return sequenceOf(o.values.map { valueField.fNEqualsValue(it, sep, keyGetter) },
-                          o.keys.map { keyField.fNEqualsValue(it, sep, keyGetter) })
-                .joinToString(sep)
+            o.keys.map { keyField.fNEqualsValue(it, sep, keyGetter) })
+            .joinToString(sep)
     }
 
-    override fun getValue(readCache: ReadCache, readValue: ReadValue, number: Int, key: ObjectKey): NextSize<ReadAnswer<Any>> {
+    override fun getValue(
+        readCache: ReadCache,
+        readValue: ReadValue,
+        number: Int,
+        key: ObjectKey
+    ): NextSize<ReadAnswer<Any>> {
         val x = valueField.getValue(readCache, readValue, number, key)
         return NextSize(ReadAnswer(x.t.t), number)
     }
@@ -174,10 +193,10 @@ internal class InnerMapType constructor(override val propertyData: MapProperty,
     override fun readFromList(list: List<List<ReadFieldValue>>): Any {
         val group = list.groupBy {
             it.first()
-                    .value
+                .value
         }
-                .map { it.key to valueField.readFromList(it.value.map { it.drop(1) }) }
-                .toMap()
+            .map { it.key to valueField.readFromList(it.value.map { it.drop(1) }) }
+            .toMap()
         return backConverter(group)
     }
 }

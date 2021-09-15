@@ -45,6 +45,9 @@ annotation class Including(val include: Boolean = true)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class IFaceForObject(val classesNames: Array<KClass<*>>, val depth: Int = 1)
 
+@Target(AnnotationTarget.PROPERTY)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ObjectOnly
 
 @Target(AnnotationTarget.PROPERTY)
 @Retention(AnnotationRetention.RUNTIME)
