@@ -1,10 +1,12 @@
 package org.daiv.reflection.read
 
-import io.mockk.mockk
-import org.daiv.reflection.common.*
+import org.daiv.reflection.common.PersisterProviderImpl
+import org.daiv.reflection.common.SimpleTypeProperty
+import org.daiv.reflection.common.SimpleTypes
+import org.daiv.reflection.common.including
 import org.daiv.reflection.persister.Persister
 import org.daiv.reflection.persister.ReadCache
-import org.daiv.reflection.plain.PersistenceKey
+import org.daiv.runTest
 import kotlin.reflect.KClass
 import kotlin.reflect.full.createType
 import kotlin.test.AfterTest
@@ -48,7 +50,7 @@ class ReadComplexTypeTest {
     }
 
     @Test
-    fun read(){
+    fun read() = runTest{
         val table = persister.Table(clazz)
         table.persist()
         table.insert(listOf(cO))

@@ -18,18 +18,19 @@ class DatabaseTest {
 //        t.insert(MyTable(6, "World"))
 //    }
 
-    @Test
-    fun test2() {
-        val d = DatabaseHandler("test.db")
-
-        val r = d.statement.executeQuery("select * from MyTable;")
-        r.next()
-        val x = r.getObject(1)
-        val y = r.getObject(2)
-        r.next()
-        val y2 = r.getString(2)
-        println("x: $x")
-        println("y: $y")
-        println("y2: $y2")
-    }
+//    @Test
+//    fun test2() {
+//        val d = DatabaseHandler("test.db")
+//
+//
+//        val r = d.statement.executeQuery("select * from MyTable;")
+//        r.next()
+//        val x = r.getObject(1)
+//        val y = r.getObject(2)
+//        r.next()
+//        val y2 = r.getString(2)
+//        println("x: $x")
+//        println("y: $y")
+//        println("y2: $y2")
+//    }
 }

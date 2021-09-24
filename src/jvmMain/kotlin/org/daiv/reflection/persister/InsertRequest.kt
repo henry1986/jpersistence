@@ -102,7 +102,6 @@ internal data class InsertMap constructor(
         val actor = actors[requestTask.insertKey.table]
             ?: throw RuntimeException("actor for ${requestTask.insertKey} not found")
         actor.send(requestTask)
-
     }
 
     fun insertPartial(table: Persister.Table<*>, block: (Int, Any) -> Boolean): InsertPartialAnswer {
@@ -139,9 +138,10 @@ internal data class InsertMap constructor(
             .map { "INSERT INTO ${it.first.tableName} ${insertListBy(it.second)} " }
 
 //                .toMap()
-        logger.trace { "done converting" }
+        logger.trace { "done converting $z" }
         z.map {
             persister.write(it)
+            logger.trace { "written: $it" }
         }
     }
 }

@@ -130,9 +130,13 @@ class Persister constructor(
             } else {
                 logger.debug(dbMarkerWrite, query)
             }
+            logger.trace { "execute query: $query" }
             val statement = databaseInterface.statement
+            logger.trace { "got statement" }
             statement.execute(query)
+            logger.trace { "executed query" }
             statement.close()
+            logger.trace { "close statement" }
         } catch (e: SQLException) {
             throw RuntimeException("query: $query", e)
         }
@@ -548,7 +552,7 @@ class Persister constructor(
             } as List<R>
         }
 
-        override fun read(fieldName: String, key: Any) :List<R>{
+        override fun read(fieldName: String, key: Any): List<R> {
             return read(fieldName, key, "")
         }
 
@@ -619,6 +623,10 @@ class Persister constructor(
             insert(listOf(o))
         }
 
+        override suspend fun suspendInsert(o: R) {
+            suspendInsert(listOf(o))
+        }
+
         fun readRequest(req: String): List<R> {
             return this@Persister.read(req) {
                 it.getList {
@@ -659,24 +667,28 @@ class Persister constructor(
             return InsertCacheHandler(commonCache.i, readPersisterData, this, isParallel)
         }
 
-        override fun insert(list: List<R>) {
+        override suspend fun suspendInsert(list: List<R>) {
             insert(list, innerCachePreference())
         }
 
-        fun insert(o: List<R>, innerCachePreference: InsertCachePreference = innerCachePreference()) {
+        override fun insert(list: List<R>) {
+            runBlocking {
+                insert(list, innerCachePreference())
+            }
+        }
+
+        suspend fun insert(o: List<R>, innerCachePreference: InsertCachePreference = innerCachePreference()) {
             if (o.isEmpty()) {
                 return
             }
-            runBlocking {
-                val map = InsertMap(
-                    persister,
-                    innerCachePreference,
-                    readCache().tableHandlers(persisterProvider),
-                    readCache()
-                )
-                readPersisterData.putInsertRequests(map, o, this@Table)
-                map.insertAll()
-            }
+            val map = InsertMap(
+                persister,
+                innerCachePreference,
+                readCache().tableHandlers(persisterProvider),
+                readCache()
+            )
+            readPersisterData.putInsertRequests(map, o, this@Table)
+            map.insertAll()
             tableEvent()
         }
 
@@ -878,13 +890,15 @@ class Persister constructor(
         fun last(): R? {
             val keyColumnName = readPersisterData.keyColumnName()
             val req = "SELECT * FROM $tableName WHERE $keyColumnName = (SELECT max($keyColumnName) from $tableName);"
-            val x = this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValueImpl(this), readCache()) } }
+            val x =
+                this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValueImpl(this), readCache()) } }
             return x.firstOrNull() as R?
         }
 
         fun first(): R? {
             val req = "SELECT * FROM $tableName LIMIT 1;"
-            val x = this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValueImpl(this), readCache()) } }
+            val x =
+                this@Persister.read(req) { it.getList { readPersisterData.evaluate(ReadValueImpl(this), readCache()) } }
             return x.firstOrNull() as R?
         }
 

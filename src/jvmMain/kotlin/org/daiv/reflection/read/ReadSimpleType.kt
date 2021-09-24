@@ -72,7 +72,7 @@ internal class ReadSimpleType constructor(override val propertyData: PropertyDat
     override fun makeString(any: Any): String {
         val s = any.toString()
         return when {
-            propertyData.clazz == String::class -> "\"" + s + "\""
+            propertyData.clazz == String::class -> "\'" + s + "\'"
             propertyData.clazz == Boolean::class -> if (s.toBoolean()) "1" else "0"
 //            any::class.isEnum() -> "\"${(any as Enum<*>).name}\""
             else -> s

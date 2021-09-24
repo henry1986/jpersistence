@@ -9,6 +9,8 @@ interface TableInterface<T : Any> : Clearable {
     fun read(fieldName: String, key: Any): List<T>
     fun insert(list: List<T>)
     fun insert(t: T)
+    suspend fun suspendInsert(t: T)
+    suspend fun suspendInsert(list: List<T>)
     fun delete(fieldName: String, key: Any)
     fun delete(id: Any)
     fun read(key: Any): T?
@@ -34,6 +36,14 @@ class NoPersistantTable<T : Any>(
 
     override fun read(fieldName: String, key: Any): List<T> {
         return set.filter { it.fieldGetter(fieldName) == key }
+    }
+
+    override suspend fun suspendInsert(list: List<T>) {
+        this.set.addAll(list)
+    }
+
+    override suspend fun suspendInsert(t: T) {
+        this.set.add(t)
     }
 
     override fun insert(list: List<T>) {

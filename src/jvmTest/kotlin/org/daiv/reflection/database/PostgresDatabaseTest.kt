@@ -2,6 +2,7 @@ package org.daiv.reflection.database
 
 import mu.KotlinLogging
 import org.daiv.reflection.persister.Persister
+import org.daiv.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -23,7 +24,7 @@ class PostgresDatabaseTest {
 
     // to test, it needs a postgres db running
 //    @Test
-    fun startDb() {
+    fun startDb() = runTest{
         val p = connectionData.persister("startDB")
         try {
             val table = p.Table(FirstDataTest::class)
