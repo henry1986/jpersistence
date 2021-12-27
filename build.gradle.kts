@@ -4,12 +4,12 @@ buildscript {
         maven("https://artifactory.daiv.org/artifactory/gradle-dev-local")
     }
     dependencies {
-        classpath("org.daiv.dependency:DependencyHandling:0.0.162")
+        classpath("org.daiv.dependency:DependencyHandling:0.1.8")
     }
 }
 
 plugins {
-    kotlin("multiplatform") version "1.4.10"
+    kotlin("multiplatform") version "1.6.10"
     id("com.jfrog.artifactory") version "4.17.2"
     id("org.daiv.dependency.VersionsPlugin") version "0.1.3"
     `maven-publish`

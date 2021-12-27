@@ -712,8 +712,11 @@ class Persister constructor(
             try {
                 val list = read(fieldName, id)
                 this@Persister.write("DELETE ${fromWhere(fieldName, id, and)};")
+                logger.trace { "call deleteLists" }
                 list.forEach { readPersisterData.deleteLists(readPersisterData.getKey(it).toList()) }
+                logger.trace { "deletelists" }
                 tableEvent()
+                logger.trace { "tableEvent onDelete sent" }
             } catch (e: Throwable) {
                 throw e
             }
