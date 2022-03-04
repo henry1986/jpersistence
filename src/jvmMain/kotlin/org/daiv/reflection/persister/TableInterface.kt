@@ -4,7 +4,11 @@ interface Clearable {
     fun clear()
 }
 
-interface TableInterface<T : Any> : Clearable {
+interface Persistable{
+    fun persist()
+}
+
+interface TableInterface<T : Any> : Clearable, Persistable {
     fun readAll(): List<T>
     fun read(fieldName: String, key: Any): List<T>
     fun insert(list: List<T>)
@@ -14,6 +18,7 @@ interface TableInterface<T : Any> : Clearable {
     fun delete(fieldName: String, key: Any)
     fun delete(id: Any)
     fun read(key: Any): T?
+    fun exists(fieldName: String, key: Any):Boolean
 }
 
 class NoPersistantTable<T : Any>(
@@ -22,6 +27,9 @@ class NoPersistantTable<T : Any>(
     setFactory: () -> MutableSet<T> = { mutableSetOf() }
 ) : TableInterface<T> {
     val set = setFactory()
+    override fun persist(){
+
+    }
     override fun clear() {
         set.clear()
     }
@@ -63,5 +71,9 @@ class NoPersistantTable<T : Any>(
     override fun delete(fieldName: String, key: Any) {
         val read = read(fieldName, key)
         set.removeAll(read)
+    }
+
+    override fun exists(fieldName: String, key: Any): Boolean {
+        return read(fieldName, key).isNotEmpty()
     }
 }

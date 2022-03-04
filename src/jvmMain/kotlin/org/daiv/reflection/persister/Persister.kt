@@ -261,7 +261,8 @@ class Persister constructor(
         if (tableName == "") clazz.tableName() else tableName
 
 
-    internal interface InternalTable : PersisterListener, Clearable {
+
+    internal interface InternalTable : PersisterListener, Clearable, Persistable {
         val readPersisterData: InternalRPD
         val innerTableName: String
         val tableName: String
@@ -294,7 +295,7 @@ class Persister constructor(
             persister.write("INSERT INTO $newTableName $command from $oldTableName;")
         }
 
-        fun persist() {
+        override fun persist() {
             persistWithName(tableName)
         }
 
@@ -692,7 +693,7 @@ class Persister constructor(
             tableEvent()
         }
 
-        fun exists(fieldName: String, id: Any): Boolean {
+        override fun exists(fieldName: String, id: Any): Boolean {
             return this@Persister.read(
                 "SELECT EXISTS( SELECT $selectHeader ${
                     fromWhere(
