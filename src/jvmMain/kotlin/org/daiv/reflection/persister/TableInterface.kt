@@ -8,8 +8,13 @@ interface Persistable{
     fun persist()
 }
 
-interface TableInterface<T : Any> : Clearable, Persistable {
+interface TableNameable{
+    val tableName: String
+}
+
+interface TableInterface<T : Any> : Clearable, Persistable, TableNameable {
     fun readAll(): List<T>
+    fun readRequest(request:String):List<T>
     fun read(fieldName: String, key: Any): List<T>
     fun insert(list: List<T>)
     fun insert(t: T)
@@ -19,17 +24,27 @@ interface TableInterface<T : Any> : Clearable, Persistable {
     fun delete(id: Any)
     fun read(key: Any): T?
     fun exists(fieldName: String, key: Any):Boolean
+    fun read(accessObject: AccessObject, p:List<PropertyValue<*>>): List<T>{
+        return readRequest("select * from $tableName where ${p.toRequest(accessObject)}")
+    }
 }
 
 class NoPersistantTable<T : Any>(
+    override val tableName:String,
     val fieldGetter: T.(String) -> Any,
     val keyGetter: T.(Any) -> Boolean,
+    val readRequestFunc:(String) -> List<T>,
     setFactory: () -> MutableSet<T> = { mutableSetOf() }
 ) : TableInterface<T> {
     val set = setFactory()
     override fun persist(){
 
     }
+
+    override fun readRequest(request: String): List<T> {
+        return this.readRequestFunc(request)
+    }
+
     override fun clear() {
         set.clear()
     }

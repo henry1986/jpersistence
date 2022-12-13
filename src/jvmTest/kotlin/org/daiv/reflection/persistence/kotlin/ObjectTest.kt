@@ -4,6 +4,7 @@ import kotlin.test.Test
 import mu.KotlinLogging
 import org.daiv.reflection.annotations.IFaceForObject
 import org.daiv.reflection.annotations.MoreKeys
+import org.daiv.reflection.common.Blub
 import org.daiv.reflection.persister.Persister
 import kotlin.test.AfterTest
 import kotlin.test.assertEquals
@@ -23,6 +24,53 @@ open class ObjectTest {
     @AfterTest
     fun afterTest() {
         persister.delete()
+    }
+}
+
+data class XT(val x:Int, val b:Blub)
+data class XTB(val x:Blub, val b:Blub?)
+
+class ValueTest3:ObjectTest(){
+    val table = persister.Table(XTB::class)
+    init {
+        table.persist()
+    }
+
+    @Test
+    fun test(){
+        val b = XTB(Blub(4, "Now"), Blub(5, "Hello"))
+        table.insert(b)
+        val read = table.readAll()
+        assertEquals(listOf(b), read)
+    }
+}
+
+class ValueTest2:ObjectTest(){
+    val table = persister.Table(XT::class)
+    init {
+        table.persist()
+    }
+
+    @Test
+    fun test(){
+        val b = XT(9, Blub(5, "Hello"))
+        table.insert(b)
+        val read = table.readAll()
+        assertEquals(listOf(b), read)
+    }
+}
+class ValueTest:ObjectTest(){
+    val table = persister.Table(Blub::class)
+    init {
+        table.persist()
+    }
+
+    @Test
+    fun test(){
+        val b = Blub(5, "Hello")
+        table.insert(b)
+        val read = table.readAll()
+        assertEquals(listOf(b), read)
     }
 }
 

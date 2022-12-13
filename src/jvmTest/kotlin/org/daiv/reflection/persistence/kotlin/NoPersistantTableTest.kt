@@ -12,7 +12,7 @@ class NoPersistantTableTest {
 
     @Test
     fun test() {
-        val x = NoPersistantTable<TestXData>({ if (it == "x") x else y }, { it == x })
+        val x = NoPersistantTable<TestXData>("TestData",{ if (it == "x") x else y }, { it == x }, { emptyList() })
         val v1 = TestXData(5, 6)
         val v2 = TestXData(5, 7)
         val list = listOf(v1, v2)

@@ -1,5 +1,7 @@
 package org.daiv.reflection.common
 
+import kotlin.jvm.JvmInline
+
 fun Boolean.hashCodeX() = if (this) 1231 else 1237
 fun Long.hashCodeX() = (this xor (this shr 32)).toInt()
 fun Double.hashCodeX() = toRawBits().hashCodeX()
@@ -9,6 +11,11 @@ fun String.hashCodeX(): Int {
         hash += get(i).toInt() * 31
     }
     return hash
+}
+
+//@JvmInline
+data class Blub private constructor(val x: Int) {
+    constructor(x: Int, s: String) : this(x)
 }
 
 fun <T : Any> Iterator<T>.hashCodeX(hashCodeX: T.() -> Int): Int {

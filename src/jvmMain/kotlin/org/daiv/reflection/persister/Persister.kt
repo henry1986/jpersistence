@@ -262,10 +262,9 @@ class Persister constructor(
 
 
 
-    internal interface InternalTable : PersisterListener, Clearable, Persistable {
+    internal interface InternalTable : PersisterListener, Clearable, Persistable, TableNameable {
         val readPersisterData: InternalRPD
         val innerTableName: String
-        val tableName: String
         val _tableName: String
         val persister: Persister
 
@@ -628,7 +627,7 @@ class Persister constructor(
             suspendInsert(listOf(o))
         }
 
-        fun readRequest(req: String): List<R> {
+        override fun readRequest(req: String): List<R> {
             return this@Persister.read(req) {
                 it.getList {
                     readPersisterData.evaluate(
