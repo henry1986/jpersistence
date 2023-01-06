@@ -102,6 +102,10 @@ class PostgresqlDatabase(val postgresConnectionData: PostgresConnectionData, val
         return true
     }
 
+    override fun deleteAndRestart(): Boolean {
+        return delete()
+    }
+
     override fun commit() {
         try {
             connection!!.commit()
@@ -155,9 +159,9 @@ class DatabaseHandler constructor(val path: String) : DatabaseInterface {
 
     val logger = KotlinLogging.logger {}
 
-    private val connection: Connection
+    private lateinit var connection: Connection
 
-    init {
+    private fun initConnection(){
         try {
             Class.forName("org.sqlite.JDBC")
         } catch (e: ClassNotFoundException) {
@@ -171,7 +175,10 @@ class DatabaseHandler constructor(val path: String) : DatabaseInterface {
         } catch (e: SQLException) {
             throw RuntimeException(e)
         }
+    }
 
+    init {
+        initConnection()
         Runtime.getRuntime()
             .addShutdownHook(object : Thread() {
                 override fun run() {
@@ -207,6 +214,13 @@ class DatabaseHandler constructor(val path: String) : DatabaseInterface {
     }
 
     override fun open() {
+    }
+
+    override fun deleteAndRestart():Boolean{
+        connection.close()
+        val ret = File(path).delete()
+        initConnection()
+        return ret
     }
 
     override fun delete(): Boolean {

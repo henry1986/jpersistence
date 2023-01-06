@@ -93,6 +93,8 @@ class Persister constructor(
 
     fun delete() = databaseInterface.delete()
 
+    fun deleteAndRestart() = databaseInterface.deleteAndRestart()
+
     private fun event() {
         registerer.forEach(DBChangeListener::onChange)
     }

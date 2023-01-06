@@ -77,6 +77,26 @@ open class PersisterTest {
     }
 }
 
+
+class TestDelete{
+    val p = Persister("myDeleteTest.db")
+    @Test
+    fun testDelete(){
+        val l1 = p.Table(PersisterTest.L1::class)
+        l1.persist()
+        l1.insert(PersisterTest.L1(5, "Hello"))
+        p.deleteAndRestart()
+        val l1AfterDelete = p.Table(PersisterTest.L1::class)
+        l1AfterDelete.persist()
+        assertEquals(emptyList(),  l1AfterDelete.readAll())
+    }
+
+    @AfterTest
+    fun afterTest(){
+        p.delete()
+    }
+}
+
 class SpecialReads : PersisterTest() {
     val persisterListener = mockk<DBChangeListener>(relaxed = true)
     val table = persister.Table(ReadValue::class)

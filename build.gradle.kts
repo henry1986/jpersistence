@@ -4,7 +4,7 @@ buildscript {
         maven { url = uri("https://repo.gradle.org/gradle/libs-releases") }
     }
     dependencies {
-        classpath("org.daiv.dependency:DependencyHandling:0.1.41")
+        classpath("org.daiv.dependency:DependencyHandling:0.1.45")
     }
 }
 

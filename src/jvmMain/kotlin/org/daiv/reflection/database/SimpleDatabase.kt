@@ -38,4 +38,6 @@ interface SimpleDatabase {
      * deletes the database file completely
      */
     fun delete(): Boolean
+
+    fun deleteAndRestart():Boolean
 }
