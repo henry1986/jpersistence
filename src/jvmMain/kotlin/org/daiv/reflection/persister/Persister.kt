@@ -100,6 +100,9 @@ class Persister constructor(
     }
 
     private val internalReadCache = ReadCache()
+    fun resetReadCache(){
+        internalReadCache.reset()
+    }
 
     internal fun readCache() = internalReadCache
 

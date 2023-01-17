@@ -305,6 +305,10 @@ internal class ReadCache() : PersisterListener, KeyGetter {
     })
         .toMap()
 
+    fun reset(){
+        map.clear()
+    }
+
     private fun readDatabase(
         table: Persister.Table<*>,
         key: ObjectKeyToWrite,
